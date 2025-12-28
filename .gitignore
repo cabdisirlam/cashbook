@@ -1,0 +1,23 @@
+# Clasp
+.clasp.json
+.clasprc.json
+
+# Google Apps Script
+appsscript.json.bak
+
+# Node modules (if using npm)
+node_modules/
+package-lock.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

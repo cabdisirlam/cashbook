@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smatika Kenya - Login</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 450px;
+      width: 100%;
+    }
+
+    .logo-container {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo-icon {
+      font-size: 64px;
+      color: #4A90E2;
+      margin-bottom: 10px;
+    }
+
+    .app-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 5px;
+    }
+
+    .app-subtitle {
+      font-size: 16px;
+      color: #718096;
+    }
+
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .alert-warning {
+      background-color: #fef3cd;
+      border: 1px solid #ffc107;
+      color: #856404;
+    }
+
+    .alert-error {
+      background-color: #f8d7da;
+      border: 1px solid #dc3545;
+      color: #721c24;
+    }
+
+    .alert-icon {
+      font-size: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .form-label-icon {
+      font-size: 16px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 15px;
+      transition: all 0.3s;
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: #4A90E2;
+      box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+    }
+
+    .form-input::placeholder {
+      color: #a0aec0;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 30px;
+    }
+
+    .btn-login:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(74, 144, 226, 0.4);
+    }
+
+    .btn-login:active {
+      transform: translateY(0);
+    }
+
+    .btn-login:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .footer-text {
+      text-align: center;
+      margin-top: 30px;
+      color: #718096;
+      font-size: 13px;
+    }
+
+    .spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn-login.loading .spinner {
+      display: inline-block;
+    }
+
+    .btn-login.loading .btn-text {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="logo-container">
+      <div class="logo-icon">🏪</div>
+      <h1 class="app-title">Smatika Kenya</h1>
+      <p class="app-subtitle">Sales Management Platform</p>
+    </div>
+
+    <div id="sessionExpiredAlert" class="alert alert-warning">
+      <span class="alert-icon">⚠️</span>
+      <span>Session expired. Please login again.</span>
+    </div>
+
+    <div id="errorAlert" class="alert alert-error">
+      <span class="alert-icon">❌</span>
+      <span id="errorMessage"></span>
+    </div>
+
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label class="form-label">
+          <span class="form-label-icon">📧</span>
+          Email Address
+        </label>
+        <input
+          type="email"
+          id="email"
+          class="form-input"
+          placeholder="Enter your email"
+          required
+          autocomplete="email"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">
+          <span class="form-label-icon">🔒</span>
+          PIN (4 digits)
+        </label>
+        <input
+          type="password"
+          id="pin"
+          class="form-input"
+          placeholder="Enter 4-digit PIN"
+          required
+          maxlength="4"
+          pattern="[0-9]{4}"
+          inputmode="numeric"
+          autocomplete="off"
+        />
+      </div>
+
+      <button type="submit" id="loginBtn" class="btn-login">
+        <span class="spinner"></span>
+        <span class="btn-text">
+          <span style="margin-right: 8px;">🔓</span>
+          Sign In
+        </span>
+      </button>
+    </form>
+
+    <div class="footer-text">
+      Secure Authentication • Powered by Google Apps Script
+    </div>
+  </div>
+
+  <script>
+    // Check if redirected due to session expiry
+    window.onload = function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('expired') === 'true') {
+        showSessionExpired();
+      }
+    };
+
+    function showSessionExpired() {
+      const alert = document.getElementById('sessionExpiredAlert');
+      alert.style.display = 'flex';
+      setTimeout(() => {
+        alert.style.display = 'none';
+      }, 5000);
+    }
+
+    function showError(message) {
+      const alert = document.getElementById('errorAlert');
+      const messageEl = document.getElementById('errorMessage');
+      messageEl.textContent = message;
+      alert.style.display = 'flex';
+
+      setTimeout(() => {
+        alert.style.display = 'none';
+      }, 5000);
+    }
+
+    function handleLogin(event) {
+      event.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      const pin = document.getElementById('pin').value.trim();
+      const loginBtn = document.getElementById('loginBtn');
+
+      // Validate PIN format
+      if (!/^\d{4}$/.test(pin)) {
+        showError('PIN must be exactly 4 digits');
+        return;
+      }
+
+      // Show loading state
+      loginBtn.disabled = true;
+      loginBtn.classList.add('loading');
+
+      // Call server-side authentication
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            // Redirect to dashboard
+            window.location.reload();
+          } else {
+            showError(result.message || 'Login failed. Please try again.');
+            loginBtn.disabled = false;
+            loginBtn.classList.remove('loading');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showError('An error occurred. Please try again.');
+          console.error('Login error:', error);
+          loginBtn.disabled = false;
+          loginBtn.classList.remove('loading');
+        })
+        .authenticateUser(email, pin);
+    }
+
+    // Only allow numbers in PIN field
+    document.getElementById('pin').addEventListener('input', function(e) {
+      this.value = this.value.replace(/[^0-9]/g, '');
+    });
+  </script>
+</body>
+</html>
