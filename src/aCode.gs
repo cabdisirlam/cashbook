@@ -1,11 +1,11 @@
 /**
- * Smatika Kenya - Financial System
+ * Financial System
  * PIN-Based Authentication System
  */
 
 // Configuration
 const CONFIG = {
-  SPREADSHEET_NAME: "Smatika Kenya System",
+  SPREADSHEET_NAME: "Financial System",
   SESSION_TIMEOUT: 5 * 60 * 1000, // 5 minutes in milliseconds
   SHEETS: {
     // PART 1: Views (Front-End Displays)
@@ -46,7 +46,7 @@ function doGet(e) {
       // Return dashboard
       return HtmlService.createTemplateFromFile('cDashboard')
         .evaluate()
-        .setTitle('Smatika Kenya - Dashboard')
+        .setTitle('Financial System - Dashboard')
         .addMetaTag('viewport', 'width=device-width, initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     } else {
@@ -58,7 +58,7 @@ function doGet(e) {
   // Show login page
   return HtmlService.createTemplateFromFile('bLogin')
     .evaluate()
-    .setTitle('Smatika Kenya - Login')
+    .setTitle('Financial System - Login')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
