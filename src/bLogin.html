@@ -358,6 +358,67 @@
       }, 5000);
     }
 
+    function loadDashboardHtml(loginBtn) {
+      google.script.run
+        .withSuccessHandler(function(dashboardHtml) {
+          document.open();
+          document.write(dashboardHtml);
+          document.close();
+
+          if (typeof initializeDashboard === 'function') {
+            initializeDashboard();
+          } else {
+            setTimeout(function() {
+              if (typeof initializeDashboard === 'function') {
+                initializeDashboard();
+              }
+            }, 0);
+          }
+        })
+        .withFailureHandler(function(error) {
+          showError('Could not load dashboard. Please reload.');
+          console.error('Dashboard loading error:', error);
+          loginBtn.disabled = false;
+          loginBtn.classList.remove('loading');
+        })
+        .getDashboardHtml();
+    }
+
+    function waitForSession(loginBtn, attempt) {
+      const retryAttempt = attempt || 0;
+      google.script.run
+        .withSuccessHandler(function(user) {
+          if (user && user.authenticated) {
+            loadDashboardHtml(loginBtn);
+            return;
+          }
+
+          if (retryAttempt < 12) {
+            setTimeout(function() {
+              waitForSession(loginBtn, retryAttempt + 1);
+            }, 500);
+            return;
+          }
+
+          showError('Login succeeded but session is not ready. Please reload.');
+          loginBtn.disabled = false;
+          loginBtn.classList.remove('loading');
+        })
+        .withFailureHandler(function(error) {
+          console.error('Session check error:', error);
+          if (retryAttempt < 12) {
+            setTimeout(function() {
+              waitForSession(loginBtn, retryAttempt + 1);
+            }, 500);
+          } else {
+            showError('Login succeeded but session is not ready. Please reload.');
+            loginBtn.disabled = false;
+            loginBtn.classList.remove('loading');
+          }
+        })
+        .getCurrentUser();
+    }
+
     function handleLogin(event) {
       event.preventDefault();
 
@@ -378,32 +439,7 @@
           if (result.success) {
             // Flag the login so the dashboard can retry while the session propagates.
             sessionStorage.setItem('justLoggedIn', '1');
-
-            // Load the dashboard HTML and write it so scripts execute.
-            google.script.run
-              .withSuccessHandler(function(dashboardHtml) {
-                document.open();
-                document.write(dashboardHtml);
-                document.close();
-
-                // Ensure the dashboard initializes even if onload doesn't fire.
-                if (typeof initializeDashboard === 'function') {
-                  initializeDashboard();
-                } else {
-                  setTimeout(function() {
-                    if (typeof initializeDashboard === 'function') {
-                      initializeDashboard();
-                    }
-                  }, 0);
-                }
-              })
-              .withFailureHandler(function(error) {
-                showError('Could not load dashboard. Please reload.');
-                console.error('Dashboard loading error:', error);
-                loginBtn.disabled = false;
-                loginBtn.classList.remove('loading');
-              })
-              .getDashboardHtml();
+            waitForSession(loginBtn, 0);
           } else {
             showError(result.message || 'Login failed. Please try again.');
             loginBtn.disabled = false;

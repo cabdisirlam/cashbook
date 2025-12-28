@@ -624,14 +624,23 @@ function addUser(user) {
 
 function updateUser(user) {
   _requireAdmin();
-  const payload = _normalizeUserPayload(user);
+  if (!user) throw new Error('Missing user payload.');
+  const row = Number(user.rowId);
+  if (!row || row < 2) throw new Error('Invalid user row.');
+
   const ss = _getOrCreateSpreadsheet();
   const sheet = _initializeSysUsersSheet(ss);
-  const row = Number(payload.rowId);
-
-  if (!row || row < 2) {
-    throw new Error('Invalid user row.');
-  }
+  const existingRow = sheet.getRange(row, 1, 1, 5).getValues()[0];
+  const existingPin = String(existingRow[1] || '').trim();
+  const providedPin = String(user.pin || '').trim();
+  const payload = _normalizeUserPayload({
+    rowId: row,
+    email: user.email,
+    pin: providedPin || existingPin,
+    name: user.name,
+    role: user.role,
+    status: user.status
+  });
 
   const data = sheet.getDataRange().getValues();
   const emailLower = payload.email.toLowerCase();
