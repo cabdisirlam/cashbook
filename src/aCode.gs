@@ -128,7 +128,7 @@ function cleanupSheetHeaders() {
   sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BANK);
   if (sheet) {
     const headers = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref',
-                     'Description', 'Amount', 'Balance', 'Match_Status'];
+                     'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('DB_BANK');
@@ -138,7 +138,7 @@ function cleanupSheetHeaders() {
   // Clean up DB_BUDGET headers
   sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
   if (sheet) {
-    const headers = ['Date', 'Type', 'Financial_Year', 'Category', 'Sub_Category',
+    const headers = ['Date', 'Type', 'Financial_Year', 'Sub_Category', 'Category',
                      'Account_Type', 'Amount', 'Auth_Ref', 'Description'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
@@ -322,7 +322,7 @@ function _initializeDbBankSheet(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_BANK);
     const headers = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref',
-                     'Description', 'Amount', 'Balance', 'Match_Status'];
+                     'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
   }
@@ -334,7 +334,7 @@ function _initializeDbBudgetSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_BUDGET);
-    const headers = ['Date', 'Type', 'Financial_Year', 'Category', 'Sub_Category',
+    const headers = ['Date', 'Type', 'Financial_Year', 'Sub_Category', 'Category',
                      'Account_Type', 'Amount', 'Auth_Ref', 'Description'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
