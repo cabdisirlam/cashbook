@@ -1,330 +1,83 @@
 <style>
   .menu-section {
-    margin-bottom: 5px;
-  }
-
-  .menu-item {
-    padding: 12px 20px;
-    color: #cbd5e1;
-    cursor: pointer;
-    transition: all 0.3s;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 14px;
-    border-left: 3px solid transparent;
-    white-space: nowrap;
-  }
-
-  .menu-item:hover {
-    background: #334155;
-    color: white;
-    border-left-color: #4A90E2;
-  }
-
-  .menu-item.active {
-    background: #334155;
-    color: white;
-    border-left-color: #4A90E2;
-  }
-
-  .menu-item-icon {
-    font-size: 18px;
-    min-width: 20px;
-  }
-
-  .menu-item-text {
-    flex: 1;
-  }
-
-  .sidebar.collapsed .menu-item-text {
-    display: none;
+    margin-bottom: 8px;
   }
 
   .menu-section-title {
-    padding: 20px 20px 10px;
-    color: #64748b;
+    padding: 10px 20px;
     font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
     letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #94a3b8;
   }
 
-  .sidebar.collapsed .menu-section-title {
-    display: none;
+  .menu-item {
+    padding: 10px 20px;
+    color: #cbd5f5;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    border-left: 3px solid transparent;
   }
 
-  .submenu {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-out;
+  .menu-item:hover,
+  .menu-item.active {
+    background: #1e293b;
+    color: #ffffff;
+    border-left-color: #3b82f6;
   }
 
-  .submenu.open {
-    max-height: 1000px;
-  }
-
-  .submenu .menu-item {
-    padding-left: 52px;
-    font-size: 13px;
-  }
-
-  .menu-item.has-submenu::after {
-    content: '▼';
-    font-size: 10px;
-    margin-left: auto;
-    transition: transform 0.3s;
-  }
-
-  .menu-item.has-submenu.open::after {
-    transform: rotate(-180deg);
-  }
-
-  .sidebar.collapsed .menu-item.has-submenu::after {
-    display: none;
-  }
-
-  .role-badge {
-    background: #4A90E2;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 700;
-    margin-left: auto;
-  }
-
-  .sidebar.collapsed .role-badge {
-    display: none;
+  .menu-item-icon {
+    font-size: 12px;
+    width: 16px;
+    text-align: center;
   }
 </style>
 
 <div id="financialMenu">
-  <!-- Dashboard - All Roles -->
   <div class="menu-section">
-    <div class="menu-item active" onclick="navigateTo('dashboard')">
-      <span class="menu-item-icon">📊</span>
-      <span class="menu-item-text">Dashboard</span>
+    <div class="menu-item active" data-label="Dashboard" onclick="navigateTo(this, 'Dashboard')">
+      <span class="menu-item-icon">-</span>
+      <span>Dashboard</span>
     </div>
   </div>
 
-  <!-- Transactions Section -->
   <div class="menu-section">
-    <div class="menu-section-title">🚀 Financial System</div>
+    <div class="menu-section-title">Transactions</div>
+    <div class="menu-item" data-role="admin,inputter" data-label="New Payment" onclick="navigateTo(this, 'New Payment')">
+      <span class="menu-item-icon">+</span>
+      <span>New Payment</span>
+    </div>
+    <div class="menu-item" data-role="admin,inputter" data-label="New Receipt" onclick="navigateTo(this, 'New Receipt')">
+      <span class="menu-item-icon">+</span>
+      <span>New Receipt</span>
+    </div>
+  </div>
 
-    <!-- Transactions Parent -->
-    <div class="menu-item has-submenu" data-role="admin,inputter,viewer" onclick="toggleSubmenu(this)">
-      <span class="menu-item-icon">📝</span>
-      <span class="menu-item-text">Transactions</span>
+  <div class="menu-section">
+    <div class="menu-section-title">Reports</div>
+    <div class="menu-item" data-role="admin,inputter,viewer" data-label="Cashbook Report" onclick="navigateTo(this, 'Cashbook Report')">
+      <span class="menu-item-icon">-</span>
+      <span>Cashbook Report</span>
     </div>
-    <div class="submenu">
-      <div class="menu-item" data-role="admin,inputter" onclick="openTransactionForm()">
-        <span class="menu-item-icon">➕</span>
-        <span class="menu-item-text">New Payment (Expense)</span>
-      </div>
-      <div class="menu-item" data-role="admin,inputter" onclick="openTransactionForm()">
-        <span class="menu-item-icon">➕</span>
-        <span class="menu-item-text">New Receipt (Income)</span>
-      </div>
-      <div class="menu-item" data-role="admin,inputter" onclick="showPlaceholder('Search / Edit Transaction')">
-        <span class="menu-item-icon">🔎</span>
-        <span class="menu-item-text">Search / Edit Transaction</span>
-      </div>
-      <div class="menu-item" data-role="viewer" onclick="showPlaceholder('Search Transaction')">
-        <span class="menu-item-icon">🔎</span>
-        <span class="menu-item-text">Search Transaction (View Only)</span>
-      </div>
+    <div class="menu-item" data-role="admin,inputter,viewer" data-label="P&amp;L Report" onclick="navigateTo(this, 'P&amp;L Report')">
+      <span class="menu-item-icon">-</span>
+      <span>P&amp;L Report</span>
     </div>
+  </div>
 
-    <!-- Banking & Recon -->
-    <div class="menu-item has-submenu" data-role="admin,inputter" onclick="toggleSubmenu(this)">
-      <span class="menu-item-icon">🏦</span>
-      <span class="menu-item-text">Banking & Recon</span>
+  <div class="menu-section">
+    <div class="menu-section-title">Admin</div>
+    <div class="menu-item" data-role="admin" data-label="User Management" onclick="navigateTo(this, 'User Management')">
+      <span class="menu-item-icon">*</span>
+      <span>User Management</span>
     </div>
-    <div class="submenu">
-      <div class="menu-item" data-role="admin,inputter" onclick="showPlaceholder('Import Bank Statement')">
-        <span class="menu-item-icon">📥</span>
-        <span class="menu-item-text">Import Bank Statement</span>
-      </div>
-      <div class="menu-item" data-role="admin,inputter" onclick="showPlaceholder('Run Reconciliation')">
-        <span class="menu-item-icon">⚡</span>
-        <span class="menu-item-text">Run Reconciliation</span>
-      </div>
-    </div>
-
-    <!-- Financial Reports -->
-    <div class="menu-item has-submenu" data-role="admin,inputter,viewer" onclick="toggleSubmenu(this)">
-      <span class="menu-item-icon">📊</span>
-      <span class="menu-item-text">Financial Reports</span>
-    </div>
-    <div class="submenu">
-      <div class="menu-item" onclick="showPlaceholder('Cashbook Report')">
-        <span class="menu-item-icon">📒</span>
-        <span class="menu-item-text">View Cashbook Report</span>
-      </div>
-      <div class="menu-item" onclick="showPlaceholder('P&L Report')">
-        <span class="menu-item-icon">📉</span>
-        <span class="menu-item-text">View P&L (Performance)</span>
-      </div>
-      <div class="menu-item" onclick="showPlaceholder('Balance Sheet')">
-        <span class="menu-item-icon">⚖️</span>
-        <span class="menu-item-text">View Balance Sheet</span>
-      </div>
-      <div class="menu-item" onclick="showPlaceholder('Cash Flow')">
-        <span class="menu-item-icon">🌊</span>
-        <span class="menu-item-text">View Cash Flow Statement</span>
-      </div>
-      <div class="menu-item" onclick="showPlaceholder('Budget Utilization')">
-        <span class="menu-item-icon">🎯</span>
-        <span class="menu-item-text">View Budget Utilization</span>
-      </div>
-      <div class="menu-item" onclick="showPlaceholder('Download Excel')">
-        <span class="menu-item-icon">📥</span>
-        <span class="menu-item-text">Download as Excel</span>
-      </div>
-      <div class="menu-item" onclick="showPlaceholder('Download PDF')">
-        <span class="menu-item-icon">📥</span>
-        <span class="menu-item-text">Download as PDF</span>
-      </div>
-    </div>
-
-    <!-- Audit & Compliance (Viewer only) -->
-    <div class="menu-item has-submenu" data-role="viewer" onclick="toggleSubmenu(this)">
-      <span class="menu-item-icon">🔎</span>
-      <span class="menu-item-text">Audit & Compliance</span>
-    </div>
-    <div class="submenu">
-      <div class="menu-item" data-role="viewer" onclick="showPlaceholder('System Audit Logs')">
-        <span class="menu-item-icon">📜</span>
-        <span class="menu-item-text">View System Audit Logs</span>
-      </div>
-      <div class="menu-item" data-role="viewer" onclick="showPlaceholder('Reconciliation Status')">
-        <span class="menu-item-icon">👁️</span>
-        <span class="menu-item-text">View Reconciliation Status</span>
-      </div>
-    </div>
-
-    <!-- Admin (Admin only) -->
-    <div class="menu-item has-submenu" data-role="admin" onclick="toggleSubmenu(this)">
-      <span class="menu-item-icon">⚙️</span>
-      <span class="menu-item-text">Admin</span>
-    </div>
-    <div class="submenu">
-      <div class="menu-item" data-role="admin" onclick="showPlaceholder('User Management')">
-        <span class="menu-item-icon">👤</span>
-        <span class="menu-item-text">User Management</span>
-      </div>
-      <div class="menu-item" data-role="admin" onclick="showPlaceholder('System Settings')">
-        <span class="menu-item-icon">🛠️</span>
-        <span class="menu-item-text">System Settings</span>
-      </div>
+    <div class="menu-item" data-role="admin" data-label="System Settings" onclick="navigateTo(this, 'System Settings')">
+      <span class="menu-item-icon">*</span>
+      <span>System Settings</span>
     </div>
   </div>
 </div>
-
-<script>
-  // Initialize menu when loaded
-  document.addEventListener('menuLoaded', function(e) {
-    const userRole = e.detail.role;
-    filterMenuByRole(userRole);
-  });
-
-  function filterMenuByRole(role) {
-    const menuItems = document.querySelectorAll('[data-role]');
-    const roleLower = role.toLowerCase();
-
-    menuItems.forEach(item => {
-      const allowedRoles = item.getAttribute('data-role').split(',').map(r => r.trim());
-
-      if (allowedRoles.includes(roleLower)) {
-        item.style.display = 'flex';
-      } else {
-        item.style.display = 'none';
-      }
-    });
-  }
-
-  function toggleSubmenu(element) {
-    const submenu = element.nextElementSibling;
-    const isOpen = submenu.classList.contains('open');
-
-    // Close all other submenus
-    document.querySelectorAll('.submenu.open').forEach(menu => {
-      menu.classList.remove('open');
-      menu.previousElementSibling.classList.remove('open');
-    });
-
-    // Toggle current submenu
-    if (!isOpen) {
-      submenu.classList.add('open');
-      element.classList.add('open');
-    }
-  }
-
-  function navigateTo(page) {
-    // Remove active class from all items
-    document.querySelectorAll('.menu-item').forEach(item => {
-      item.classList.remove('active');
-    });
-
-    // Add active class to clicked item
-    event.currentTarget.classList.add('active');
-
-    // Placeholder for navigation
-    console.log('Navigating to:', page);
-  }
-
-  function showPlaceholder(feature) {
-    const contentArea = window.parent.document.querySelector('.content-area');
-    if (contentArea) {
-      contentArea.innerHTML = `
-        <div style="
-          background: white;
-          padding: 60px;
-          border-radius: 16px;
-          text-align: center;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        ">
-          <div style="font-size: 80px; margin-bottom: 20px;">🚧</div>
-          <h2 style="font-size: 32px; color: #1e293b; margin-bottom: 10px;">
-            ${feature}
-          </h2>
-          <p style="color: #64748b; font-size: 16px;">
-            This feature is coming soon. The menu structure is ready!
-          </p>
-          <button onclick="location.reload()" style="
-            margin-top: 30px;
-            padding: 12px 30px;
-            background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-          ">
-            ← Back to Dashboard
-          </button>
-        </div>
-      `;
-    }
-  }
-
-  function openTransactionForm() {
-    const contentArea = window.parent.document.querySelector('.content-area');
-    if (contentArea) {
-      google.script.run
-        .withSuccessHandler(function(html) {
-          contentArea.innerHTML = html;
-        })
-        .withFailureHandler(function(error) {
-          console.error('Error loading transaction form:', error);
-          contentArea.innerHTML = `
-            <div style="padding: 40px; text-align: center;">
-              <p style="color: red;">Error loading transaction form: ${error.message}</p>
-            </div>
-          `;
-        })
-        .include('fTransaction');
-    }
-  }
-</script>

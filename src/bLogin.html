@@ -12,160 +12,112 @@
     }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f1f5f9;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 24px;
+      color: #0f172a;
     }
 
-    .login-container {
-      background: white;
-      border-radius: 20px;
-      padding: 40px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      max-width: 450px;
+    .login-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
       width: 100%;
-    }
-
-    .logo-container {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .logo-icon {
-      font-size: 64px;
-      color: #4A90E2;
-      margin-bottom: 10px;
+      max-width: 420px;
     }
 
     .app-title {
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 700;
-      color: #2d3748;
-      margin-bottom: 5px;
+      margin-bottom: 6px;
     }
 
     .app-subtitle {
-      font-size: 16px;
-      color: #718096;
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 24px;
     }
 
     .alert {
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 20px;
       display: none;
-      align-items: center;
-      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
     }
 
     .alert-warning {
-      background-color: #fef3cd;
-      border: 1px solid #ffc107;
-      color: #856404;
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      color: #9a3412;
     }
 
     .alert-error {
-      background-color: #f8d7da;
-      border: 1px solid #dc3545;
-      color: #721c24;
-    }
-
-    .alert-icon {
-      font-size: 20px;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      color: #991b1b;
     }
 
     .form-group {
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
-    .form-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    label {
+      display: block;
+      font-size: 13px;
       font-weight: 600;
-      color: #2d3748;
-      margin-bottom: 8px;
-      font-size: 14px;
+      margin-bottom: 6px;
+      color: #1e293b;
     }
 
-    .form-label-icon {
-      font-size: 16px;
-    }
-
-    .form-input {
+    input {
       width: 100%;
-      padding: 14px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
-      font-size: 15px;
-      transition: all 0.3s;
+      padding: 12px 14px;
+      border: 1px solid #cbd5f5;
+      border-radius: 8px;
+      font-size: 14px;
       outline: none;
+      transition: border-color 0.2s ease;
     }
 
-    .form-input:focus {
-      border-color: #4A90E2;
-      box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
-    }
-
-    .form-input::placeholder {
-      color: #a0aec0;
+    input:focus {
+      border-color: #3b82f6;
     }
 
     .btn-login {
       width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
-      color: white;
+      padding: 12px;
       border: none;
-      border-radius: 10px;
-      font-size: 16px;
+      border-radius: 8px;
+      background: #2563eb;
+      color: #ffffff;
       font-weight: 600;
+      font-size: 15px;
       cursor: pointer;
-      transition: all 0.3s;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      margin-top: 30px;
-    }
-
-    .btn-login:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(74, 144, 226, 0.4);
-    }
-
-    .btn-login:active {
-      transform: translateY(0);
+      gap: 10px;
     }
 
     .btn-login:disabled {
-      opacity: 0.6;
+      opacity: 0.7;
       cursor: not-allowed;
-    }
-
-    .footer-text {
-      text-align: center;
-      margin-top: 30px;
-      color: #718096;
-      font-size: 13px;
     }
 
     .spinner {
       display: none;
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-top-color: #ffffff;
       border-radius: 50%;
-      border-top-color: white;
       animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
     }
 
     .btn-login.loading .spinner {
@@ -175,52 +127,50 @@
     .btn-login.loading .btn-text {
       display: none;
     }
+
+    .footer-text {
+      margin-top: 22px;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
-  <div class="login-container">
-    <div class="logo-container">
-      <div class="logo-icon">🏪</div>
-      <h1 class="app-title">Financial System</h1>
-      <p class="app-subtitle">Comprehensive Financial Management</p>
-    </div>
+  <div class="login-card">
+    <h1 class="app-title">Financial System</h1>
+    <p class="app-subtitle">Sign in to continue</p>
 
     <div id="sessionExpiredAlert" class="alert alert-warning">
-      <span class="alert-icon">⚠️</span>
-      <span>Session expired. Please login again.</span>
+      Session expired. Please login again.
     </div>
 
     <div id="errorAlert" class="alert alert-error">
-      <span class="alert-icon">❌</span>
       <span id="errorMessage"></span>
     </div>
 
     <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="form-group">
-        <label class="form-label">
-          <span class="form-label-icon">📧</span>
-          Email Address
-        </label>
+        <label for="email">Email Address</label>
         <input
           type="email"
           id="email"
-          class="form-input"
-          placeholder="Enter your email"
+          placeholder="name@example.com"
           required
           autocomplete="email"
         />
       </div>
 
       <div class="form-group">
-        <label class="form-label">
-          <span class="form-label-icon">🔒</span>
-          PIN (4 digits)
-        </label>
+        <label for="pin">PIN (4 digits)</label>
         <input
           type="password"
           id="pin"
-          class="form-input"
-          placeholder="Enter 4-digit PIN"
+          placeholder="0000"
           required
           maxlength="4"
           pattern="[0-9]{4}"
@@ -231,20 +181,16 @@
 
       <button type="submit" id="loginBtn" class="btn-login">
         <span class="spinner"></span>
-        <span class="btn-text">
-          <span style="margin-right: 8px;">🔓</span>
-          Sign In
-        </span>
+        <span class="btn-text">Sign In</span>
       </button>
     </form>
 
     <div class="footer-text">
-      Secure Authentication • Powered by Google Apps Script
+      Secure Authentication | Powered by Google Apps Script
     </div>
   </div>
 
   <script>
-    // Check if redirected due to session expiry
     window.onload = function() {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('expired') === 'true') {
@@ -254,7 +200,7 @@
 
     function showSessionExpired() {
       const alert = document.getElementById('sessionExpiredAlert');
-      alert.style.display = 'flex';
+      alert.style.display = 'block';
       setTimeout(() => {
         alert.style.display = 'none';
       }, 5000);
@@ -264,7 +210,7 @@
       const alert = document.getElementById('errorAlert');
       const messageEl = document.getElementById('errorMessage');
       messageEl.textContent = message;
-      alert.style.display = 'flex';
+      alert.style.display = 'block';
 
       setTimeout(() => {
         alert.style.display = 'none';
@@ -278,21 +224,17 @@
       const pin = document.getElementById('pin').value.trim();
       const loginBtn = document.getElementById('loginBtn');
 
-      // Validate PIN format
       if (!/^\d{4}$/.test(pin)) {
         showError('PIN must be exactly 4 digits');
         return;
       }
 
-      // Show loading state
       loginBtn.disabled = true;
       loginBtn.classList.add('loading');
 
-      // Call server-side authentication
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            // Redirect to dashboard
             window.location.reload();
           } else {
             showError(result.message || 'Login failed. Please try again.');
@@ -309,8 +251,7 @@
         .authenticateUser(email, pin);
     }
 
-    // Only allow numbers in PIN field
-    document.getElementById('pin').addEventListener('input', function(e) {
+    document.getElementById('pin').addEventListener('input', function() {
       this.value = this.value.replace(/[^0-9]/g, '');
     });
   </script>
