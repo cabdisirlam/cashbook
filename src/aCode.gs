@@ -897,6 +897,17 @@ function getPayees() {
   }
 }
 
+function getDashboardHtml() {
+  const user = getCurrentUser();
+  if (user.authenticated) {
+    return HtmlService.createTemplateFromFile('cDashboard').evaluate().getContent();
+  } else {
+    // If session is not valid, return login page content.
+    // This could happen if the user's session expires and they try to navigate.
+    return HtmlService.createTemplateFromFile('bLogin').evaluate().getContent();
+  }
+}
+
 /**
  * Include other HTML files
  */

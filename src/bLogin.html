@@ -376,14 +376,18 @@
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            console.log('Login successful, setting flag and reloading...');
-            sessionStorage.setItem('justLoggedIn', '1');
-
-            // Give backend time to establish session, then hard reload
-            setTimeout(function() {
-              console.log('Forcing page reload...');
-              window.location.href = window.location.origin + window.location.pathname;
-            }, 1000);
+            // Login was successful, now fetch the dashboard HTML
+            google.script.run
+              .withSuccessHandler(function(dashboardHtml) {
+                document.documentElement.innerHTML = dashboardHtml;
+              })
+              .withFailureHandler(function(error) {
+                showError('Could not load dashboard. Please reload.');
+                console.error('Dashboard loading error:', error);
+                loginBtn.disabled = false;
+                loginBtn.classList.remove('loading');
+              })
+              .getDashboardHtml();
           } else {
             showError(result.message || 'Login failed. Please try again.');
             loginBtn.disabled = false;
