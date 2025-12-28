@@ -574,11 +574,24 @@
     </div>
     <div>
       <label class="form-label" for="addAccountType">Account Type</label>
-      <input id="addAccountType" class="input-field" type="text" placeholder="Asset">
+      <select id="addAccountType" class="select-field">
+        <option value="">Select account type</option>
+        <option value="Asset">Asset</option>
+        <option value="Liabilities">Liabilities</option>
+        <option value="Income">Income</option>
+        <option value="Expense">Expense</option>
+        <option value="Equity">Equity</option>
+      </select>
     </div>
     <div>
       <label class="form-label" for="addAccountReport">Report Mapping</label>
-      <input id="addAccountReport" class="input-field" type="text" placeholder="Current Assets">
+      <select id="addAccountReport" class="select-field">
+        <option value="">Select report mapping</option>
+        <option value="Current Asset">Current Asset</option>
+        <option value="Current liability">Current liability</option>
+        <option value="Operating expense">Operating expense</option>
+        <option value="Non-Current Asset">Non-Current Asset</option>
+      </select>
     </div>
     <div class="submodal-actions">
       <button class="btn btn-secondary" type="button" onclick="closeSubModal('addAccountModal')">Cancel</button>
@@ -620,11 +633,24 @@
     </div>
     <div>
       <label class="form-label" for="addSubAccountType">Account Type</label>
-      <input id="addSubAccountType" class="input-field" type="text" placeholder="Expense">
+      <select id="addSubAccountType" class="select-field">
+        <option value="">Select account type</option>
+        <option value="Asset">Asset</option>
+        <option value="Liabilities">Liabilities</option>
+        <option value="Income">Income</option>
+        <option value="Expense">Expense</option>
+        <option value="Equity">Equity</option>
+      </select>
     </div>
     <div>
       <label class="form-label" for="addSubReport">Report Mapping</label>
-      <input id="addSubReport" class="input-field" type="text" placeholder="Operating Expenses">
+      <select id="addSubReport" class="select-field">
+        <option value="">Select report mapping</option>
+        <option value="Current Asset">Current Asset</option>
+        <option value="Current liability">Current liability</option>
+        <option value="Operating expense">Operating expense</option>
+        <option value="Non-Current Asset">Non-Current Asset</option>
+      </select>
     </div>
     <div class="submodal-actions">
       <button class="btn btn-secondary" type="button" onclick="closeSubModal('addSubModal')">Cancel</button>
