@@ -376,8 +376,14 @@
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
+            console.log('Login successful, setting flag and reloading...');
             sessionStorage.setItem('justLoggedIn', '1');
-            waitForSession(0);
+
+            // Give backend time to establish session, then hard reload
+            setTimeout(function() {
+              console.log('Forcing page reload...');
+              window.location.href = window.location.origin + window.location.pathname;
+            }, 1000);
           } else {
             showError(result.message || 'Login failed. Please try again.');
             loginBtn.disabled = false;
@@ -391,42 +397,6 @@
           loginBtn.classList.remove('loading');
         })
         .authenticateUser(email, pin);
-    }
-
-    function waitForSession(attempt) {
-      const tries = attempt || 0;
-      const target = window.location.origin + window.location.pathname + '?t=' + Date.now();
-
-      google.script.run
-        .withSuccessHandler(function(user) {
-          if (user && user.authenticated) {
-            // Session confirmed, redirect to dashboard
-            window.location.replace(target);
-            return;
-          }
-
-          if (tries >= 15) {
-            // Max retries reached, force reload
-            window.location.replace(target);
-            return;
-          }
-
-          // Keep polling for session
-          setTimeout(function() {
-            waitForSession(tries + 1);
-          }, 500);
-        })
-        .withFailureHandler(function(error) {
-          console.error('Session check failed:', error);
-          if (tries >= 15) {
-            window.location.replace(target);
-          } else {
-            setTimeout(function() {
-              waitForSession(tries + 1);
-            }, 500);
-          }
-        })
-        .getCurrentUser();
     }
 
     document.getElementById('pin').addEventListener('input', function() {

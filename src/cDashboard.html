@@ -993,28 +993,37 @@
         return;
       }
 
+      const justLoggedIn = sessionStorage.getItem('justLoggedIn') === '1';
+
+      if (justLoggedIn) {
+        console.log('Just logged in, checking session (attempt ' + retryAttempt + ')...');
+      }
+
       google.script.run
         .withSuccessHandler(function(user) {
-          if (!user.authenticated) {
-            const justLoggedIn = sessionStorage.getItem('justLoggedIn') === '1';
+          console.log('User info received:', user);
 
+          if (!user.authenticated) {
             // Retry more times after fresh login to allow session to propagate
-            if (justLoggedIn && retryAttempt < 10) {
+            if (justLoggedIn && retryAttempt < 15) {
+              console.log('Not authenticated yet, retrying in 800ms...');
               setTimeout(function() {
                 loadUserInfo(retryAttempt + 1);
-              }, 600);
+              }, 800);
               return;
             }
 
+            console.log('Session not found, redirecting to login...');
             if (user.expired) {
               window.location.href = window.location.origin + window.location.pathname + '?expired=true';
             } else {
-              window.location.reload();
+              window.location.href = window.location.origin + window.location.pathname;
             }
             return;
           }
 
           // Session confirmed, clear flag and initialize
+          console.log('Session confirmed! Initializing dashboard...');
           sessionStorage.removeItem('justLoggedIn');
           document.getElementById('userName').textContent = user.name;
           document.getElementById('userRole').textContent = user.role;
@@ -1024,11 +1033,11 @@
           console.error('Failed to load user info:', error);
 
           // Retry on failure if just logged in
-          const justLoggedIn = sessionStorage.getItem('justLoggedIn') === '1';
-          if (justLoggedIn && retryAttempt < 10) {
+          if (justLoggedIn && retryAttempt < 15) {
+            console.log('Failed to load user, retrying in 800ms...');
             setTimeout(function() {
               loadUserInfo(retryAttempt + 1);
-            }, 600);
+            }, 800);
           } else {
             alert('Failed to load user information. Please refresh the page.');
           }
