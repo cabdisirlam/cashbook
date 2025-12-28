@@ -638,6 +638,17 @@
       content: "✕";
     }
 
+    .alert-info {
+      background: #eff6ff;
+      border: 2px solid #93c5fd;
+      color: #1e40af;
+    }
+
+    .alert-info::before {
+      content: "⏳";
+      animation: spin 1.5s linear infinite;
+    }
+
     @keyframes slideDown {
       from {
         opacity: 0;
@@ -1603,14 +1614,13 @@
       `;
     }
 
-    function showAlert(message, type) {
+    function showAlert(message, type = 'success', duration = 6000) {
       const container = document.getElementById('alertContainer');
       if (!container) {
         console.error('Alert container not found');
         return;
       }
 
-      // Scroll to top to ensure user sees the alert
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
       container.innerHTML = `
@@ -1619,16 +1629,29 @@
         </div>
       `;
 
-      // Auto-dismiss after 6 seconds
-      setTimeout(() => {
-        const alert = container.querySelector('.alert-message');
-        if (alert) {
-          alert.classList.remove('show');
-          setTimeout(() => {
-            container.innerHTML = '';
-          }, 300);
-        }
-      }, 6000);
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function hideAlert() {
+      const container = document.getElementById('alertContainer');
+      if (!container) return;
+      const alert = container.querySelector('.alert-message');
+      if (alert) {
+        alert.classList.remove('show');
+        setTimeout(() => {
+          container.innerHTML = '';
+        }, 300);
+      }
     }
 
     function openEditModal() {
@@ -1710,16 +1733,19 @@
       };
 
       console.log('Updating journal with payload:', payload);
+      showAlert('Updating...', 'info');
 
       google.script.run
         .withSuccessHandler(function(result) {
           console.log('Update successful:', result);
+          hideAlert();
           closeEditModal();
           showAlert('✓ Transaction updated successfully!', 'success');
           setTimeout(() => runSearch(), 500);
         })
         .withFailureHandler(function(error) {
           console.error('Update failed:', error);
+          hideAlert();
           showAlert('✕ Failed to update: ' + (error.message || 'Unknown error'), 'error');
         })
         .updateJournal(payload);
@@ -1747,10 +1773,12 @@
       }
 
       console.log('Deleting journal row:', rowId);
+      showAlert('Deleting...', 'info');
 
       google.script.run
         .withSuccessHandler(function(result) {
           console.log('Delete successful:', result);
+          hideAlert();
           closeEditModal();
           showAlert('✓ Transaction deleted successfully!', 'success');
           selectedRowId = null;
@@ -1758,6 +1786,7 @@
         })
         .withFailureHandler(function(error) {
           console.error('Delete failed:', error);
+          hideAlert();
           showAlert('✕ Failed to delete: ' + (error.message || 'Unknown error'), 'error');
         })
         .deleteJournal(rowId);
