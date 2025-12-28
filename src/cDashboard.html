@@ -644,6 +644,11 @@
         return;
       }
 
+      if (label === 'Search / Edit') {
+        renderSearchEditContent();
+        return;
+      }
+
       contentArea.innerHTML = `
         <div class="card">
           <h2>${label}</h2>
@@ -774,6 +779,376 @@
           <p style="color:#6b7280;font-size:13px;">Use Pay to launch the payment modal.</p>
         </div>
       `;
+    }
+
+    function renderSearchEditContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Search / Edit</h2>
+              <p style="color:#6b7280;font-size:13px;">Find transactions and update or delete.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderSearchEditContent()">Refresh</button>
+              <button class="btn btn-secondary" onclick="undoJournalAction()">Undo Last</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="searchQuery">Search</label>
+              <input type="text" id="searchQuery" placeholder="Payee, description, account code...">
+            </div>
+            <div class="form-group">
+              <label for="searchRef">ID / Ref</label>
+              <input type="text" id="searchRef" placeholder="UUID or Ref_No">
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="searchStartDate">Start Date</label>
+              <input type="date" id="searchStartDate">
+            </div>
+            <div class="form-group">
+              <label for="searchEndDate">End Date</label>
+              <input type="date" id="searchEndDate">
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:16px;">
+            <div class="form-group">
+              <label for="searchCategory">Category</label>
+              <select id="searchCategory">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchPayee">Payee</label>
+              <input type="text" id="searchPayee" placeholder="Vendor name">
+            </div>
+          </div>
+
+          <div id="searchStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="searchResults"></div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Edit Transaction</h2>
+              <p style="color:#6b7280;font-size:13px;">Select a result to load fields.</p>
+            </div>
+            <div>
+              <button class="btn btn-primary" onclick="updateJournal()">Save Changes</button>
+              <button class="btn btn-danger" onclick="deleteJournal()">Delete</button>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editUuid">UUID</label>
+              <input type="text" id="editUuid" readonly>
+            </div>
+            <div class="form-group">
+              <label for="editBatchId">Batch ID</label>
+              <input type="text" id="editBatchId" readonly>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editDate">Date</label>
+              <input type="date" id="editDate">
+            </div>
+            <div class="form-group">
+              <label for="editAccountCode">Account Code</label>
+              <input type="text" id="editAccountCode">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editPayee">Payee</label>
+              <input type="text" id="editPayee">
+            </div>
+            <div class="form-group">
+              <label for="editRefNo">Ref No</label>
+              <input type="text" id="editRefNo">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editSubCategory">Sub-Category</label>
+              <input type="text" id="editSubCategory">
+            </div>
+            <div class="form-group">
+              <label for="editCategory">Category</label>
+              <input type="text" id="editCategory">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editDescription">Description</label>
+              <input type="text" id="editDescription">
+            </div>
+            <div class="form-group">
+              <label for="editDebit">Debit</label>
+              <input type="number" id="editDebit" step="0.01">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editCredit">Credit</label>
+              <input type="number" id="editCredit" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="editAccountType">Account Type</label>
+              <input type="text" id="editAccountType">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editReportMapping">Report Mapping</label>
+              <input type="text" id="editReportMapping">
+            </div>
+            <div class="form-group">
+              <label for="editReconStatus">Recon Status</label>
+              <input type="text" id="editReconStatus">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="editReceiptUrl">Receipt URL</label>
+            <input type="text" id="editReceiptUrl">
+          </div>
+
+          <div id="editStatus" style="color:#6b7280;font-size:12px;"></div>
+        </div>
+      `;
+
+      bindSearchHandlers();
+      loadSearchMeta();
+      runSearch();
+    }
+
+    let searchTimer;
+    let searchMeta = { categories: [] };
+    let selectedRowId = null;
+
+    function bindSearchHandlers() {
+      ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchPayee']
+        .forEach(id => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.addEventListener('input', scheduleSearch);
+          el.addEventListener('change', scheduleSearch);
+        });
+    }
+
+    function scheduleSearch() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(runSearch, 300);
+    }
+
+    function loadSearchMeta() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const categories = (data && data.categories) ? data.categories : [];
+          const select = document.getElementById('searchCategory');
+          if (!select) return;
+          select.innerHTML = '<option value="">All Categories</option>';
+          categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat;
+            select.appendChild(option);
+          });
+          searchMeta.categories = categories;
+        })
+        .getDropdownData();
+    }
+
+    function runSearch() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return;
+      }
+
+      const criteria = {
+        query: document.getElementById('searchQuery').value.trim(),
+        refOrId: document.getElementById('searchRef').value.trim(),
+        startDate: document.getElementById('searchStartDate').value,
+        endDate: document.getElementById('searchEndDate').value,
+        category: document.getElementById('searchCategory').value,
+        payee: document.getElementById('searchPayee').value.trim()
+      };
+
+      const status = document.getElementById('searchStatus');
+      if (status) status.textContent = 'Searching...';
+
+      google.script.run
+        .withSuccessHandler(function(results) {
+          renderSearchResults(results || []);
+          if (status) status.textContent = 'Found ' + (results ? results.length : 0) + ' result(s).';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = error.message || 'Search failed.';
+        })
+        .searchJournal(criteria);
+    }
+
+    function renderSearchResults(results) {
+      const container = document.getElementById('searchResults');
+      if (!container) return;
+      if (!results.length) {
+        container.innerHTML = '<div class="card"><p>No results found.</p></div>';
+        return;
+      }
+
+      const rows = results.map(item => `
+        <tr onclick="loadJournalRow(${item.rowId})" style="cursor:pointer;">
+          <td>${item.date || ''}</td>
+          <td>${item.payee || ''}</td>
+          <td>${item.category || ''}</td>
+          <td>${item.subCategory || ''}</td>
+          <td>${item.debit || ''}</td>
+          <td>${item.credit || ''}</td>
+          <td>${item.refNo || ''}</td>
+        </tr>
+      `).join('');
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Payee</th>
+              <th>Category</th>
+              <th>Sub-Category</th>
+              <th>Debit</th>
+              <th>Credit</th>
+              <th>Ref No</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function loadJournalRow(rowId) {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(row) {
+          if (!row) return;
+          selectedRowId = row.rowId;
+          document.getElementById('editUuid').value = row.uuid || '';
+          document.getElementById('editBatchId').value = row.batchId || '';
+          document.getElementById('editDate').value = row.date || '';
+          document.getElementById('editAccountCode').value = row.accountCode || '';
+          document.getElementById('editPayee').value = row.payee || '';
+          document.getElementById('editRefNo').value = row.refNo || '';
+          document.getElementById('editSubCategory').value = row.subCategory || '';
+          document.getElementById('editCategory').value = row.category || '';
+          document.getElementById('editDescription').value = row.description || '';
+          document.getElementById('editDebit').value = row.debit || '';
+          document.getElementById('editCredit').value = row.credit || '';
+          document.getElementById('editAccountType').value = row.accountType || '';
+          document.getElementById('editReportMapping').value = row.reportMapping || '';
+          document.getElementById('editReconStatus').value = row.reconStatus || '';
+          document.getElementById('editReceiptUrl').value = row.receiptUrl || '';
+          document.getElementById('editStatus').textContent = 'Loaded row ' + row.rowId + '.';
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('editStatus').textContent = error.message || 'Failed to load row.';
+        })
+        .getJournalRow(rowId);
+    }
+
+    function updateJournal() {
+      if (!selectedRowId) {
+        document.getElementById('editStatus').textContent = 'Select a row to update.';
+        return;
+      }
+
+      if (!confirm('Update this record? This will overwrite the selected row.')) return;
+
+      const payload = {
+        rowId: selectedRowId,
+        date: document.getElementById('editDate').value,
+        accountCode: document.getElementById('editAccountCode').value.trim(),
+        payee: document.getElementById('editPayee').value.trim(),
+        refNo: document.getElementById('editRefNo').value.trim(),
+        subCategory: document.getElementById('editSubCategory').value.trim(),
+        category: document.getElementById('editCategory').value.trim(),
+        description: document.getElementById('editDescription').value.trim(),
+        debit: document.getElementById('editDebit').value,
+        credit: document.getElementById('editCredit').value,
+        accountType: document.getElementById('editAccountType').value.trim(),
+        reportMapping: document.getElementById('editReportMapping').value.trim(),
+        reconStatus: document.getElementById('editReconStatus').value.trim(),
+        receiptUrl: document.getElementById('editReceiptUrl').value.trim()
+      };
+
+      document.getElementById('editStatus').textContent = 'Saving...';
+
+      google.script.run
+        .withSuccessHandler(function() {
+          document.getElementById('editStatus').textContent = 'Row updated.';
+          runSearch();
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('editStatus').textContent = error.message || 'Update failed.';
+        })
+        .updateJournal(payload);
+    }
+
+    function deleteJournal() {
+      if (!selectedRowId) {
+        document.getElementById('editStatus').textContent = 'Select a row to delete.';
+        return;
+      }
+
+      if (!confirm('Are you sure you want to delete this record?')) return;
+
+      document.getElementById('editStatus').textContent = 'Deleting...';
+      google.script.run
+        .withSuccessHandler(function() {
+          document.getElementById('editStatus').textContent = 'Row deleted.';
+          selectedRowId = null;
+          runSearch();
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('editStatus').textContent = error.message || 'Delete failed.';
+        })
+        .deleteJournal(selectedRowId);
+    }
+
+    function undoJournalAction() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return;
+      }
+      document.getElementById('editStatus').textContent = 'Undoing last action...';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          document.getElementById('editStatus').textContent = result || 'Undo completed.';
+          runSearch();
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('editStatus').textContent = error.message || 'Undo failed.';
+        })
+        .undoLastJournalAction();
     }
 
     function renderReceiptLauncher() {

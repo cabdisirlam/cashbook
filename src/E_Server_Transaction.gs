@@ -141,6 +141,201 @@ function saveTransaction(data) {
   return 'Success';
 }
 
+function searchJournal(criteria) {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return [];
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  const query = String(criteria && criteria.query || '').trim().toLowerCase();
+  const refOrId = String(criteria && criteria.refOrId || '').trim().toLowerCase();
+  const categoryFilter = String(criteria && criteria.category || '').trim();
+  const payeeFilter = String(criteria && criteria.payee || '').trim().toLowerCase();
+  const startDate = _parseDate_(criteria && criteria.startDate);
+  const endDate = _parseDate_(criteria && criteria.endDate);
+
+  const results = [];
+
+  data.forEach(function(row, index) {
+    const rowDate = cols.date ? row[cols.date - 1] : null;
+    const dateValue = rowDate instanceof Date ? rowDate : _parseDate_(rowDate);
+    if (startDate && dateValue && dateValue < startDate) return;
+    if (endDate && dateValue && dateValue > endDate) return;
+
+    const category = cols.category ? String(row[cols.category - 1]).trim() : '';
+    if (categoryFilter && category !== categoryFilter) return;
+
+    const payee = cols.payee ? String(row[cols.payee - 1]).trim() : '';
+    if (payeeFilter && !payee.toLowerCase().includes(payeeFilter)) return;
+
+    const uuid = cols.uuid ? String(row[cols.uuid - 1]).trim() : '';
+    const refNo = cols.refNo ? String(row[cols.refNo - 1]).trim() : '';
+    if (refOrId && !(uuid.toLowerCase().includes(refOrId) || refNo.toLowerCase().includes(refOrId))) return;
+
+    const haystack = [
+      cols.accountCode ? row[cols.accountCode - 1] : '',
+      payee,
+      category,
+      cols.subCategory ? row[cols.subCategory - 1] : '',
+      cols.description ? row[cols.description - 1] : '',
+      refNo
+    ].map(String).join(' ').toLowerCase();
+
+    if (query && !haystack.includes(query)) return;
+
+    results.push({
+      rowId: index + 2,
+      uuid: uuid,
+      batchId: cols.batchId ? row[cols.batchId - 1] : '',
+      date: dateValue ? _formatDate_(dateValue) : '',
+      accountCode: cols.accountCode ? row[cols.accountCode - 1] : '',
+      payee: payee,
+      refNo: refNo,
+      subCategory: cols.subCategory ? row[cols.subCategory - 1] : '',
+      category: category,
+      description: cols.description ? row[cols.description - 1] : '',
+      debit: cols.debit ? row[cols.debit - 1] : '',
+      credit: cols.credit ? row[cols.credit - 1] : ''
+    });
+  });
+
+  return results.slice(0, 200);
+}
+
+function getJournalRow(rowId) {
+  const row = Number(rowId);
+  if (!row || row < 2) throw new Error('Invalid row.');
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const values = sheet.getRange(row, 1, 1, lastCol).getValues()[0];
+
+  const dateValue = values[cols.date - 1];
+
+  return {
+    rowId: row,
+    uuid: values[cols.uuid - 1] || '',
+    batchId: values[cols.batchId - 1] || '',
+    date: dateValue instanceof Date ? _formatDate_(dateValue) : '',
+    accountCode: values[cols.accountCode - 1] || '',
+    payee: values[cols.payee - 1] || '',
+    refNo: values[cols.refNo - 1] || '',
+    subCategory: values[cols.subCategory - 1] || '',
+    category: values[cols.category - 1] || '',
+    description: values[cols.description - 1] || '',
+    debit: values[cols.debit - 1] || '',
+    credit: values[cols.credit - 1] || '',
+    accountType: values[cols.accountType - 1] || '',
+    reportMapping: values[cols.reportMapping - 1] || '',
+    reconStatus: values[cols.reconStatus - 1] || '',
+    receiptUrl: values[cols.receiptUrl - 1] || ''
+  };
+}
+
+function updateJournal(payload) {
+  if (!payload) throw new Error('Missing payload.');
+  const row = Number(payload.rowId);
+  if (!row || row < 2) throw new Error('Invalid row.');
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const existing = sheet.getRange(row, 1, 1, lastCol).getValues()[0];
+
+  _storeUndoAction_('update', row, existing);
+
+  const updated = existing.slice();
+  updated[cols.date - 1] = _parseDate_(payload.date) || existing[cols.date - 1];
+  updated[cols.accountCode - 1] = payload.accountCode || '';
+  updated[cols.payee - 1] = payload.payee || '';
+  updated[cols.refNo - 1] = payload.refNo || '';
+  updated[cols.subCategory - 1] = payload.subCategory || '';
+  updated[cols.category - 1] = payload.category || '';
+  updated[cols.description - 1] = payload.description || '';
+  updated[cols.debit - 1] = Number(payload.debit || 0);
+  updated[cols.credit - 1] = Number(payload.credit || 0);
+  updated[cols.accountType - 1] = payload.accountType || '';
+  updated[cols.reportMapping - 1] = payload.reportMapping || '';
+  updated[cols.reconStatus - 1] = payload.reconStatus || '';
+  updated[cols.receiptUrl - 1] = payload.receiptUrl || '';
+
+  sheet.getRange(row, 1, 1, lastCol).setValues([updated]);
+
+  try {
+    const user = getCurrentUser();
+    const actor = user && user.authenticated ? user.email : 'system';
+    logSystemEvent(actor, 'UPDATE_JOURNAL', String(updated[cols.uuid - 1] || ''), 'Row ' + row);
+  } catch (error) {
+    Logger.log('Log failure: ' + error.toString());
+  }
+
+  return true;
+}
+
+function deleteJournal(rowId) {
+  const row = Number(rowId);
+  if (!row || row < 2) throw new Error('Invalid row.');
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastCol = sheet.getLastColumn();
+  const existing = sheet.getRange(row, 1, 1, lastCol).getValues()[0];
+  _storeUndoAction_('delete', row, existing);
+
+  sheet.deleteRow(row);
+
+  try {
+    const user = getCurrentUser();
+    const actor = user && user.authenticated ? user.email : 'system';
+    logSystemEvent(actor, 'DELETE_JOURNAL', String(existing[0] || ''), 'Row ' + row);
+  } catch (error) {
+    Logger.log('Log failure: ' + error.toString());
+  }
+
+  return true;
+}
+
+function undoLastJournalAction() {
+  const props = PropertiesService.getUserProperties();
+  const raw = props.getProperty('lastJournalAction');
+  if (!raw) throw new Error('No action to undo.');
+  const action = JSON.parse(raw);
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  if (action.type === 'delete') {
+    const rowIndex = Math.min(action.rowId, sheet.getLastRow() + 1);
+    sheet.insertRowsBefore(rowIndex, 1);
+    sheet.getRange(rowIndex, 1, 1, action.values.length).setValues([action.values]);
+  } else if (action.type === 'update') {
+    sheet.getRange(action.rowId, 1, 1, action.values.length).setValues([action.values]);
+  } else {
+    throw new Error('Unknown action.');
+  }
+
+  props.deleteProperty('lastJournalAction');
+  return 'Undo completed.';
+}
+
 function addMasterItem(type, value, parent, accountType, reportMapping) {
   const trimmed = String(value || '').trim();
   if (!trimmed) throw new Error('Value is required.');
@@ -222,6 +417,26 @@ function _getMasterColumns_(headers) {
   };
 }
 
+function _getJournalColumns_(headers) {
+  return {
+    uuid: _resolveColumn_(headers, ['uuid'], 1),
+    batchId: _resolveColumn_(headers, ['batch_id'], 2),
+    date: _resolveColumn_(headers, ['date'], 3),
+    accountCode: _resolveColumn_(headers, ['account_code'], 4),
+    payee: _resolveColumn_(headers, ['payee'], 5),
+    refNo: _resolveColumn_(headers, ['ref_no'], 6),
+    subCategory: _resolveColumn_(headers, ['sub_category'], 7),
+    category: _resolveColumn_(headers, ['category'], 8),
+    description: _resolveColumn_(headers, ['description'], 9),
+    debit: _resolveColumn_(headers, ['debit'], 10),
+    credit: _resolveColumn_(headers, ['credit'], 11),
+    accountType: _resolveColumn_(headers, ['account_type'], 12),
+    reportMapping: _resolveColumn_(headers, ['report_mapping'], 13),
+    reconStatus: _resolveColumn_(headers, ['recon_status'], 14),
+    receiptUrl: _resolveColumn_(headers, ['receipt_url'], 15)
+  };
+}
+
 function _resolveColumn_(headers, names, fallback) {
   for (let i = 0; i < names.length; i++) {
     const idx = headers.indexOf(names[i]);
@@ -240,6 +455,29 @@ function _valueExistsInColumn_(data, colIndex, value) {
   return data.some(function(row) {
     return String(row[colIndex - 1]).trim().toLowerCase() === normalized;
   });
+}
+
+function _storeUndoAction_(type, rowId, values) {
+  const props = PropertiesService.getUserProperties();
+  props.setProperty('lastJournalAction', JSON.stringify({
+    type: type,
+    rowId: rowId,
+    values: values,
+    timestamp: new Date().toISOString()
+  }));
+}
+
+function _parseDate_(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function _formatDate_(date) {
+  const d = date instanceof Date ? date : _parseDate_(date);
+  if (!d) return '';
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
 function _findRowForInsert_(data, colIndex, blockCols) {
