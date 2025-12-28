@@ -21,6 +21,59 @@
     overflow: hidden;
   }
 
+  .submodal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 2100;
+  }
+
+  .submodal.open {
+    display: flex;
+  }
+
+  .submodal-card {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .submodal-header {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .submodal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .select-field {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #ffffff;
+  }
+
   .form-header {
     display: flex;
     align-items: center;
@@ -212,14 +265,14 @@
           <label class="form-label" for="accountCode">Bank Account</label>
           <div class="input-action">
             <input list="accountList" id="accountCode" class="input-field" placeholder="Select account" required>
-            <button class="btn-icon" type="button" onclick="addMasterItem('account')">+</button>
+            <button class="btn-icon" type="button" onclick="openAddAccountModal()">+</button>
           </div>
         </div>
         <div>
           <label class="form-label" for="payee">Payee</label>
           <div class="input-action">
             <input list="payeeList" id="payee" class="input-field" placeholder="Select payee">
-            <button class="btn-icon" type="button" onclick="addMasterItem('payee')">+</button>
+            <button class="btn-icon" type="button" onclick="openAddPayeeModal()">+</button>
           </div>
         </div>
         <div>
@@ -329,7 +382,7 @@
       <td>
         <div class="input-action">
           <input list="subCatList" class="input-field subcat-input" placeholder="Sub-category">
-          <button class="btn-icon" type="button" onclick="addSubCategory()">+</button>
+          <button class="btn-icon" type="button" onclick="openAddSubCategoryModal()">+</button>
         </div>
       </td>
       <td><input type="text" class="input-field category-input" readonly></td>
@@ -363,41 +416,88 @@
     document.getElementById('totalAmount').textContent = total.toFixed(2);
   }
 
-  function addMasterItem(type) {
-    const value = prompt('Enter new ' + type + ':');
+  function openAddAccountModal() {
+    document.getElementById('addAccountInput').value = '';
+    document.getElementById('addAccountModal').classList.add('open');
+    document.getElementById('addAccountInput').focus();
+  }
+
+  function openAddPayeeModal() {
+    document.getElementById('addPayeeInput').value = '';
+    document.getElementById('addPayeeModal').classList.add('open');
+    document.getElementById('addPayeeInput').focus();
+  }
+
+  function openAddSubCategoryModal() {
+    const parentSelect = document.getElementById('addSubParent');
+    const categories = Object.values(paymentState.subToCatMap || {});
+    const unique = Array.from(new Set(categories.filter(Boolean))).sort();
+    parentSelect.innerHTML = '<option value=\"\">Select parent category</option>';
+    unique.forEach(function(item) {
+      const option = document.createElement('option');
+      option.value = item;
+      option.textContent = item;
+      parentSelect.appendChild(option);
+    });
+    document.getElementById('addSubName').value = '';
+    document.getElementById('addSubModal').classList.add('open');
+    document.getElementById('addSubName').focus();
+  }
+
+  function closeSubModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+
+  function saveNewAccount() {
+    const value = document.getElementById('addAccountInput').value.trim();
     if (!value) return;
 
     setStatus('Saving master data...');
     google.script.run
       .withSuccessHandler(function() {
+        closeSubModal('addAccountModal');
         loadDropdowns();
         setStatus('Master data saved.');
       })
       .withFailureHandler(function(error) {
         setStatus(error.message || 'Failed to add master data.');
       })
-      .addMasterItem(type, value);
+      .addMasterItem('account', value);
   }
 
-  function addSubCategory() {
-    const subCat = prompt('New sub-category name:');
-    if (!subCat) return;
+  function saveNewPayee() {
+    const value = document.getElementById('addPayeeInput').value.trim();
+    if (!value) return;
 
-    const categories = Object.values(paymentState.subToCatMap || {});
-    const unique = Array.from(new Set(categories.filter(Boolean))).sort();
-    const parent = prompt('Parent category (choose one):\n' + (unique.length ? unique.join(', ') : ''));
-    if (!parent) return;
+    setStatus('Saving master data...');
+    google.script.run
+      .withSuccessHandler(function() {
+        closeSubModal('addPayeeModal');
+        loadDropdowns();
+        setStatus('Master data saved.');
+      })
+      .withFailureHandler(function(error) {
+        setStatus(error.message || 'Failed to add master data.');
+      })
+      .addMasterItem('payee', value);
+  }
+
+  function saveNewSubCategory() {
+    const name = document.getElementById('addSubName').value.trim();
+    const parent = document.getElementById('addSubParent').value.trim();
+    if (!name || !parent) return;
 
     setStatus('Saving sub-category...');
     google.script.run
       .withSuccessHandler(function() {
+        closeSubModal('addSubModal');
         loadDropdowns();
         setStatus('Sub-category saved.');
       })
       .withFailureHandler(function(error) {
         setStatus(error.message || 'Failed to add sub-category.');
       })
-      .addMasterItem('subCategory', subCat, parent);
+      .addMasterItem('subCategory', name, parent);
   }
 
   function saveTransaction() {
@@ -461,3 +561,59 @@
     document.getElementById('statusText').textContent = message || '';
   }
 </script>
+<div class="submodal" id="addAccountModal">
+  <div class="submodal-card">
+    <div class="submodal-header">
+      <span>Add Bank Account</span>
+      <button class="close-btn" type="button" onclick="closeSubModal('addAccountModal')">X</button>
+    </div>
+    <div>
+      <label class="form-label" for="addAccountInput">Account Code</label>
+      <input id="addAccountInput" class="input-field" type="text" placeholder="e.g. EQUITY_MAIN">
+    </div>
+    <div class="submodal-actions">
+      <button class="btn btn-secondary" type="button" onclick="closeSubModal('addAccountModal')">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="saveNewAccount()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="submodal" id="addPayeeModal">
+  <div class="submodal-card">
+    <div class="submodal-header">
+      <span>Add Payee</span>
+      <button class="close-btn" type="button" onclick="closeSubModal('addPayeeModal')">X</button>
+    </div>
+    <div>
+      <label class="form-label" for="addPayeeInput">Payee Name</label>
+      <input id="addPayeeInput" class="input-field" type="text" placeholder="Supplier or staff name">
+    </div>
+    <div class="submodal-actions">
+      <button class="btn btn-secondary" type="button" onclick="closeSubModal('addPayeeModal')">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="saveNewPayee()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="submodal" id="addSubModal">
+  <div class="submodal-card">
+    <div class="submodal-header">
+      <span>Add Sub-Category</span>
+      <button class="close-btn" type="button" onclick="closeSubModal('addSubModal')">X</button>
+    </div>
+    <div>
+      <label class="form-label" for="addSubName">Sub-Category Name</label>
+      <input id="addSubName" class="input-field" type="text" placeholder="e.g. Fuel">
+    </div>
+    <div>
+      <label class="form-label" for="addSubParent">Parent Category</label>
+      <select id="addSubParent" class="select-field"></select>
+    </div>
+    <div class="submodal-actions">
+      <button class="btn btn-secondary" type="button" onclick="closeSubModal('addSubModal')">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="saveNewSubCategory()">Save</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
