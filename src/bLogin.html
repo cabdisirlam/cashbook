@@ -379,7 +379,15 @@
             // Login was successful, now fetch the dashboard HTML
             google.script.run
               .withSuccessHandler(function(dashboardHtml) {
+                // Replace the document content
                 document.documentElement.innerHTML = dashboardHtml;
+                // Manually execute the dashboard's initialization script
+                if (typeof initializeDashboard === 'function') {
+                  initializeDashboard();
+                } else {
+                  // Fallback if the function isn't found immediately
+                  window.onload = initializeDashboard;
+                }
               })
               .withFailureHandler(function(error) {
                 showError('Could not load dashboard. Please reload.');
