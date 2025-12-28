@@ -30,13 +30,6 @@ const CONFIG = {
  * Main entry point - serves the web app
  */
 function doGet(e) {
-  if (e && e.parameter && e.parameter.view === 'payment') {
-    return HtmlService.createHtmlOutputFromFile('F_Transaction')
-      .setTitle('New Payment')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  }
-
   const userProperties = PropertiesService.getUserProperties();
   const sessionData = userProperties.getProperty('sessionData');
 
