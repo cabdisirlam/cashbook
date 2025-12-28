@@ -160,7 +160,7 @@ function initializeViewLedgerSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_LEDGER);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.VIEW_LEDGER);
-    const headers = ['Date', 'Account_Code', 'Batch_ID', 'Payee', 'Category', 'Sub_Category',
+    const headers = ['Date', 'Account_Code', 'Payee', 'Category', 'Sub_Category',
                      'Account_Type', 'Description', 'Ref_No', 'Debit', 'Credit', 'Balance', 'Receipt_Link'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     formatHeaderRow(sheet, headers.length);
@@ -201,7 +201,7 @@ function initializeDbJournalSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_JOURNAL);
-    const headers = ['UUID', 'Batch_ID', 'Date', 'Account_Code', 'Payee', 'Ref_No', 'Type',
+    const headers = ['Date', 'Account_Code', 'Payee', 'Ref_No', 'Type',
                      'Category', 'Sub_Category', 'Account_Type', 'Description', 'Debit', 'Credit',
                      'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -215,8 +215,8 @@ function initializeDbBankSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BANK);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_BANK);
-    const headers = ['Upload_ID', 'Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref',
-                     'Description', 'Amount', 'Balance', 'Match_Status', 'Matched_Batch_ID'];
+    const headers = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref',
+                     'Description', 'Amount', 'Balance', 'Match_Status'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     formatHeaderRow(sheet, headers.length);
   }
@@ -228,7 +228,7 @@ function initializeDbBudgetSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_BUDGET);
-    const headers = ['Entry_ID', 'Date', 'Type', 'Financial_Year', 'Category', 'Sub_Category',
+    const headers = ['Date', 'Type', 'Financial_Year', 'Category', 'Sub_Category',
                      'Account_Type', 'Amount', 'Auth_Ref', 'Description'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     formatHeaderRow(sheet, headers.length);
@@ -249,63 +249,10 @@ function initializeMasterDataSheet(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.MASTER_DATA);
 
-    // Create headers - removed Projects column, renamed Report_Mapping to Account_Type
+    // Create headers - All data will come from user input
     const headers = ['Category', 'Sub_Category', 'Account_Type', 'Account_Codes', 'Payees'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     formatHeaderRow(sheet, headers.length);
-
-    // Add comprehensive master data with proper category-subcategory relationships
-    // Format: [Category, Sub_Category, Account_Type, Account_Code, Payee]
-    const sampleData = [
-      // Transport - Operating Expense
-      ['Transport', 'Fuel', 'Operating Expense', 'EQUITY_MAIN', ''],
-      ['Transport', 'Vehicle Maintenance', 'Operating Expense', '', ''],
-      ['Transport', 'Vehicle Insurance', 'Operating Expense', '', ''],
-      ['Transport', 'Vehicle Hire', 'Operating Expense', '', ''],
-
-      // Salaries - Operating Expense
-      ['Salaries', 'Permanent Staff', 'Operating Expense', 'NCBA_CURRENT', ''],
-      ['Salaries', 'Temporary Staff', 'Operating Expense', '', ''],
-      ['Salaries', 'Consultants', 'Operating Expense', '', ''],
-      ['Salaries', 'Allowances', 'Operating Expense', '', ''],
-
-      // Utilities - Operating Expense
-      ['Utilities', 'Electricity', 'Operating Expense', 'MPESA_TILL', 'Kenya Power'],
-      ['Utilities', 'Water', 'Operating Expense', '', ''],
-      ['Utilities', 'Internet', 'Operating Expense', '', 'Safaricom'],
-      ['Utilities', 'Telephone', 'Operating Expense', '', ''],
-
-      // Office Rent - Operating Expense
-      ['Office Rent', 'Monthly Rent', 'Operating Expense', '', ''],
-      ['Office Rent', 'Service Charge', 'Operating Expense', '', ''],
-
-      // Communications - Operating Expense
-      ['Communications', 'Mobile Airtime', 'Operating Expense', '', ''],
-      ['Communications', 'Internet', 'Operating Expense', '', ''],
-      ['Communications', 'Postage', 'Operating Expense', '', ''],
-
-      // Office Supplies - Operating Expense
-      ['Office Supplies', 'Stationery', 'Operating Expense', '', ''],
-      ['Office Supplies', 'Printing', 'Operating Expense', '', ''],
-      ['Office Supplies', 'Office Equipment', 'Operating Expense', '', 'Total Station'],
-
-      // Grants - Operating Income
-      ['Grants', 'Donor Grants', 'Operating Income', 'KCB_GRANT', 'USAID'],
-      ['Grants', 'Government Grants', 'Operating Income', '', ''],
-      ['Grants', 'Other Income', 'Operating Income', '', ''],
-
-      // Bank - Balance Sheet
-      ['Bank', 'Bank Charges', 'Bank', '', ''],
-      ['Bank', 'Bank Interest', 'Bank', '', ''],
-
-      // Capital Expenses
-      ['Capital Expenses', 'Equipment Purchase', 'Capital Expense', '', ''],
-      ['Capital Expenses', 'Furniture', 'Capital Expense', '', ''],
-      ['Capital Expenses', 'Vehicles', 'Capital Expense', '', ''],
-      ['Capital Expenses', 'Buildings', 'Capital Expense', '', '']
-    ];
-
-    sheet.getRange(2, 1, sampleData.length, headers.length).setValues(sampleData);
 
     // Auto-resize columns for better visibility
     sheet.autoResizeColumns(1, headers.length);
