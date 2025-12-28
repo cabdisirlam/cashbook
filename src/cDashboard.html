@@ -37,7 +37,7 @@
     }
 
     .sidebar {
-      width: 250px;
+      width: 220px;
       background: #ffffff;
       border-right: 1px solid var(--line);
       display: flex;
@@ -47,9 +47,9 @@
     }
 
     .sidebar-header {
-      padding: 22px 20px;
+      padding: 16px 16px;
       font-weight: 700;
-      font-size: 16px;
+      font-size: 14px;
       color: var(--brand-dark);
     }
 
@@ -60,26 +60,26 @@
     }
 
     .menu-section {
-      margin-bottom: 14px;
+      margin-bottom: 10px;
     }
 
     .menu-section-title {
-      padding: 8px 20px;
-      font-size: 11px;
+      padding: 6px 16px;
+      font-size: 10px;
       letter-spacing: 1px;
       text-transform: uppercase;
       color: #9ca3af;
     }
 
     .menu-item {
-      padding: 10px 20px;
+      padding: 8px 16px;
       color: #374151;
       cursor: pointer;
       transition: background 0.2s ease, color 0.2s ease;
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 14px;
+      font-size: 13px;
       border-left: 3px solid transparent;
     }
 
@@ -91,7 +91,7 @@
     }
 
     .menu-item-icon {
-      font-size: 12px;
+      font-size: 11px;
       width: 16px;
       text-align: center;
       color: var(--brand);
@@ -99,7 +99,7 @@
 
     .main {
       flex: 1;
-      margin-left: 250px;
+      margin-left: 220px;
       display: flex;
       flex-direction: column;
       min-height: 100vh;
@@ -107,7 +107,7 @@
 
     .topbar {
       background: #ffffff;
-      padding: 16px 24px;
+      padding: 12px 16px;
       border-bottom: 1px solid var(--line);
       display: flex;
       align-items: center;
@@ -126,7 +126,7 @@
       background: #ffffff;
       color: var(--ink);
       border-radius: 8px;
-      padding: 6px 10px;
+      padding: 4px 8px;
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
@@ -135,8 +135,12 @@
       gap: 6px;
     }
 
+    .menu-toggle {
+      display: none;
+    }
+
     .page-title {
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 700;
     }
 
@@ -163,8 +167,8 @@
     .btn {
       border: none;
       border-radius: 8px;
-      padding: 8px 14px;
-      font-size: 13px;
+      padding: 6px 12px;
+      font-size: 12px;
       font-weight: 700;
       cursor: pointer;
     }
@@ -186,13 +190,13 @@
 
     .content {
       flex: 1;
-      padding: 24px;
+      padding: 16px;
     }
 
     .card {
       background: var(--panel);
       border-radius: 16px;
-      padding: 26px;
+      padding: 18px;
       box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
     }
 
@@ -351,6 +355,10 @@
       .layout {
         flex-direction: column;
       }
+
+      .menu-toggle {
+        display: inline-flex;
+      }
     }
 
     @media (max-width: 640px) {
@@ -447,8 +455,8 @@
     <div class="main">
       <div class="topbar">
         <div class="topbar-left">
-          <button class="icon-btn" onclick="toggleSidebar()" aria-label="Open menu">
-            Menu
+          <button class="icon-btn menu-toggle" onclick="toggleSidebar()" aria-label="Open menu">
+            &#9776;
           </button>
           <button class="icon-btn" onclick="goBackToDashboard()" aria-label="Back to dashboard">
             Back
@@ -529,6 +537,7 @@
       renderContent('Dashboard');
       loadUserInfo();
       startSessionMonitoring();
+      handleResponsiveSidebar();
     };
 
     function loadUserInfo() {
@@ -663,6 +672,16 @@
       const sidebar = document.querySelector('.sidebar');
       if (sidebar) sidebar.classList.remove('open');
     }
+
+    function handleResponsiveSidebar() {
+      const sidebar = document.querySelector('.sidebar');
+      if (!sidebar) return;
+      if (window.innerWidth > 900) {
+        sidebar.classList.remove('open');
+      }
+    }
+
+    window.addEventListener('resize', handleResponsiveSidebar);
 
     function renderSettingsContent() {
       const contentArea = document.getElementById('contentArea');
