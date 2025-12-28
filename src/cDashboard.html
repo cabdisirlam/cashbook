@@ -570,7 +570,10 @@
     <div class="payment-modal-card">
       <div class="payment-modal-header">
         <div style="font-weight:700;">New Payment</div>
-        <button class="btn btn-secondary" onclick="closePaymentModal()">Close</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" onclick="openPaymentFull()">Open Full Page</button>
+          <button class="btn btn-secondary" onclick="closePaymentModal()">Close</button>
+        </div>
       </div>
       <div class="payment-modal-body">
         <div class="payment-loading" id="paymentLoading">Loading payment form...</div>
@@ -593,6 +596,7 @@
       loadUserInfo();
       startSessionMonitoring();
       handleResponsiveSidebar();
+      ensureDashboardLoaded();
     }
 
     document.addEventListener('DOMContentLoaded', initializeDashboard);
@@ -818,6 +822,7 @@
 
       modal.classList.add('open');
       loading.style.display = 'block';
+      loading.textContent = 'Loading payment form...';
 
       iframe.onload = function() {
         loading.style.display = 'none';
@@ -827,7 +832,7 @@
       };
 
       const baseUrl = window.location.origin + window.location.pathname;
-      iframe.src = baseUrl + '?view=payment&t=' + Date.now();
+      iframe.src = baseUrl + '?view=payment&embed=1&t=' + Date.now();
     }
 
     function closePaymentModal() {
@@ -837,11 +842,28 @@
       iframe.src = 'about:blank';
     }
 
+    function openPaymentFull() {
+      const baseUrl = window.location.origin + window.location.pathname;
+      window.open(baseUrl + '?view=payment&t=' + Date.now(), '_blank');
+    }
+
     window.addEventListener('message', function(event) {
       if (event && event.data === 'close-payment-modal') {
         closePaymentModal();
       }
     });
+
+    function ensureDashboardLoaded() {
+      const reloadKey = 'dashboardReloadedOnce';
+      setTimeout(function() {
+        const contentArea = document.getElementById('contentArea');
+        const hasContent = contentArea && contentArea.innerHTML.trim().length > 0;
+        if (!hasContent && !sessionStorage.getItem(reloadKey)) {
+          sessionStorage.setItem(reloadKey, '1');
+          window.location.reload();
+        }
+      }, 1200);
+    }
 
     function loadSettings() {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
