@@ -583,7 +583,6 @@
     let sessionCheckInterval;
     let countdownInterval;
     let lastActivity = Date.now();
-    let paymentFormCache = '';
 
     let dashboardInitialized = false;
 
@@ -813,43 +812,26 @@
     }
 
     function openPaymentForm() {
-      if (typeof google === 'undefined' || !google.script || !google.script.run) {
-        alert('App runtime missing. Open the app via the deployed URL.');
-        return;
-      }
-
       const modal = document.getElementById('paymentModal');
       const iframe = document.getElementById('paymentFrame');
       const loading = document.getElementById('paymentLoading');
 
       modal.classList.add('open');
       loading.style.display = 'block';
-      iframe.srcdoc = '';
 
-      if (paymentFormCache) {
-        iframe.srcdoc = paymentFormCache;
+      iframe.onload = function() {
         loading.style.display = 'none';
-        return;
-      }
+      };
 
-      google.script.run
-        .withSuccessHandler(function(html) {
-          paymentFormCache = html || '';
-          iframe.srcdoc = paymentFormCache || '<p style="padding:16px;">Failed to load form.</p>';
-          loading.style.display = 'none';
-        })
-        .withFailureHandler(function(error) {
-          loading.textContent = error.message || 'Failed to load payment form.';
-          console.error('Failed to open payment form:', error);
-        })
-        .getPaymentFormHtml();
+      const baseUrl = window.location.origin + window.location.pathname;
+      iframe.src = baseUrl + '?view=payment&t=' + Date.now();
     }
 
     function closePaymentModal() {
       const modal = document.getElementById('paymentModal');
       const iframe = document.getElementById('paymentFrame');
       modal.classList.remove('open');
-      iframe.srcdoc = '';
+      iframe.src = 'about:blank';
     }
 
     window.addEventListener('message', function(event) {
