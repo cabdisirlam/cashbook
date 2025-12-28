@@ -64,22 +64,23 @@ function doGet(e) {
 }
 
 /**
- * Initialize spreadsheet and sheets
+ * PUBLIC: Initialize spreadsheet and sheets
+ * Run this once to set up your Financial System
  */
 function initializeSpreadsheet() {
-  let ss = getOrCreateSpreadsheet();
+  let ss = _getOrCreateSpreadsheet();
 
   // Initialize all 10 sheets in order
-  initializeHomeSheet(ss);
-  initializeViewLedgerSheet(ss);
-  initializeViewReportsSheet(ss);
-  initializeViewReconSheet(ss);
-  initializeDbJournalSheet(ss);
-  initializeDbBankSheet(ss);
-  initializeDbBudgetSheet(ss);
-  initializeMasterDataSheet(ss);
-  initializeSysUsersSheet(ss);
-  initializeSysLogsSheet(ss);
+  _initializeHomeSheet(ss);
+  _initializeViewLedgerSheet(ss);
+  _initializeViewReportsSheet(ss);
+  _initializeViewReconSheet(ss);
+  _initializeDbJournalSheet(ss);
+  _initializeDbBankSheet(ss);
+  _initializeDbBudgetSheet(ss);
+  _initializeMasterDataSheet(ss);
+  _initializeSysUsersSheet(ss);
+  _initializeSysLogsSheet(ss);
 
   return {
     success: true,
@@ -90,13 +91,13 @@ function initializeSpreadsheet() {
 }
 
 /**
- * MANUAL CLEANUP: Run this to clean up sheet headers on existing sheets
- * This function can be run manually from the Apps Script editor
+ * PUBLIC: Clean up sheet headers on existing sheets
+ * Run this to fix headers without recreating the entire spreadsheet
  */
 function cleanupSheetHeaders() {
   Logger.log('Starting manual sheet headers cleanup...');
 
-  const ss = getOrCreateSpreadsheet();
+  const ss = _getOrCreateSpreadsheet();
   let updatedSheets = [];
 
   // Clean up VIEW_LEDGER headers
@@ -105,7 +106,7 @@ function cleanupSheetHeaders() {
     const headers = ['Date', 'Account_Code', 'Payee', 'Category', 'Sub_Category',
                      'Account_Type', 'Description', 'Ref_No', 'Debit', 'Credit', 'Balance', 'Receipt_Link'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('VIEW_LEDGER');
     Logger.log('✓ VIEW_LEDGER headers cleaned');
   }
@@ -117,7 +118,7 @@ function cleanupSheetHeaders() {
                      'Category', 'Sub_Category', 'Account_Type', 'Description', 'Debit', 'Credit',
                      'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('DB_JOURNAL');
     Logger.log('✓ DB_JOURNAL headers cleaned');
   }
@@ -128,7 +129,7 @@ function cleanupSheetHeaders() {
     const headers = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref',
                      'Description', 'Amount', 'Balance', 'Match_Status'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('DB_BANK');
     Logger.log('✓ DB_BANK headers cleaned');
   }
@@ -139,7 +140,7 @@ function cleanupSheetHeaders() {
     const headers = ['Date', 'Type', 'Financial_Year', 'Category', 'Sub_Category',
                      'Account_Type', 'Amount', 'Auth_Ref', 'Description'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('DB_BUDGET');
     Logger.log('✓ DB_BUDGET headers cleaned');
   }
@@ -149,7 +150,7 @@ function cleanupSheetHeaders() {
   if (sheet) {
     const headers = ['Category', 'Sub_Category', 'Account_Type', 'Account_Codes', 'Payees'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('MASTER_DATA');
     Logger.log('✓ MASTER_DATA headers cleaned');
   }
@@ -159,7 +160,7 @@ function cleanupSheetHeaders() {
   if (sheet) {
     const headers = ['Email', 'PIN', 'Name', 'Role', 'Status'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('SYS_USERS');
     Logger.log('✓ SYS_USERS headers cleaned');
   }
@@ -169,7 +170,7 @@ function cleanupSheetHeaders() {
   if (sheet) {
     const headers = ['Timestamp', 'User', 'Action', 'Target_ID', 'Details'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('SYS_LOGS');
     Logger.log('✓ SYS_LOGS headers cleaned');
   }
@@ -193,9 +194,9 @@ function cleanupSheetHeaders() {
 }
 
 /**
- * Get or create the main spreadsheet
+ * PRIVATE: Get or create the main spreadsheet
  */
-function getOrCreateSpreadsheet() {
+function _getOrCreateSpreadsheet() {
   const scriptProperties = PropertiesService.getScriptProperties();
   let spreadsheetId = scriptProperties.getProperty('spreadsheetId');
   let ss;
@@ -224,9 +225,9 @@ function getOrCreateSpreadsheet() {
 }
 
 /**
- * Helper function to format header row
+ * PRIVATE: Helper function to format header row
  */
-function formatHeaderRow(sheet, numColumns) {
+function _formatHeaderRow(sheet, numColumns) {
   sheet.getRange(1, 1, 1, numColumns)
     .setBackground('#4A90E2')
     .setFontColor('#FFFFFF')
@@ -247,7 +248,7 @@ function formatHeaderRow(sheet, numColumns) {
  */
 
 // 1. HOME Sheet
-function initializeHomeSheet(ss) {
+function _initializeHomeSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.HOME);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.HOME, 0); // First sheet
@@ -259,20 +260,20 @@ function initializeHomeSheet(ss) {
 }
 
 // 2. VIEW_LEDGER Sheet
-function initializeViewLedgerSheet(ss) {
+function _initializeViewLedgerSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_LEDGER);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.VIEW_LEDGER);
     const headers = ['Date', 'Account_Code', 'Payee', 'Category', 'Sub_Category',
                      'Account_Type', 'Description', 'Ref_No', 'Debit', 'Credit', 'Balance', 'Receipt_Link'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
   }
   return sheet;
 }
 
 // 3. VIEW_REPORTS Sheet
-function initializeViewReportsSheet(ss) {
+function _initializeViewReportsSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_REPORTS);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.VIEW_REPORTS);
@@ -284,7 +285,7 @@ function initializeViewReportsSheet(ss) {
 }
 
 // 4. VIEW_RECON Sheet
-function initializeViewReconSheet(ss) {
+function _initializeViewReconSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_RECON);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.VIEW_RECON);
@@ -300,7 +301,7 @@ function initializeViewReconSheet(ss) {
  */
 
 // 5. DB_JOURNAL Sheet
-function initializeDbJournalSheet(ss) {
+function _initializeDbJournalSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_JOURNAL);
@@ -308,33 +309,33 @@ function initializeDbJournalSheet(ss) {
                      'Category', 'Sub_Category', 'Account_Type', 'Description', 'Debit', 'Credit',
                      'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
   }
   return sheet;
 }
 
 // 6. DB_BANK Sheet
-function initializeDbBankSheet(ss) {
+function _initializeDbBankSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BANK);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_BANK);
     const headers = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref',
                      'Description', 'Amount', 'Balance', 'Match_Status'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
   }
   return sheet;
 }
 
 // 7. DB_BUDGET Sheet
-function initializeDbBudgetSheet(ss) {
+function _initializeDbBudgetSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_BUDGET);
     const headers = ['Date', 'Type', 'Financial_Year', 'Category', 'Sub_Category',
                      'Account_Type', 'Amount', 'Auth_Ref', 'Description'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
 
     // Add a note about never deleting rows
     sheet.getRange('A2').setNote('CRITICAL RULE: Never delete rows! For budget adjustments, add new rows with negative amounts.');
@@ -347,7 +348,7 @@ function initializeDbBudgetSheet(ss) {
  */
 
 // 8. MASTER_DATA Sheet
-function initializeMasterDataSheet(ss) {
+function _initializeMasterDataSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.MASTER_DATA);
@@ -355,7 +356,7 @@ function initializeMasterDataSheet(ss) {
     // Create headers - All data will come from user input
     const headers = ['Category', 'Sub_Category', 'Account_Type', 'Account_Codes', 'Payees'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
 
     // Auto-resize columns for better visibility
     sheet.autoResizeColumns(1, headers.length);
@@ -364,7 +365,7 @@ function initializeMasterDataSheet(ss) {
 }
 
 // 9. SYS_USERS Sheet
-function initializeSysUsersSheet(ss) {
+function _initializeSysUsersSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.SYS_USERS);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.SYS_USERS);
@@ -372,7 +373,7 @@ function initializeSysUsersSheet(ss) {
     // Set headers
     const headers = ['Email', 'PIN', 'Name', 'Role', 'Status'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
 
     // Add default admin user
     const defaultUser = [
@@ -388,13 +389,13 @@ function initializeSysUsersSheet(ss) {
 }
 
 // 10. SYS_LOGS Sheet
-function initializeSysLogsSheet(ss) {
+function _initializeSysLogsSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.SYS_LOGS);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.SYS_LOGS);
     const headers = ['Timestamp', 'User', 'Action', 'Target_ID', 'Details'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    formatHeaderRow(sheet, headers.length);
+    _formatHeaderRow(sheet, headers.length);
   }
   return sheet;
 }
@@ -404,8 +405,8 @@ function initializeSysLogsSheet(ss) {
  */
 function logSystemEvent(user, action, targetId, details) {
   try {
-    const ss = getOrCreateSpreadsheet();
-    const logsSheet = initializeSysLogsSheet(ss);
+    const ss = _getOrCreateSpreadsheet();
+    const logsSheet = _initializeSysLogsSheet(ss);
 
     const timestamp = new Date();
     const logEntry = [timestamp, user, action, targetId || '', details || ''];
@@ -422,8 +423,8 @@ function logSystemEvent(user, action, targetId, details) {
 function authenticateUser(email, pin) {
   try {
     // Initialize spreadsheet if needed
-    const ss = getOrCreateSpreadsheet();
-    const usersSheet = initializeSysUsersSheet(ss);
+    const ss = _getOrCreateSpreadsheet();
+    const usersSheet = _initializeSysUsersSheet(ss);
 
     // Get all user data
     const data = usersSheet.getDataRange().getValues();
