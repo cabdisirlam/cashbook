@@ -265,6 +265,25 @@
       background: rgba(239, 68, 68, 0.92);
     }
 
+    .app-status {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: #0f172a;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+      z-index: 3000;
+      display: none;
+    }
+
+    .app-status.show {
+      display: block;
+    }
+
     @media (max-width: 768px) {
       .sidebar {
         position: static;
@@ -392,6 +411,8 @@
     </div>
   </div>
 
+  <div class="app-status show" id="appStatus">Dashboard loading...</div>
+
   <div class="main-content">
     <div class="header">
       <div class="page-title" id="pageTitle">Dashboard</div>
@@ -425,10 +446,11 @@
       renderContent('Dashboard');
       loadUserInfo();
       startSessionMonitoring();
+      hideAppStatus();
     };
 
     function loadUserInfo() {
-      if (!google || !google.script || !google.script.run) {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
         renderError('App runtime missing. Open the web app via the deployed URL.');
         return;
       }
@@ -540,6 +562,11 @@
 
       container.innerHTML = '<div class="skeleton-card"><p>Loading users...</p></div>';
 
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        container.innerHTML = '<div class="skeleton-card"><p>App runtime missing.</p></div>';
+        return;
+      }
+
       google.script.run
         .withSuccessHandler(function(users) {
           container.innerHTML = renderUsersTable(users || []);
@@ -598,6 +625,11 @@
       form.dataset.rowId = rowId || '';
 
       if (rowId) {
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          alert('App runtime missing.');
+          return;
+        }
+
         google.script.run
           .withSuccessHandler(function(user) {
             if (!user) return;
@@ -642,6 +674,11 @@
 
       const action = payload.rowId ? 'updateUser' : 'addUser';
 
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        alert('App runtime missing.');
+        return;
+      }
+
       google.script.run
         .withSuccessHandler(function() {
           closeUserModal();
@@ -657,6 +694,11 @@
     function deactivateUser(rowId) {
       if (!confirm('Deactivate this user?')) return;
 
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        alert('App runtime missing.');
+        return;
+      }
+
       google.script.run
         .withSuccessHandler(function() {
           loadUsers();
@@ -666,6 +708,16 @@
           console.error('Failed to deactivate user:', error);
         })
         .deactivateUser(rowId);
+    }
+
+    window.addEventListener('error', function(event) {
+      const message = event && event.message ? event.message : 'Unexpected error.';
+      renderError(`Error: ${message}`);
+    });
+
+    function hideAppStatus() {
+      const status = document.getElementById('appStatus');
+      if (status) status.classList.remove('show');
     }
 
     function handleLogout() {
