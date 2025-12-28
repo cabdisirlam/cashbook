@@ -324,6 +324,7 @@
     subToCatMap: {}
   };
   let transactionMode = 'Payment';
+  let isSaving = false;
 
   function openPaymentModal() {
     transactionMode = 'Payment';
@@ -470,6 +471,8 @@
     const accountType = document.getElementById('addAccountType').value.trim();
     const reportMapping = document.getElementById('addAccountReport').value.trim();
     if (!value || !accountType || !reportMapping) return;
+    if (isSaving) return;
+    isSaving = true;
 
     setStatus('Saving master data...');
     google.script.run
@@ -477,9 +480,11 @@
         closeSubModal('addAccountModal');
         loadDropdowns();
         setStatus('Master data saved.');
+        isSaving = false;
       })
       .withFailureHandler(function(error) {
         setStatus(error.message || 'Failed to add master data.');
+        isSaving = false;
       })
       .addMasterItem('account', value, '', accountType, reportMapping);
   }
@@ -487,6 +492,8 @@
   function saveNewPayee() {
     const value = document.getElementById('addPayeeInput').value.trim();
     if (!value) return;
+    if (isSaving) return;
+    isSaving = true;
 
     setStatus('Saving master data...');
     google.script.run
@@ -494,9 +501,11 @@
         closeSubModal('addPayeeModal');
         loadDropdowns();
         setStatus('Master data saved.');
+        isSaving = false;
       })
       .withFailureHandler(function(error) {
         setStatus(error.message || 'Failed to add master data.');
+        isSaving = false;
       })
       .addMasterItem('payee', value);
   }
@@ -507,6 +516,8 @@
     const accountType = document.getElementById('addSubAccountType').value.trim();
     const reportMapping = document.getElementById('addSubReport').value.trim();
     if (!name || !parent || !accountType || !reportMapping) return;
+    if (isSaving) return;
+    isSaving = true;
 
     setStatus('Saving sub-category...');
     google.script.run
@@ -514,14 +525,17 @@
         closeSubModal('addSubModal');
         loadDropdowns();
         setStatus('Sub-category saved.');
+        isSaving = false;
       })
       .withFailureHandler(function(error) {
         setStatus(error.message || 'Failed to add sub-category.');
+        isSaving = false;
       })
       .addMasterItem('subCategory', name, parent, accountType, reportMapping);
   }
 
   function saveTransaction() {
+    if (isSaving) return;
     const header = {
       date: document.getElementById('txnDate').value,
       accountCode: document.getElementById('accountCode').value.trim(),
@@ -556,15 +570,20 @@
       return;
     }
 
-    setStatus('Saving payment...');
+    isSaving = true;
+    const savingLabel = transactionMode === 'Receipt' ? 'Saving receipt...' : 'Saving payment...';
+    setStatus(savingLabel);
     google.script.run
       .withSuccessHandler(function() {
-        setStatus('Payment saved.');
+        const savedLabel = transactionMode === 'Receipt' ? 'Receipt saved.' : 'Payment saved.';
+        setStatus(savedLabel);
         resetPaymentForm();
         closePaymentModal();
+        isSaving = false;
       })
       .withFailureHandler(function(error) {
         setStatus(error.message || 'Failed to save payment.');
+        isSaving = false;
       })
       .saveTransaction({ header: header, rows: rows, type: transactionMode });
   }
