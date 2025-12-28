@@ -119,6 +119,137 @@
       color: #64748b;
     }
 
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: #ffffff;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .table th,
+    .table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .table th {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .badge-active {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-inactive {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .modal.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #0f172a;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
     .session-timer {
       position: fixed;
       bottom: 16px;
@@ -228,13 +359,13 @@
 
         <div class="menu-section">
           <div class="menu-section-title">Reports</div>
-          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Cashbook" onclick="navigateTo(this, 'Cashbook')">
-            <span class="menu-item-icon">-</span>
-            <span>Cashbook</span>
-          </div>
           <div class="menu-item" data-role="admin,inputter,viewer" data-label="P &amp; L" onclick="navigateTo(this, 'P &amp; L')">
             <span class="menu-item-icon">-</span>
             <span>P &amp; L</span>
+          </div>
+          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Cash Flow" onclick="navigateTo(this, 'Cash Flow')">
+            <span class="menu-item-icon">-</span>
+            <span>Cash Flow</span>
           </div>
           <div class="menu-item" data-role="admin,inputter,viewer" data-label="Balance Sheet" onclick="navigateTo(this, 'Balance Sheet')">
             <span class="menu-item-icon">-</span>
@@ -360,6 +491,12 @@
       const pageTitle = document.getElementById('pageTitle');
 
       pageTitle.textContent = label;
+
+      if (label === 'Users') {
+        renderUsersContent();
+        return;
+      }
+
       contentArea.innerHTML = `
         <div class="skeleton-card">
           <h2>${label}</h2>
@@ -376,6 +513,159 @@
           <p>${message}</p>
         </div>
       `;
+    }
+
+    function renderUsersContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="panel-header">
+          <div>
+            <h2 style="margin-bottom:4px;">Users</h2>
+            <p style="color:#64748b;font-size:13px;">Manage user access and PINs.</p>
+          </div>
+          <div>
+            <button class="btn btn-secondary" onclick="loadUsers()">Refresh</button>
+            <button class="btn btn-primary" onclick="openUserModal()">Add User</button>
+          </div>
+        </div>
+        <div id="usersTableContainer"></div>
+      `;
+
+      loadUsers();
+    }
+
+    function loadUsers() {
+      const container = document.getElementById('usersTableContainer');
+      if (!container) return;
+
+      container.innerHTML = '<div class="skeleton-card"><p>Loading users...</p></div>';
+
+      google.script.run
+        .withSuccessHandler(function(users) {
+          container.innerHTML = renderUsersTable(users || []);
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<div class="skeleton-card"><p>Failed to load users.</p></div>';
+          console.error('Failed to load users:', error);
+        })
+        .getUsers();
+    }
+
+    function renderUsersTable(users) {
+      if (!users.length) {
+        return '<div class="skeleton-card"><p>No users found.</p></div>';
+      }
+
+      const rows = users.map(user => `
+        <tr>
+          <td>${user.email}</td>
+          <td>${user.name}</td>
+          <td>${user.role}</td>
+          <td>
+            <span class="badge ${user.status === 'Active' ? 'badge-active' : 'badge-inactive'}">
+              ${user.status}
+            </span>
+          </td>
+          <td>
+            <button class="btn btn-secondary" onclick="openUserModal(${user.rowId})">Edit</button>
+            <button class="btn btn-danger" onclick="deactivateUser(${user.rowId})">Deactivate</button>
+          </td>
+        </tr>
+      `).join('');
+
+      return `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function openUserModal(rowId) {
+      const modal = document.getElementById('userModal');
+      const form = document.getElementById('userForm');
+      form.reset();
+      form.dataset.rowId = rowId || '';
+
+      if (rowId) {
+        google.script.run
+          .withSuccessHandler(function(user) {
+            if (!user) return;
+            document.getElementById('userEmail').value = user.email;
+            document.getElementById('userNameInput').value = user.name;
+            document.getElementById('userRoleInput').value = user.role;
+            document.getElementById('userStatusInput').value = user.status;
+          })
+          .withFailureHandler(function(error) {
+            console.error('Failed to load user:', error);
+          })
+          .getUserByRowId(rowId);
+      } else {
+        document.getElementById('userStatusInput').value = 'Active';
+      }
+
+      modal.classList.add('open');
+    }
+
+    function closeUserModal() {
+      document.getElementById('userModal').classList.remove('open');
+    }
+
+    function saveUser(event) {
+      event.preventDefault();
+
+      const form = document.getElementById('userForm');
+      const rowId = form.dataset.rowId;
+      const payload = {
+        rowId: rowId ? Number(rowId) : null,
+        email: document.getElementById('userEmail').value.trim(),
+        pin: document.getElementById('userPin').value.trim(),
+        name: document.getElementById('userNameInput').value.trim(),
+        role: document.getElementById('userRoleInput').value,
+        status: document.getElementById('userStatusInput').value
+      };
+
+      if (!/^\d{4}$/.test(payload.pin)) {
+        alert('PIN must be exactly 4 digits.');
+        return;
+      }
+
+      const action = payload.rowId ? 'updateUser' : 'addUser';
+
+      google.script.run
+        .withSuccessHandler(function() {
+          closeUserModal();
+          loadUsers();
+        })
+        .withFailureHandler(function(error) {
+          alert(error.message || 'Failed to save user.');
+          console.error('Failed to save user:', error);
+        })
+        [action](payload);
+    }
+
+    function deactivateUser(rowId) {
+      if (!confirm('Deactivate this user?')) return;
+
+      google.script.run
+        .withSuccessHandler(function() {
+          loadUsers();
+        })
+        .withFailureHandler(function(error) {
+          alert(error.message || 'Failed to deactivate user.');
+          console.error('Failed to deactivate user:', error);
+        })
+        .deactivateUser(rowId);
     }
 
     function handleLogout() {
@@ -441,5 +731,48 @@
       }, 1000);
     }
   </script>
+
+  <div class="modal" id="userModal">
+    <div class="modal-card">
+      <h3 style="margin-bottom: 12px;">User Details</h3>
+      <form id="userForm" onsubmit="saveUser(event)">
+        <div class="form-group">
+          <label for="userEmail">Email</label>
+          <input type="email" id="userEmail" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="userNameInput">Name</label>
+            <input type="text" id="userNameInput" required>
+          </div>
+          <div class="form-group">
+            <label for="userRoleInput">Role</label>
+            <select id="userRoleInput" required>
+              <option value="ADMIN">ADMIN</option>
+              <option value="INPUTTER">INPUTTER</option>
+              <option value="VIEWER">VIEWER</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="userPin">PIN (4 digits)</label>
+            <input type="password" id="userPin" inputmode="numeric" pattern="[0-9]{4}" required>
+          </div>
+          <div class="form-group">
+            <label for="userStatusInput">Status</label>
+            <select id="userStatusInput" required>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </body>
 </html>

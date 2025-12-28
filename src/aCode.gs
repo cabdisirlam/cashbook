@@ -562,6 +562,144 @@ function checkSession() {
 }
 
 /**
+ * Admin: Users management
+ */
+function getUsers() {
+  _requireAdmin();
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = _initializeSysUsersSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  if (data.length <= 1) return [];
+
+  return data.slice(1).map((row, index) => {
+    return {
+      rowId: index + 2,
+      email: row[0],
+      name: row[2],
+      role: row[3],
+      status: row[4]
+    };
+  });
+}
+
+function getUserByRowId(rowId) {
+  _requireAdmin();
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = _initializeSysUsersSheet(ss);
+  const row = Number(rowId);
+
+  if (!row || row < 2) return null;
+
+  const values = sheet.getRange(row, 1, 1, 5).getValues()[0];
+  if (!values[0]) return null;
+
+  return {
+    rowId: row,
+    email: values[0],
+    name: values[2],
+    role: values[3],
+    status: values[4]
+  };
+}
+
+function addUser(user) {
+  _requireAdmin();
+  const payload = _normalizeUserPayload(user);
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = _initializeSysUsersSheet(ss);
+
+  const data = sheet.getDataRange().getValues();
+  const emailLower = payload.email.toLowerCase();
+  const existing = data.slice(1).some(row => String(row[0]).toLowerCase() === emailLower);
+  if (existing) {
+    throw new Error('Email already exists.');
+  }
+
+  sheet.appendRow([payload.email, payload.pin, payload.name, payload.role, payload.status]);
+  return { success: true };
+}
+
+function updateUser(user) {
+  _requireAdmin();
+  const payload = _normalizeUserPayload(user);
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = _initializeSysUsersSheet(ss);
+  const row = Number(payload.rowId);
+
+  if (!row || row < 2) {
+    throw new Error('Invalid user row.');
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const emailLower = payload.email.toLowerCase();
+  const duplicate = data.slice(1).some((rowData, idx) => {
+    const rowIndex = idx + 2;
+    return rowIndex !== row && String(rowData[0]).toLowerCase() === emailLower;
+  });
+  if (duplicate) {
+    throw new Error('Email already exists.');
+  }
+
+  sheet.getRange(row, 1, 1, 5).setValues([[
+    payload.email,
+    payload.pin,
+    payload.name,
+    payload.role,
+    payload.status
+  ]]);
+
+  return { success: true };
+}
+
+function deactivateUser(rowId) {
+  _requireAdmin();
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = _initializeSysUsersSheet(ss);
+  const row = Number(rowId);
+
+  if (!row || row < 2) {
+    throw new Error('Invalid user row.');
+  }
+
+  sheet.getRange(row, 5).setValue('Inactive');
+  return { success: true };
+}
+
+function _normalizeUserPayload(user) {
+  if (!user) throw new Error('Missing user payload.');
+
+  const email = String(user.email || '').trim();
+  const pin = String(user.pin || '').trim();
+  const name = String(user.name || '').trim();
+  const role = String(user.role || '').trim().toUpperCase();
+  const status = String(user.status || '').trim();
+
+  if (!email) throw new Error('Email is required.');
+  if (!/^\d{4}$/.test(pin)) throw new Error('PIN must be exactly 4 digits.');
+  if (!name) throw new Error('Name is required.');
+  if (!role) throw new Error('Role is required.');
+
+  const normalizedStatus = status.toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
+
+  return {
+    rowId: user.rowId,
+    email: email,
+    pin: pin,
+    name: name,
+    role: role,
+    status: normalizedStatus
+  };
+}
+
+function _requireAdmin() {
+  const user = getCurrentUser();
+  if (!user.authenticated || String(user.role).toUpperCase() !== 'ADMIN') {
+    throw new Error('Unauthorized');
+  }
+}
+
+/**
  * MASTER DATA HELPER FUNCTIONS
  */
 
