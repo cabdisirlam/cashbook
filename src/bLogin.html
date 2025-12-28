@@ -376,26 +376,10 @@
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            // Login was successful, now fetch the dashboard HTML
-            google.script.run
-              .withSuccessHandler(function(dashboardHtml) {
-                // Replace the document content
-                document.documentElement.innerHTML = dashboardHtml;
-                // Manually execute the dashboard's initialization script
-                if (typeof initializeDashboard === 'function') {
-                  initializeDashboard();
-                } else {
-                  // Fallback if the function isn't found immediately
-                  window.onload = initializeDashboard;
-                }
-              })
-              .withFailureHandler(function(error) {
-                showError('Could not load dashboard. Please reload.');
-                console.error('Dashboard loading error:', error);
-                loginBtn.disabled = false;
-                loginBtn.classList.remove('loading');
-              })
-              .getDashboardHtml();
+            // Flag the login so the dashboard can retry while the session propagates.
+            sessionStorage.setItem('justLoggedIn', '1');
+            const targetUrl = window.location.origin + window.location.pathname;
+            window.location.replace(targetUrl);
           } else {
             showError(result.message || 'Login failed. Please try again.');
             loginBtn.disabled = false;
