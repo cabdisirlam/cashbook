@@ -56,6 +56,10 @@ function getFormInitData() {
   return payload;
 }
 
+function getPaymentFormHtml() {
+  return HtmlService.createHtmlOutputFromFile('F_Transaction').getContent();
+}
+
 function addMasterItem(type, value, parent) {
   const trimmed = String(value || '').trim();
   if (!trimmed) throw new Error('Value is required.');

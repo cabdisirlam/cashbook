@@ -328,7 +328,7 @@
         <div class="actions">
           <button type="submit" class="btn btn-primary">Save Payment</button>
           <button type="button" class="btn btn-secondary" onclick="resetForm()">Clear</button>
-          <button type="button" class="btn btn-secondary" onclick="google.script.host.close()">Close</button>
+          <button type="button" class="btn btn-secondary" onclick="requestClose()">Close</button>
         </div>
 
         <div class="status" id="statusMessage"></div>
@@ -592,6 +592,17 @@
       setDefaultDate();
       addRow();
       updateTotal();
+    }
+
+    function requestClose() {
+      if (google && google.script && google.script.host && google.script.host.close) {
+        google.script.host.close();
+        return;
+      }
+
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage('close-payment-modal', '*');
+      }
     }
   </script>
 </body>

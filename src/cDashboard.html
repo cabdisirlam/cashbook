@@ -283,6 +283,44 @@
       box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
     }
 
+    .payment-modal-card {
+      background: #ffffff;
+      border-radius: 16px;
+      width: min(1080px, 96vw);
+      height: min(740px, 92vh);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      overflow: hidden;
+    }
+
+    .payment-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #f8fafc;
+    }
+
+    .payment-modal-body {
+      flex: 1;
+      background: #f8fafc;
+    }
+
+    .payment-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #f8fafc;
+    }
+
+    .payment-loading {
+      padding: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -528,10 +566,24 @@
     </div>
   </div>
 
+  <div class="modal" id="paymentModal">
+    <div class="payment-modal-card">
+      <div class="payment-modal-header">
+        <div style="font-weight:700;">New Payment</div>
+        <button class="btn btn-secondary" onclick="closePaymentModal()">Close</button>
+      </div>
+      <div class="payment-modal-body">
+        <div class="payment-loading" id="paymentLoading">Loading payment form...</div>
+        <iframe class="payment-iframe" id="paymentFrame" title="New Payment Form"></iframe>
+      </div>
+    </div>
+  </div>
+
   <script>
     let sessionCheckInterval;
     let countdownInterval;
     let lastActivity = Date.now();
+    let paymentFormCache = '';
 
     let dashboardInitialized = false;
 
@@ -766,13 +818,45 @@
         return;
       }
 
+      const modal = document.getElementById('paymentModal');
+      const iframe = document.getElementById('paymentFrame');
+      const loading = document.getElementById('paymentLoading');
+
+      modal.classList.add('open');
+      loading.style.display = 'block';
+      iframe.srcdoc = '';
+
+      if (paymentFormCache) {
+        iframe.srcdoc = paymentFormCache;
+        loading.style.display = 'none';
+        return;
+      }
+
       google.script.run
+        .withSuccessHandler(function(html) {
+          paymentFormCache = html || '';
+          iframe.srcdoc = paymentFormCache || '<p style="padding:16px;">Failed to load form.</p>';
+          loading.style.display = 'none';
+        })
         .withFailureHandler(function(error) {
-          alert(error.message || 'Failed to open payment form.');
+          loading.textContent = error.message || 'Failed to load payment form.';
           console.error('Failed to open payment form:', error);
         })
-        .showPaymentForm();
+        .getPaymentFormHtml();
     }
+
+    function closePaymentModal() {
+      const modal = document.getElementById('paymentModal');
+      const iframe = document.getElementById('paymentFrame');
+      modal.classList.remove('open');
+      iframe.srcdoc = '';
+    }
+
+    window.addEventListener('message', function(event) {
+      if (event && event.data === 'close-payment-modal') {
+        closePaymentModal();
+      }
+    });
 
     function loadSettings() {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
