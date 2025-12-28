@@ -62,6 +62,24 @@ function saveTransaction(data) {
   const payee = String(header.payee || '').trim();
   const refNo = String(header.refNo || '').trim();
 
+  const ss = _getOrCreateSpreadsheet();
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) throw new Error('DB_JOURNAL not found.');
+
+  const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+  if (!master) throw new Error('MASTER_DATA not found.');
+
+  const masterLastRow = master.getLastRow();
+  const masterLastCol = master.getLastColumn();
+  const masterHeaders = masterLastRow >= 1
+    ? master.getRange(1, 1, 1, masterLastCol).getValues()[0].map(_normalizeHeader_)
+    : [];
+  const masterCols = _getMasterColumns_(masterHeaders);
+  const masterData = masterLastRow > 1
+    ? master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues()
+    : [];
+  const subMeta = _buildSubCategoryMeta_(masterData, masterCols);
+
   const cleanedRows = rows.map(function(row) {
     const amount = Number(row.amount || 0);
     const subCategory = String(row.subCategory || '').trim();
@@ -72,7 +90,18 @@ function saveTransaction(data) {
     if (!category) throw new Error('Each line needs a category.');
     if (amount <= 0) throw new Error('Line amount must be greater than zero.');
 
-    return { subCategory, category, description, amount };
+    const meta = subMeta[subCategory] || {};
+    const accountTypeValue = meta.accountType || '';
+    const reportMappingValue = meta.reportMapping || '';
+
+    return {
+      subCategory,
+      category,
+      description,
+      amount,
+      accountType: accountTypeValue,
+      reportMapping: reportMappingValue
+    };
   });
 
   const total = cleanedRows.reduce(function(sum, row) {
@@ -80,10 +109,6 @@ function saveTransaction(data) {
   }, 0);
 
   if (total <= 0) throw new Error('Total must be greater than zero.');
-
-  const ss = _getOrCreateSpreadsheet();
-  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
-  if (!journal) throw new Error('DB_JOURNAL not found.');
 
   const batchId = 'TXN-' + new Date().getTime();
   const entries = cleanedRows.map(function(row) {
@@ -94,12 +119,13 @@ function saveTransaction(data) {
       accountCode,
       payee,
       refNo,
-      'Expense',
-      row.category,
       row.subCategory,
+      row.category,
       row.description,
       row.amount,
       0,
+      row.accountType,
+      row.reportMapping,
       'Unreconciled',
       ''
     ];
@@ -207,4 +233,17 @@ function _valueExistsInColumn_(data, colIndex, value) {
   return data.some(function(row) {
     return String(row[colIndex - 1]).trim().toLowerCase() === normalized;
   });
+}
+
+function _buildSubCategoryMeta_(data, cols) {
+  const meta = {};
+  data.forEach(function(row) {
+    const subCat = cols.subCategory ? String(row[cols.subCategory - 1]).trim() : '';
+    if (!subCat) return;
+    meta[subCat] = {
+      accountType: cols.accountType ? String(row[cols.accountType - 1]).trim() : '',
+      reportMapping: cols.reportMapping ? String(row[cols.reportMapping - 1]).trim() : ''
+    };
+  });
+  return meta;
 }

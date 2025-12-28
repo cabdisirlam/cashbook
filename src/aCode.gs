@@ -114,9 +114,9 @@ function cleanupSheetHeaders() {
   // Clean up DB_JOURNAL headers
   sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (sheet) {
-    const headers = ['Date', 'Account_Code', 'Payee', 'Ref_No', 'Type',
-                     'Category', 'Sub_Category', 'Account_Type', 'Description', 'Debit', 'Credit',
-                     'Recon_Status', 'Receipt_URL'];
+    const headers = ['UUID', 'Batch_ID', 'Date', 'Account_Code', 'Payee', 'Ref_No',
+                     'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('DB_JOURNAL');
@@ -305,9 +305,9 @@ function _initializeDbJournalSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_JOURNAL);
-    const headers = ['Date', 'Account_Code', 'Payee', 'Ref_No', 'Type',
-                     'Category', 'Sub_Category', 'Account_Type', 'Description', 'Debit', 'Credit',
-                     'Recon_Status', 'Receipt_URL'];
+    const headers = ['UUID', 'Batch_ID', 'Date', 'Account_Code', 'Payee', 'Ref_No',
+                     'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
   }
