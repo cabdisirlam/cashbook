@@ -334,6 +334,13 @@
       justify-content: space-between;
       gap: 12px;
       margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .panel-header > div:last-child {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .table {
@@ -698,8 +705,33 @@
       }
 
       .btn {
-        padding: 6px 12px;
-        font-size: 12px;
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+
+      .panel-header {
+        gap: 8px;
+      }
+
+      .panel-header h2 {
+        font-size: 16px;
+      }
+
+      .panel-header p {
+        font-size: 11px;
+      }
+
+      .panel-header > div:last-child {
+        gap: 6px;
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      .panel-header .btn {
+        padding: 6px 8px;
+        font-size: 10px;
+        flex: 0 1 auto;
+        white-space: nowrap;
       }
 
       .page-title {
