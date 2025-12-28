@@ -52,6 +52,8 @@ function saveTransaction(data) {
 
   const header = data.header;
   const rows = data.rows;
+  const type = String(data.type || 'Payment').trim();
+  const isReceipt = type.toLowerCase() === 'receipt';
 
   const dateValue = new Date(header.date);
   if (Number.isNaN(dateValue.getTime())) throw new Error('Invalid date.');
@@ -112,6 +114,8 @@ function saveTransaction(data) {
 
   const batchId = 'TXN-' + new Date().getTime();
   const entries = cleanedRows.map(function(row) {
+    const debitValue = isReceipt ? 0 : row.amount;
+    const creditValue = isReceipt ? row.amount : 0;
     return [
       Utilities.getUuid(),
       batchId,
@@ -122,8 +126,8 @@ function saveTransaction(data) {
       row.subCategory,
       row.category,
       row.description,
-      row.amount,
-      0,
+      debitValue,
+      creditValue,
       row.accountType,
       row.reportMapping,
       'Unreconciled',

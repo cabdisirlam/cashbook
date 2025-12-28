@@ -639,6 +639,11 @@
         return;
       }
 
+      if (label === 'New Receipt') {
+        renderReceiptLauncher();
+        return;
+      }
+
       contentArea.innerHTML = `
         <div class="card">
           <h2>${label}</h2>
@@ -767,6 +772,25 @@
             </div>
           </div>
           <p style="color:#6b7280;font-size:13px;">Use Pay to launch the payment modal.</p>
+        </div>
+      `;
+    }
+
+    function renderReceiptLauncher() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">New Receipt</h2>
+              <p style="color:#6b7280;font-size:13px;">Open the split receipt form.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderReceiptLauncher()">Refresh</button>
+              <button class="btn btn-primary" onclick="openReceiptModal()">Receive</button>
+            </div>
+          </div>
+          <p style="color:#6b7280;font-size:13px;">Use Receive to launch the receipt modal.</p>
         </div>
       `;
     }

@@ -251,7 +251,7 @@
 <div class="modal-overlay" id="paymentModal">
   <div class="modal-content">
     <div class="form-header">
-      <span>Record Payment</span>
+      <span id="transactionTitle">Record Payment</span>
       <button class="close-btn" type="button" onclick="closePaymentModal()">X</button>
     </div>
 
@@ -323,8 +323,22 @@
     subCats: [],
     subToCatMap: {}
   };
+  let transactionMode = 'Payment';
 
   function openPaymentModal() {
+    transactionMode = 'Payment';
+    setTransactionTitle();
+    document.getElementById('paymentModal').style.display = 'flex';
+    setDefaultDate();
+    loadDropdowns();
+    if (!document.getElementById('splitBody').children.length) {
+      addLine();
+    }
+  }
+
+  function openReceiptModal() {
+    transactionMode = 'Receipt';
+    setTransactionTitle();
     document.getElementById('paymentModal').style.display = 'flex';
     setDefaultDate();
     loadDropdowns();
@@ -335,6 +349,12 @@
 
   function closePaymentModal() {
     document.getElementById('paymentModal').style.display = 'none';
+  }
+
+  function setTransactionTitle() {
+    const title = transactionMode === 'Receipt' ? 'Record Receipt' : 'Record Payment';
+    const titleEl = document.getElementById('transactionTitle');
+    if (titleEl) titleEl.textContent = title;
   }
 
   function setDefaultDate() {
@@ -546,7 +566,7 @@
       .withFailureHandler(function(error) {
         setStatus(error.message || 'Failed to save payment.');
       })
-      .saveTransaction({ header: header, rows: rows });
+      .saveTransaction({ header: header, rows: rows, type: transactionMode });
   }
 
   function resetPaymentForm() {
