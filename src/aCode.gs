@@ -90,6 +90,109 @@ function initializeSpreadsheet() {
 }
 
 /**
+ * MANUAL CLEANUP: Run this to clean up sheet headers on existing sheets
+ * This function can be run manually from the Apps Script editor
+ */
+function cleanupSheetHeaders() {
+  Logger.log('Starting manual sheet headers cleanup...');
+
+  const ss = getOrCreateSpreadsheet();
+  let updatedSheets = [];
+
+  // Clean up VIEW_LEDGER headers
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_LEDGER);
+  if (sheet) {
+    const headers = ['Date', 'Account_Code', 'Payee', 'Category', 'Sub_Category',
+                     'Account_Type', 'Description', 'Ref_No', 'Debit', 'Credit', 'Balance', 'Receipt_Link'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaderRow(sheet, headers.length);
+    updatedSheets.push('VIEW_LEDGER');
+    Logger.log('✓ VIEW_LEDGER headers cleaned');
+  }
+
+  // Clean up DB_JOURNAL headers
+  sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (sheet) {
+    const headers = ['Date', 'Account_Code', 'Payee', 'Ref_No', 'Type',
+                     'Category', 'Sub_Category', 'Account_Type', 'Description', 'Debit', 'Credit',
+                     'Recon_Status', 'Receipt_URL'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaderRow(sheet, headers.length);
+    updatedSheets.push('DB_JOURNAL');
+    Logger.log('✓ DB_JOURNAL headers cleaned');
+  }
+
+  // Clean up DB_BANK headers
+  sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BANK);
+  if (sheet) {
+    const headers = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref',
+                     'Description', 'Amount', 'Balance', 'Match_Status'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaderRow(sheet, headers.length);
+    updatedSheets.push('DB_BANK');
+    Logger.log('✓ DB_BANK headers cleaned');
+  }
+
+  // Clean up DB_BUDGET headers
+  sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
+  if (sheet) {
+    const headers = ['Date', 'Type', 'Financial_Year', 'Category', 'Sub_Category',
+                     'Account_Type', 'Amount', 'Auth_Ref', 'Description'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaderRow(sheet, headers.length);
+    updatedSheets.push('DB_BUDGET');
+    Logger.log('✓ DB_BUDGET headers cleaned');
+  }
+
+  // Clean up MASTER_DATA headers
+  sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+  if (sheet) {
+    const headers = ['Category', 'Sub_Category', 'Account_Type', 'Account_Codes', 'Payees'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaderRow(sheet, headers.length);
+    updatedSheets.push('MASTER_DATA');
+    Logger.log('✓ MASTER_DATA headers cleaned');
+  }
+
+  // Clean up SYS_USERS headers
+  sheet = ss.getSheetByName(CONFIG.SHEETS.SYS_USERS);
+  if (sheet) {
+    const headers = ['Email', 'PIN', 'Name', 'Role', 'Status'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaderRow(sheet, headers.length);
+    updatedSheets.push('SYS_USERS');
+    Logger.log('✓ SYS_USERS headers cleaned');
+  }
+
+  // Clean up SYS_LOGS headers
+  sheet = ss.getSheetByName(CONFIG.SHEETS.SYS_LOGS);
+  if (sheet) {
+    const headers = ['Timestamp', 'User', 'Action', 'Target_ID', 'Details'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaderRow(sheet, headers.length);
+    updatedSheets.push('SYS_LOGS');
+    Logger.log('✓ SYS_LOGS headers cleaned');
+  }
+
+  const message = `Sheet headers cleanup completed!\nUpdated ${updatedSheets.length} sheets: ${updatedSheets.join(', ')}`;
+  Logger.log(message);
+
+  // Show result in a UI alert if running from editor
+  try {
+    SpreadsheetApp.getUi().alert('Cleanup Complete', message, SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) {
+    // If UI not available, just log
+    Logger.log('UI not available, logged to console instead');
+  }
+
+  return {
+    success: true,
+    message: message,
+    updatedSheets: updatedSheets
+  };
+}
+
+/**
  * Get or create the main spreadsheet
  */
 function getOrCreateSpreadsheet() {
