@@ -700,6 +700,43 @@ function _requireAdmin() {
 }
 
 /**
+ * Admin: Settings
+ */
+function getSystemSettings() {
+  _requireAdmin();
+  const props = PropertiesService.getScriptProperties();
+  return {
+    systemName: props.getProperty('systemName') || 'Financial System',
+    entityName: props.getProperty('entityName') || 'Main Entity',
+    currency: props.getProperty('currency') || 'KSH',
+    decimals: props.getProperty('decimals') || '0.00'
+  };
+}
+
+function saveSystemSettings(settings) {
+  _requireAdmin();
+  if (!settings) throw new Error('Missing settings.');
+
+  const systemName = String(settings.systemName || '').trim();
+  const entityName = String(settings.entityName || '').trim();
+  const currency = String(settings.currency || '').trim().toUpperCase();
+  const decimals = String(settings.decimals || '').trim();
+
+  if (!systemName) throw new Error('System name is required.');
+  if (!entityName) throw new Error('Entity name is required.');
+  if (!currency) throw new Error('Currency is required.');
+  if (!/^\d\.\d{2}$/.test(decimals)) throw new Error('Decimals must be in 0.00 format.');
+
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('systemName', systemName);
+  props.setProperty('entityName', entityName);
+  props.setProperty('currency', currency);
+  props.setProperty('decimals', decimals);
+
+  return { success: true };
+}
+
+/**
  * MASTER DATA HELPER FUNCTIONS
  */
 
