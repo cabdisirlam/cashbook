@@ -314,6 +314,7 @@
 <datalist id="accountList"></datalist>
 <datalist id="payeeList"></datalist>
 <datalist id="subCatList"></datalist>
+<datalist id="categoryList"></datalist>
 
 <script>
   const paymentState = {
@@ -358,6 +359,7 @@
         fillList('accountList', paymentState.accounts);
         fillList('payeeList', paymentState.payees);
         fillList('subCatList', paymentState.subCats);
+        fillList('categoryList', payload.categories || []);
         setStatus('');
       })
       .withFailureHandler(function(error) {
@@ -418,6 +420,8 @@
 
   function openAddAccountModal() {
     document.getElementById('addAccountInput').value = '';
+    document.getElementById('addAccountType').value = '';
+    document.getElementById('addAccountReport').value = '';
     document.getElementById('addAccountModal').classList.add('open');
     document.getElementById('addAccountInput').focus();
   }
@@ -429,17 +433,10 @@
   }
 
   function openAddSubCategoryModal() {
-    const parentSelect = document.getElementById('addSubParent');
-    const categories = Object.values(paymentState.subToCatMap || {});
-    const unique = Array.from(new Set(categories.filter(Boolean))).sort();
-    parentSelect.innerHTML = '<option value=\"\">Select parent category</option>';
-    unique.forEach(function(item) {
-      const option = document.createElement('option');
-      option.value = item;
-      option.textContent = item;
-      parentSelect.appendChild(option);
-    });
     document.getElementById('addSubName').value = '';
+    document.getElementById('addSubCategory').value = '';
+    document.getElementById('addSubAccountType').value = '';
+    document.getElementById('addSubReport').value = '';
     document.getElementById('addSubModal').classList.add('open');
     document.getElementById('addSubName').focus();
   }
@@ -450,7 +447,9 @@
 
   function saveNewAccount() {
     const value = document.getElementById('addAccountInput').value.trim();
-    if (!value) return;
+    const accountType = document.getElementById('addAccountType').value.trim();
+    const reportMapping = document.getElementById('addAccountReport').value.trim();
+    if (!value || !accountType || !reportMapping) return;
 
     setStatus('Saving master data...');
     google.script.run
@@ -462,7 +461,7 @@
       .withFailureHandler(function(error) {
         setStatus(error.message || 'Failed to add master data.');
       })
-      .addMasterItem('account', value);
+      .addMasterItem('account', value, '', accountType, reportMapping);
   }
 
   function saveNewPayee() {
@@ -484,8 +483,10 @@
 
   function saveNewSubCategory() {
     const name = document.getElementById('addSubName').value.trim();
-    const parent = document.getElementById('addSubParent').value.trim();
-    if (!name || !parent) return;
+    const parent = document.getElementById('addSubCategory').value.trim();
+    const accountType = document.getElementById('addSubAccountType').value.trim();
+    const reportMapping = document.getElementById('addSubReport').value.trim();
+    if (!name || !parent || !accountType || !reportMapping) return;
 
     setStatus('Saving sub-category...');
     google.script.run
@@ -497,7 +498,7 @@
       .withFailureHandler(function(error) {
         setStatus(error.message || 'Failed to add sub-category.');
       })
-      .addMasterItem('subCategory', name, parent);
+      .addMasterItem('subCategory', name, parent, accountType, reportMapping);
   }
 
   function saveTransaction() {
@@ -571,6 +572,14 @@
       <label class="form-label" for="addAccountInput">Account Code</label>
       <input id="addAccountInput" class="input-field" type="text" placeholder="e.g. EQUITY_MAIN">
     </div>
+    <div>
+      <label class="form-label" for="addAccountType">Account Type</label>
+      <input id="addAccountType" class="input-field" type="text" placeholder="Asset">
+    </div>
+    <div>
+      <label class="form-label" for="addAccountReport">Report Mapping</label>
+      <input id="addAccountReport" class="input-field" type="text" placeholder="Current Assets">
+    </div>
     <div class="submodal-actions">
       <button class="btn btn-secondary" type="button" onclick="closeSubModal('addAccountModal')">Cancel</button>
       <button class="btn btn-primary" type="button" onclick="saveNewAccount()">Save</button>
@@ -606,8 +615,16 @@
       <input id="addSubName" class="input-field" type="text" placeholder="e.g. Fuel">
     </div>
     <div>
-      <label class="form-label" for="addSubParent">Parent Category</label>
-      <select id="addSubParent" class="select-field"></select>
+      <label class="form-label" for="addSubCategory">Category</label>
+      <input list="categoryList" id="addSubCategory" class="input-field" type="text" placeholder="e.g. Transport">
+    </div>
+    <div>
+      <label class="form-label" for="addSubAccountType">Account Type</label>
+      <input id="addSubAccountType" class="input-field" type="text" placeholder="Expense">
+    </div>
+    <div>
+      <label class="form-label" for="addSubReport">Report Mapping</label>
+      <input id="addSubReport" class="input-field" type="text" placeholder="Operating Expenses">
     </div>
     <div class="submodal-actions">
       <button class="btn btn-secondary" type="button" onclick="closeSubModal('addSubModal')">Cancel</button>

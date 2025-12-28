@@ -6,7 +6,8 @@ function getDropdownData() {
     accounts: [],
     payees: [],
     subCats: [],
-    subToCatMap: {}
+    subToCatMap: {},
+    categories: []
   };
 
   const ss = _getOrCreateSpreadsheet();
@@ -29,6 +30,7 @@ function getDropdownData() {
 
     if (account) payload.accounts.push(account);
     if (payee) payload.payees.push(payee);
+    if (category) payload.categories.push(category);
     if (subCat) {
       payload.subCats.push(subCat);
       if (category) payload.subToCatMap[subCat] = category;
@@ -38,6 +40,7 @@ function getDropdownData() {
   payload.accounts = _uniqueSorted_(payload.accounts);
   payload.payees = _uniqueSorted_(payload.payees);
   payload.subCats = _uniqueSorted_(payload.subCats);
+  payload.categories = _uniqueSorted_(payload.categories);
 
   return payload;
 }
@@ -108,7 +111,7 @@ function saveTransaction(data) {
   return 'Success';
 }
 
-function addMasterItem(type, value, parent) {
+function addMasterItem(type, value, parent, accountType, reportMapping) {
   const trimmed = String(value || '').trim();
   if (!trimmed) throw new Error('Value is required.');
 
@@ -124,26 +127,43 @@ function addMasterItem(type, value, parent) {
 
   const typeKey = String(type || '').toLowerCase();
 
-  if (typeKey === 'account') {
-    _addUniqueToColumn_(sheet, data, cols.accountCodes, trimmed, lastCol);
+  if (typeKey === 'payee') {
+    if (_valueExistsInColumn_(data, cols.payees, trimmed)) return;
+    const row = new Array(lastCol).fill('');
+    row[cols.payees - 1] = trimmed;
+    sheet.appendRow(row);
     return;
   }
 
-  if (typeKey === 'payee') {
-    _addUniqueToColumn_(sheet, data, cols.payees, trimmed, lastCol);
+  if (typeKey === 'account') {
+    const accountTypeValue = String(accountType || '').trim();
+    const reportValue = String(reportMapping || '').trim();
+    if (!accountTypeValue || !reportValue) {
+      throw new Error('Account type and report mapping are required.');
+    }
+    if (_valueExistsInColumn_(data, cols.accountCodes, trimmed)) return;
+    const row = new Array(lastCol).fill('');
+    row[cols.accountCodes - 1] = trimmed;
+    row[cols.accountType - 1] = accountTypeValue;
+    row[cols.reportMapping - 1] = reportValue;
+    sheet.appendRow(row);
     return;
   }
 
   if (typeKey === 'subcategory') {
     const parentCategory = String(parent || '').trim();
+    const accountTypeValue = String(accountType || '').trim();
+    const reportValue = String(reportMapping || '').trim();
     if (!parentCategory) throw new Error('Parent category is required.');
-
-    const accountType = _lookupAccountType_(data, cols.category, cols.accountType, parentCategory);
+    if (!accountTypeValue || !reportValue) {
+      throw new Error('Account type and report mapping are required.');
+    }
+    if (_valueExistsInColumn_(data, cols.subCategory, trimmed)) return;
     const row = new Array(lastCol).fill('');
-    if (cols.category) row[cols.category - 1] = parentCategory;
-    if (cols.subCategory) row[cols.subCategory - 1] = trimmed;
-    if (cols.accountType) row[cols.accountType - 1] = accountType;
-
+    row[cols.subCategory - 1] = trimmed;
+    row[cols.category - 1] = parentCategory;
+    row[cols.accountType - 1] = accountTypeValue;
+    row[cols.reportMapping - 1] = reportValue;
     sheet.appendRow(row);
     return;
   }
@@ -160,11 +180,12 @@ function _normalizeHeader_(value) {
 
 function _getMasterColumns_(headers) {
   return {
-    accountCodes: _resolveColumn_(headers, ['account_codes', 'account_code'], 1),
-    category: _resolveColumn_(headers, ['category'], 2),
-    subCategory: _resolveColumn_(headers, ['sub_category', 'subcategory'], 3),
-    payees: _resolveColumn_(headers, ['payees', 'payee'], 4),
-    accountType: _resolveColumn_(headers, ['account_type', 'accounttype'], 6)
+    payees: _resolveColumn_(headers, ['payees', 'payee'], 1),
+    subCategory: _resolveColumn_(headers, ['sub_category', 'subcategory'], 2),
+    category: _resolveColumn_(headers, ['category'], 3),
+    accountCodes: _resolveColumn_(headers, ['account_codes', 'account_code'], 4),
+    accountType: _resolveColumn_(headers, ['account_type', 'accounttype'], 5),
+    reportMapping: _resolveColumn_(headers, ['report_mapping', 'reportmapping'], 6)
   };
 }
 
@@ -180,24 +201,10 @@ function _uniqueSorted_(items) {
   return [...new Set(items.filter(Boolean))].sort();
 }
 
-function _addUniqueToColumn_(sheet, data, colIndex, value, lastCol) {
+function _valueExistsInColumn_(data, colIndex, value) {
   if (!colIndex) throw new Error('Column not found.');
-
-  const normalized = String(value || '').trim();
-  const exists = data.some(function(row) {
-    return String(row[colIndex - 1]).trim().toLowerCase() === normalized.toLowerCase();
+  const normalized = String(value || '').trim().toLowerCase();
+  return data.some(function(row) {
+    return String(row[colIndex - 1]).trim().toLowerCase() === normalized;
   });
-  if (exists) return;
-
-  const newRow = new Array(lastCol).fill('');
-  newRow[colIndex - 1] = normalized;
-  sheet.appendRow(newRow);
-}
-
-function _lookupAccountType_(data, categoryCol, accountTypeCol, category) {
-  if (!categoryCol || !accountTypeCol) return '';
-  const match = data.find(function(row) {
-    return String(row[categoryCol - 1]).trim() === category;
-  });
-  return match ? String(match[accountTypeCol - 1]).trim() : '';
 }

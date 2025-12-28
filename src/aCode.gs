@@ -148,7 +148,7 @@ function cleanupSheetHeaders() {
   // Clean up MASTER_DATA headers
   sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
   if (sheet) {
-    const headers = ['Category', 'Sub_Category', 'Account_Type', 'Account_Codes', 'Payees'];
+    const headers = ['Payees', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('MASTER_DATA');
@@ -354,7 +354,7 @@ function _initializeMasterDataSheet(ss) {
     sheet = ss.insertSheet(CONFIG.SHEETS.MASTER_DATA);
 
     // Create headers - All data will come from user input
-    const headers = ['Category', 'Sub_Category', 'Account_Type', 'Account_Codes', 'Payees'];
+    const headers = ['Payees', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
 
@@ -757,7 +757,7 @@ function getCategories() {
     const lastRow = sheet.getLastRow();
     if (lastRow <= 1) return []; // No data
 
-    const categoryData = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    const categoryData = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
     const uniqueCategories = [...new Set(categoryData.map(row => row[0]).filter(cat => cat !== ''))];
 
     return uniqueCategories.sort();
@@ -787,13 +787,13 @@ function getSubCategories(category) {
     const lastRow = sheet.getLastRow();
     if (lastRow <= 1) return []; // No data
 
-    // Get Category (col 1) and Sub_Category (col 2)
-    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+    // Get Sub_Category (col 2) and Category (col 3)
+    const data = sheet.getRange(2, 2, lastRow - 1, 2).getValues();
 
     // Filter by category and get unique sub-categories
     const subCategories = data
-      .filter(row => row[0] === category && row[1] !== '')
-      .map(row => row[1]);
+      .filter(row => row[1] === category && row[0] !== '')
+      .map(row => row[0]);
 
     return [...new Set(subCategories)].sort();
   } catch (error) {
@@ -822,13 +822,13 @@ function getCategoryForSubCategory(subCategory) {
     const lastRow = sheet.getLastRow();
     if (lastRow <= 1) return ''; // No data
 
-    // Get Category (col 1) and Sub_Category (col 2)
-    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+    // Get Sub_Category (col 2) and Category (col 3)
+    const data = sheet.getRange(2, 2, lastRow - 1, 2).getValues();
 
     // Find the first matching row
-    const matchingRow = data.find(row => row[1] === subCategory);
+    const matchingRow = data.find(row => row[0] === subCategory);
 
-    return matchingRow ? matchingRow[0] : '';
+    return matchingRow ? matchingRow[1] : '';
   } catch (error) {
     Logger.log('Error in getCategoryForSubCategory: ' + error.toString());
     return '';
@@ -855,8 +855,8 @@ function getAccountType(category) {
     const lastRow = sheet.getLastRow();
     if (lastRow <= 1) return ''; // No data
 
-    // Get Category (col 1) and Account_Type (col 3)
-    const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+    // Get Category (col 3) and Account_Type (col 5)
+    const data = sheet.getRange(2, 3, lastRow - 1, 3).getValues();
 
     // Find the first matching row
     const matchingRow = data.find(row => row[0] === category);
@@ -885,7 +885,7 @@ function getPayees() {
     const lastRow = sheet.getLastRow();
     if (lastRow <= 1) return []; // No data
 
-    const payeeData = sheet.getRange(2, 5, lastRow - 1, 1).getValues();
+    const payeeData = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
     const uniquePayees = [...new Set(payeeData.map(row => row[0]).filter(payee => payee !== ''))];
 
     return uniquePayees.sort();
