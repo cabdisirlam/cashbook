@@ -103,8 +103,9 @@ function cleanupSheetHeaders() {
   // Clean up VIEW_LEDGER headers
   let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_LEDGER);
   if (sheet) {
-    const headers = ['Date', 'Account_Code', 'Payee', 'Category', 'Sub_Category',
-                     'Account_Type', 'Description', 'Ref_No', 'Debit', 'Credit', 'Balance', 'Receipt_Link'];
+    const headers = ['UUID', 'Batch_ID', 'Date', 'Account_Code', 'Payee', 'Ref_No',
+                     'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('VIEW_LEDGER');
@@ -264,8 +265,9 @@ function _initializeViewLedgerSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_LEDGER);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.VIEW_LEDGER);
-    const headers = ['Date', 'Account_Code', 'Payee', 'Category', 'Sub_Category',
-                     'Account_Type', 'Description', 'Ref_No', 'Debit', 'Credit', 'Balance', 'Receipt_Link'];
+    const headers = ['UUID', 'Batch_ID', 'Date', 'Account_Code', 'Payee', 'Ref_No',
+                     'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
   }
