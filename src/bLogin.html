@@ -378,8 +378,32 @@
           if (result.success) {
             // Flag the login so the dashboard can retry while the session propagates.
             sessionStorage.setItem('justLoggedIn', '1');
-            const targetUrl = window.location.origin + window.location.pathname;
-            window.location.replace(targetUrl);
+
+            // Load the dashboard HTML and write it so scripts execute.
+            google.script.run
+              .withSuccessHandler(function(dashboardHtml) {
+                document.open();
+                document.write(dashboardHtml);
+                document.close();
+
+                // Ensure the dashboard initializes even if onload doesn't fire.
+                if (typeof initializeDashboard === 'function') {
+                  initializeDashboard();
+                } else {
+                  setTimeout(function() {
+                    if (typeof initializeDashboard === 'function') {
+                      initializeDashboard();
+                    }
+                  }, 0);
+                }
+              })
+              .withFailureHandler(function(error) {
+                showError('Could not load dashboard. Please reload.');
+                console.error('Dashboard loading error:', error);
+                loginBtn.disabled = false;
+                loginBtn.classList.remove('loading');
+              })
+              .getDashboardHtml();
           } else {
             showError(result.message || 'Login failed. Please try again.');
             loginBtn.disabled = false;
