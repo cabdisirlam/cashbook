@@ -40,15 +40,17 @@
   }
 
   .modal-content {
-    width: 100%;
-    max-width: 950px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
     background: #ffffff;
-    border-radius: 20px;
+    border-radius: 16px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
     border: 1px solid rgba(226, 232, 240, 0.8);
+    margin: 20px;
   }
 
   .submodal {
@@ -73,16 +75,17 @@
   }
 
   .submodal-card {
-    width: 100%;
-    max-width: 440px;
+    width: 90%;
+    max-width: 380px;
     background: #ffffff;
-    border-radius: 16px;
+    border-radius: 12px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    padding: 24px;
+    padding: 18px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
     border: 1px solid rgba(226, 232, 240, 0.8);
+    margin: 20px;
   }
 
   .submodal-header {
@@ -116,10 +119,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 24px;
+    padding: 16px 20px;
     background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
     border-bottom: 1px solid #e2e8f0;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     color: #0f172a;
     letter-spacing: -0.02em;
@@ -146,7 +149,7 @@
   }
 
   .form-body {
-    padding: 18px 20px;
+    padding: 16px 20px;
   }
 
   .grid {
@@ -178,8 +181,8 @@
 
   .input-field:focus {
     outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    border-color: #2ca01c;
+    box-shadow: 0 0 0 4px rgba(44, 160, 28, 0.12);
   }
 
   .input-field:hover:not([readonly]) {
@@ -287,12 +290,12 @@
   }
 
   .btn-primary {
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #2ca01c 0%, #187a0f 100%);
     color: #ffffff;
   }
 
   .btn-primary:hover {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    background: linear-gradient(135deg, #37b828 0%, #2ca01c 100%);
   }
 
   .btn-secondary {
@@ -321,13 +324,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 24px;
+    padding: 16px 20px;
     border-top: 1px solid #e2e8f0;
     background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   }
 
   .total-amount {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 800;
     color: #0f172a;
     letter-spacing: -0.02em;
@@ -340,6 +343,35 @@
   }
 
   @media (max-width: 780px) {
+    .modal-content {
+      width: 95%;
+      margin: 10px;
+      max-height: 95vh;
+    }
+
+    .submodal-card {
+      width: 95%;
+      padding: 14px;
+      margin: 10px;
+    }
+
+    .form-header {
+      padding: 12px 14px;
+      font-size: 16px;
+    }
+
+    .form-body {
+      padding: 12px 14px;
+    }
+
+    .form-footer {
+      padding: 12px 14px;
+    }
+
+    .total-amount {
+      font-size: 18px;
+    }
+
     .split-table thead {
       display: none;
     }
