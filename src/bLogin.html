@@ -337,11 +337,8 @@
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            const target = window.location.origin + window.location.pathname + '?t=' + Date.now();
             sessionStorage.setItem('justLoggedIn', '1');
-            setTimeout(function() {
-              window.location.replace(target);
-            }, 350);
+            waitForSession(0);
           } else {
             showError(result.message || 'Login failed. Please try again.');
             loginBtn.disabled = false;
@@ -355,6 +352,32 @@
           loginBtn.classList.remove('loading');
         })
         .authenticateUser(email, pin);
+    }
+
+    function waitForSession(attempt) {
+      const tries = attempt || 0;
+      const target = window.location.origin + window.location.pathname + '?t=' + Date.now();
+
+      google.script.run
+        .withSuccessHandler(function(user) {
+          if (user && user.authenticated) {
+            window.location.replace(target);
+            return;
+          }
+
+          if (tries >= 8) {
+            window.location.replace(target);
+            return;
+          }
+
+          setTimeout(function() {
+            waitForSession(tries + 1);
+          }, 350);
+        })
+        .withFailureHandler(function() {
+          window.location.replace(target);
+        })
+        .getCurrentUser();
     }
 
     document.getElementById('pin').addEventListener('input', function() {
