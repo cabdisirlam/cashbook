@@ -150,7 +150,9 @@
 <body>
   <div class="sidebar">
     <div class="sidebar-header">Financial System</div>
-    <div class="menu-container" id="menuContainer"></div>
+    <div class="menu-container" id="menuContainer">
+      <?!= include('dMenu'); ?>
+    </div>
   </div>
 
   <div class="main-content">
@@ -201,28 +203,13 @@
 
           document.getElementById('userName').textContent = user.name;
           document.getElementById('userRole').textContent = user.role;
-          loadMenu(user.role);
+          initializeMenuForRole(user.role);
         })
         .withFailureHandler(function(error) {
           console.error('Failed to load user info:', error);
           alert('Failed to load user information. Please refresh the page.');
         })
         .getCurrentUser();
-    }
-
-    function loadMenu(role) {
-      const menuContainer = document.getElementById('menuContainer');
-
-      google.script.run
-        .withSuccessHandler(function(html) {
-          menuContainer.innerHTML = html;
-          initializeMenuForRole(role);
-        })
-        .withFailureHandler(function(error) {
-          console.error('Failed to load menu:', error);
-          menuContainer.innerHTML = '<div style="padding: 16px; color: #fca5a5;">Failed to load menu</div>';
-        })
-        .include('dMenu');
     }
 
     function initializeMenuForRole(role) {
