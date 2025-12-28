@@ -548,7 +548,8 @@
     document.addEventListener('DOMContentLoaded', initializeDashboard);
     window.onload = initializeDashboard;
 
-    function loadUserInfo() {
+    function loadUserInfo(attempt) {
+      const retryAttempt = attempt || 0;
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         renderError('App runtime missing. Open the web app via the deployed URL.');
         return;
@@ -557,6 +558,14 @@
       google.script.run
         .withSuccessHandler(function(user) {
           if (!user.authenticated) {
+            const justLoggedIn = sessionStorage.getItem('justLoggedIn') === '1';
+            if (justLoggedIn && retryAttempt < 5) {
+              setTimeout(function() {
+                loadUserInfo(retryAttempt + 1);
+              }, 500);
+              return;
+            }
+
             if (user.expired) {
               window.location.href = window.location.origin + window.location.pathname + '?expired=true';
             } else {
@@ -565,6 +574,7 @@
             return;
           }
 
+          sessionStorage.removeItem('justLoggedIn');
           document.getElementById('userName').textContent = user.name;
           document.getElementById('userRole').textContent = user.role;
           initializeMenuForRole(user.role);

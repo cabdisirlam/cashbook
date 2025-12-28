@@ -338,6 +338,7 @@
         .withSuccessHandler(function(result) {
           if (result.success) {
             const target = window.location.origin + window.location.pathname + '?t=' + Date.now();
+            sessionStorage.setItem('justLoggedIn', '1');
             setTimeout(function() {
               window.location.replace(target);
             }, 350);
