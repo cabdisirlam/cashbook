@@ -599,29 +599,43 @@
     }
 
     .alert-message {
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 16px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      margin-bottom: 20px;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: 600;
       display: none;
       animation: slideDown 0.3s ease;
+      box-shadow: var(--shadow-lg);
+      position: relative;
     }
 
     .alert-message.show {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .alert-message::before {
+      content: "✓";
+      font-size: 18px;
+      font-weight: 700;
     }
 
     .alert-success {
-      background: #dcfce7;
+      background: linear-gradient(135deg, #dcfce7 0%, #d1fae5 100%);
       color: #166534;
-      border: 1px solid #86efac;
+      border: 2px solid #86efac;
     }
 
     .alert-error {
-      background: #fee2e2;
+      background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
       color: #991b1b;
-      border: 1px solid #fca5a5;
+      border: 2px solid #fca5a5;
+    }
+
+    .alert-error::before {
+      content: "✕";
     }
 
     @keyframes slideDown {
@@ -1369,8 +1383,7 @@
 
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line);">
             <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
-            <button class="btn btn-danger" onclick="deleteJournal()">Delete</button>
-            <button class="btn btn-primary" onclick="updateJournal()">Save</button>
+            <button class="btn btn-primary" onclick="updateJournal()">Save Changes</button>
           </div>
           </div>
         </div>
@@ -1537,8 +1550,10 @@
           <td>${item.credit || ''}</td>
           <td>${item.refNo || ''}</td>
           <td>
-            <button class="btn btn-secondary" onclick="loadJournalRow(${item.rowId})">Edit</button>
-            <button class="btn btn-danger" onclick="confirmDelete(${item.rowId})">Delete</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-secondary" onclick="loadJournalRow(${item.rowId})">Edit</button>
+              <button class="btn btn-danger" onclick="confirmDelete(${item.rowId})">Delete</button>
+            </div>
           </td>
         </tr>
       `).join('');
@@ -1581,7 +1596,13 @@
 
     function showAlert(message, type) {
       const container = document.getElementById('alertContainer');
-      if (!container) return;
+      if (!container) {
+        console.error('Alert container not found');
+        return;
+      }
+
+      // Scroll to top to ensure user sees the alert
+      window.scrollTo({ top: 0, behavior: 'smooth' });
 
       container.innerHTML = `
         <div class="alert-message alert-${type} show">
@@ -1589,10 +1610,16 @@
         </div>
       `;
 
+      // Auto-dismiss after 6 seconds
       setTimeout(() => {
         const alert = container.querySelector('.alert-message');
-        if (alert) alert.classList.remove('show');
-      }, 5000);
+        if (alert) {
+          alert.classList.remove('show');
+          setTimeout(() => {
+            container.innerHTML = '';
+          }, 300);
+        }
+      }, 6000);
     }
 
     function openEditModal() {
@@ -1651,6 +1678,11 @@
     }
 
     function doUpdateJournal() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showAlert('Google Apps Script not available', 'error');
+        return;
+      }
+
       const payload = {
         rowId: selectedRowId,
         date: document.getElementById('editDate').value,
@@ -1668,14 +1700,18 @@
         receiptUrl: document.getElementById('editReceiptUrl').value.trim()
       };
 
+      console.log('Updating journal with payload:', payload);
+
       google.script.run
-        .withSuccessHandler(function() {
+        .withSuccessHandler(function(result) {
+          console.log('Update successful:', result);
           closeEditModal();
-          showAlert('Transaction updated successfully', 'success');
-          runSearch();
+          showAlert('✓ Transaction updated successfully!', 'success');
+          setTimeout(() => runSearch(), 500);
         })
         .withFailureHandler(function(error) {
-          showAlert(error.message || 'Failed to update transaction', 'error');
+          console.error('Update failed:', error);
+          showAlert('✕ Failed to update: ' + (error.message || 'Unknown error'), 'error');
         })
         .updateJournal(payload);
     }
@@ -1696,15 +1732,24 @@
     }
 
     function doDeleteJournal(rowId) {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showAlert('Google Apps Script not available', 'error');
+        return;
+      }
+
+      console.log('Deleting journal row:', rowId);
+
       google.script.run
-        .withSuccessHandler(function() {
+        .withSuccessHandler(function(result) {
+          console.log('Delete successful:', result);
           closeEditModal();
-          showAlert('Transaction deleted successfully', 'success');
+          showAlert('✓ Transaction deleted successfully!', 'success');
           selectedRowId = null;
-          runSearch();
+          setTimeout(() => runSearch(), 500);
         })
         .withFailureHandler(function(error) {
-          showAlert(error.message || 'Failed to delete transaction', 'error');
+          console.error('Delete failed:', error);
+          showAlert('✕ Failed to delete: ' + (error.message || 'Unknown error'), 'error');
         })
         .deleteJournal(rowId);
     }
