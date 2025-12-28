@@ -231,11 +231,12 @@
 
   function filterMenuByRole(role) {
     const menuItems = document.querySelectorAll('[data-role]');
+    const roleLower = role.toLowerCase();
 
     menuItems.forEach(item => {
-      const allowedRoles = item.getAttribute('data-role').split(',');
+      const allowedRoles = item.getAttribute('data-role').split(',').map(r => r.trim());
 
-      if (allowedRoles.includes(role)) {
+      if (allowedRoles.includes(roleLower)) {
         item.style.display = 'flex';
       } else {
         item.style.display = 'none';
