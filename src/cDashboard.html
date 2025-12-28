@@ -616,6 +616,11 @@
         return;
       }
 
+      if (label === 'New Payment') {
+        renderPaymentLauncher();
+        return;
+      }
+
       contentArea.innerHTML = `
         <div class="card">
           <h2>${label}</h2>
@@ -727,6 +732,39 @@
       `;
 
       loadSettings();
+    }
+
+    function renderPaymentLauncher() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">New Payment</h2>
+              <p style="color:#6b7280;font-size:13px;">Open the split payment form.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderPaymentLauncher()">Refresh</button>
+              <button class="btn btn-primary" onclick="openPaymentForm()">Pay</button>
+            </div>
+          </div>
+          <p style="color:#6b7280;font-size:13px;">Use Pay to launch the payment sidebar.</p>
+        </div>
+      `;
+    }
+
+    function openPaymentForm() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        alert('App runtime missing. Open the app via the deployed URL.');
+        return;
+      }
+
+      google.script.run
+        .withFailureHandler(function(error) {
+          alert(error.message || 'Failed to open payment form.');
+          console.error('Failed to open payment form:', error);
+        })
+        .showPaymentForm();
     }
 
     function loadSettings() {
