@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap");
+
+    :root {
+      --ink: #0f172a;
+      --muted: #6b7280;
+      --line: #e2e8f0;
+      --card: #ffffff;
+      --accent: #0ea5e9;
+      --accent-dark: #0369a1;
+      --bg: #f8fafc;
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top, #e0f2fe 0%, #f8fafc 45%, #f1f5f9 100%);
+    }
+
+    .page {
+      min-height: 100vh;
+      padding: 20px 16px 28px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 980px;
+      background: var(--card);
+      border-radius: 18px;
+      padding: 20px 22px 24px;
+      box-shadow: var(--shadow);
+      animation: rise 0.45s ease;
+    }
+
+    @keyframes rise {
+      from {
+        transform: translateY(10px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .card-subtitle {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .status-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: var(--accent-dark);
+    }
+
+    .section {
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      background: #ffffff;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      background: #ffffff;
+    }
+
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+    }
+
+    .input-with-action {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-dark);
+    }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: var(--ink);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--accent-dark);
+      padding: 6px 10px;
+    }
+
+    .btn-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      font-weight: 700;
+      color: var(--accent-dark);
+      cursor: pointer;
+    }
+
+    .btn-icon.danger {
+      color: #b91c1c;
+      background: #fee2e2;
+      border-color: #fecaca;
+    }
+
+    .table {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .table-head,
+    .table-row {
+      display: grid;
+      grid-template-columns: 2.2fr 1.6fr 2.4fr 1.2fr 40px;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+    }
+
+    .table-head {
+      background: #f1f5f9;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .table-row {
+      border-top: 1px solid var(--line);
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .table-row input {
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .table-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border-top: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 860px) {
+      .table-head,
+      .table-row {
+        grid-template-columns: 1fr;
+      }
+
+      .table-head {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">New Payment</h2>
+          <p class="card-subtitle">Split one payment across multiple expense lines.</p>
+        </div>
+        <div class="status-pill" id="statusPill">Ready</div>
+      </div>
+
+      <form id="paymentForm">
+        <section class="section">
+          <div class="section-title">Who &amp; When</div>
+          <div class="grid">
+            <div>
+              <label for="txnDate">Date</label>
+              <input type="date" id="txnDate" required>
+            </div>
+            <div>
+              <label for="accountCode">Account Code (Bank)</label>
+              <div class="input-with-action">
+                <input list="accountList" id="accountCode" placeholder="Search bank account" required>
+                <button type="button" class="btn-icon" onclick="handleAddAccount()">+</button>
+              </div>
+            </div>
+            <div>
+              <label for="payee">Payee</label>
+              <div class="input-with-action">
+                <input list="payeeList" id="payee" placeholder="Search supplier or staff">
+                <button type="button" class="btn-icon" onclick="handleAddPayee()">+</button>
+              </div>
+            </div>
+            <div>
+              <label for="refNo">Ref No</label>
+              <input type="text" id="refNo" placeholder="Cheque 001 / Mpesa Ref">
+            </div>
+          </div>
+          <p class="note">Reference number is saved on every split line.</p>
+        </section>
+
+        <section class="section">
+          <div class="section-title">
+            <span>What</span>
+            <button type="button" class="btn btn-ghost" onclick="addRow()">+ Add Line</button>
+          </div>
+          <div class="table">
+            <div class="table-head">
+              <div>Sub-Category</div>
+              <div>Category</div>
+              <div>Description</div>
+              <div>Amount</div>
+              <div></div>
+            </div>
+            <div id="lineItems"></div>
+            <div class="table-footer">
+              <span>Total</span>
+              <span id="totalAmount">0.00</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">Save Payment</button>
+          <button type="button" class="btn btn-secondary" onclick="resetForm()">Clear</button>
+          <button type="button" class="btn btn-secondary" onclick="google.script.host.close()">Close</button>
+        </div>
+
+        <div class="status" id="statusMessage"></div>
+      </form>
+    </div>
+  </div>
+
+  <datalist id="accountList"></datalist>
+  <datalist id="payeeList"></datalist>
+  <datalist id="subCatList"></datalist>
+
+  <script>
+    let formData = {
+      accounts: [],
+      payees: [],
+      subCats: [],
+      subToCatMap: {},
+      catToTypeMap: {}
+    };
+
+    window.onload = function() {
+      setDefaultDate();
+      loadInitData();
+      addRow();
+
+      document.getElementById('paymentForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        savePayment();
+      });
+    };
+
+    function setDefaultDate() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('txnDate').value = today;
+    }
+
+    function setStatus(message, tone) {
+      const status = document.getElementById('statusMessage');
+      const pill = document.getElementById('statusPill');
+      status.textContent = message || '';
+      if (tone === 'success') {
+        pill.textContent = 'Saved';
+        pill.style.background = '#dcfce7';
+        pill.style.color = '#166534';
+      } else if (tone === 'error') {
+        pill.textContent = 'Check';
+        pill.style.background = '#fee2e2';
+        pill.style.color = '#b91c1c';
+      } else if (tone === 'loading') {
+        pill.textContent = 'Working';
+        pill.style.background = '#e0f2fe';
+        pill.style.color = '#0369a1';
+      } else {
+        pill.textContent = 'Ready';
+        pill.style.background = '#e0f2fe';
+        pill.style.color = '#0369a1';
+      }
+    }
+
+    function loadInitData() {
+      setStatus('Loading master data...', 'loading');
+
+      if (!google || !google.script || !google.script.run) {
+        setStatus('App runtime missing. Open via the web app URL.', 'error');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          formData = data || formData;
+          fillDatalist('accountList', formData.accounts || []);
+          fillDatalist('payeeList', formData.payees || []);
+          fillDatalist('subCatList', formData.subCats || []);
+          setStatus('Master data loaded.', 'success');
+          setTimeout(function() { setStatus('', 'ready'); }, 1200);
+        })
+        .withFailureHandler(function(error) {
+          console.error(error);
+          setStatus(error.message || 'Failed to load master data.', 'error');
+        })
+        .getFormInitData();
+    }
+
+    function fillDatalist(id, items) {
+      const list = document.getElementById(id);
+      list.innerHTML = '';
+      (items || []).forEach(function(item) {
+        const option = document.createElement('option');
+        option.value = item;
+        list.appendChild(option);
+      });
+    }
+
+    function addRow() {
+      const lineItems = document.getElementById('lineItems');
+      const row = document.createElement('div');
+      row.className = 'table-row';
+      row.dataset.accountType = '';
+
+      row.innerHTML = `
+        <div>
+          <div class="input-with-action">
+            <input list="subCatList" class="subcat-input" placeholder="Select sub-category" required>
+            <button type="button" class="btn-icon" onclick="handleAddSubCategory(this)">+</button>
+          </div>
+        </div>
+        <div>
+          <input type="text" class="category-input" readonly placeholder="Auto-filled">
+        </div>
+        <div>
+          <input type="text" class="desc-input" placeholder="Describe this line">
+        </div>
+        <div>
+          <input type="number" class="amount-input" min="0" step="0.01" placeholder="0.00" required>
+        </div>
+        <div>
+          <button type="button" class="btn-icon danger" onclick="removeRow(this)">-</button>
+        </div>
+      `;
+
+      lineItems.appendChild(row);
+
+      const subInput = row.querySelector('.subcat-input');
+      subInput.addEventListener('change', function() {
+        handleSubCategoryChange(row);
+      });
+
+      const amountInput = row.querySelector('.amount-input');
+      amountInput.addEventListener('input', updateTotal);
+    }
+
+    function removeRow(button) {
+      const row = button.closest('.table-row');
+      if (row) {
+        row.remove();
+        updateTotal();
+      }
+    }
+
+    function handleSubCategoryChange(row) {
+      const subCategory = row.querySelector('.subcat-input').value.trim();
+      const categoryInput = row.querySelector('.category-input');
+      const category = formData.subToCatMap[subCategory] || '';
+      categoryInput.value = category;
+      row.dataset.accountType = formData.catToTypeMap[category] || '';
+    }
+
+    function updateTotal() {
+      const amounts = document.querySelectorAll('.amount-input');
+      let total = 0;
+      amounts.forEach(function(input) {
+        const value = parseFloat(input.value);
+        if (!isNaN(value)) total += value;
+      });
+      document.getElementById('totalAmount').textContent = total.toFixed(2);
+    }
+
+    function handleAddAccount() {
+      const value = prompt('Add new bank account code:');
+      if (!value) return;
+      addMasterItem('account', value);
+    }
+
+    function handleAddPayee() {
+      const value = prompt('Add new payee name:');
+      if (!value) return;
+      addMasterItem('payee', value);
+    }
+
+    function handleAddSubCategory() {
+      const subCat = prompt('New sub-category name:');
+      if (!subCat) return;
+
+      const categories = Object.keys(formData.catToTypeMap || {}).sort();
+      if (!categories.length) {
+        alert('No categories found. Add a category first.');
+        return;
+      }
+
+      const parent = prompt('Parent category (choose one):\n' + categories.join(', '));
+      if (!parent) return;
+      if (!formData.catToTypeMap[parent]) {
+        alert('Parent category not found.');
+        return;
+      }
+
+      addMasterItem('subCategory', subCat, parent);
+    }
+
+    function addMasterItem(type, value, parent) {
+      setStatus('Saving master data...', 'loading');
+
+      google.script.run
+        .withSuccessHandler(function() {
+          loadInitData();
+          setStatus('Master data updated.', 'success');
+        })
+        .withFailureHandler(function(error) {
+          console.error(error);
+          setStatus(error.message || 'Failed to add master data.', 'error');
+        })
+        .addMasterItem(type, value, parent);
+    }
+
+    function savePayment() {
+      const header = {
+        date: document.getElementById('txnDate').value,
+        accountCode: document.getElementById('accountCode').value.trim(),
+        payee: document.getElementById('payee').value.trim(),
+        refNo: document.getElementById('refNo').value.trim()
+      };
+
+      if (!header.date || !header.accountCode) {
+        setStatus('Date and Account Code are required.', 'error');
+        return;
+      }
+
+      const rows = [];
+      document.querySelectorAll('.table-row').forEach(function(row) {
+        const subCategory = row.querySelector('.subcat-input').value.trim();
+        const category = row.querySelector('.category-input').value.trim();
+        const description = row.querySelector('.desc-input').value.trim();
+        const amount = parseFloat(row.querySelector('.amount-input').value);
+
+        if (!subCategory && !category && !description && isNaN(amount)) {
+          return;
+        }
+
+        rows.push({
+          subCategory: subCategory,
+          category: category,
+          description: description,
+          amount: amount,
+          accountType: row.dataset.accountType || ''
+        });
+      });
+
+      if (!rows.length) {
+        setStatus('Add at least one line item.', 'error');
+        return;
+      }
+
+      setStatus('Saving payment...', 'loading');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          const message = 'Saved ' + result.lines + ' lines (Batch ' + result.batchId + ').';
+          setStatus(message, 'success');
+          resetForm();
+        })
+        .withFailureHandler(function(error) {
+          console.error(error);
+          setStatus(error.message || 'Failed to save payment.', 'error');
+        })
+        .saveTransaction(header, rows);
+    }
+
+    function resetForm() {
+      document.getElementById('paymentForm').reset();
+      document.getElementById('lineItems').innerHTML = '';
+      setDefaultDate();
+      addRow();
+      updateTotal();
+    }
+  </script>
+</body>
+</html>
