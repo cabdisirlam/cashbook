@@ -161,7 +161,7 @@ function initializeViewLedgerSheet(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.VIEW_LEDGER);
     const headers = ['Date', 'Account_Code', 'Batch_ID', 'Payee', 'Category', 'Sub_Category',
-                     'Description', 'Ref_No', 'Debit', 'Credit', 'Balance', 'Receipt_Link'];
+                     'Account_Type', 'Description', 'Ref_No', 'Debit', 'Credit', 'Balance', 'Receipt_Link'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     formatHeaderRow(sheet, headers.length);
   }
@@ -202,7 +202,7 @@ function initializeDbJournalSheet(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_JOURNAL);
     const headers = ['UUID', 'Batch_ID', 'Date', 'Account_Code', 'Payee', 'Ref_No', 'Type',
-                     'Category', 'Sub_Category', 'Description', 'Debit', 'Credit',
+                     'Category', 'Sub_Category', 'Account_Type', 'Description', 'Debit', 'Credit',
                      'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     formatHeaderRow(sheet, headers.length);
@@ -229,7 +229,7 @@ function initializeDbBudgetSheet(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_BUDGET);
     const headers = ['Entry_ID', 'Date', 'Type', 'Financial_Year', 'Category', 'Sub_Category',
-                     'Amount', 'Auth_Ref', 'Description'];
+                     'Account_Type', 'Amount', 'Auth_Ref', 'Description'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     formatHeaderRow(sheet, headers.length);
 
@@ -249,22 +249,66 @@ function initializeMasterDataSheet(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.MASTER_DATA);
 
-    // Create headers for each section
-    const headers = ['Account_Codes', 'Categories', 'Sub_Categories', 'Payees', 'Projects', 'Report_Mapping'];
+    // Create headers - removed Projects column, renamed Report_Mapping to Account_Type
+    const headers = ['Category', 'Sub_Category', 'Account_Type', 'Account_Codes', 'Payees'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     formatHeaderRow(sheet, headers.length);
 
-    // Add sample data
+    // Add comprehensive master data with proper category-subcategory relationships
+    // Format: [Category, Sub_Category, Account_Type, Account_Code, Payee]
     const sampleData = [
-      ['EQUITY_MAIN', 'Transport', 'Fuel', 'USAID', 'Project_A', 'Expense'],
-      ['KCB_GRANT', 'Grants', 'Vehicle', 'Total Station', 'Project_B', 'Income'],
-      ['NCBA_CURRENT', 'Salaries', 'Office Supplies', 'Kenya Power', 'Project_C', 'Expense'],
-      ['MPESA_TILL', 'Utilities', 'Maintenance', 'Safaricom', '', 'Expense'],
-      ['', 'Office Rent', '', '', '', ''],
-      ['', 'Communications', '', '', '', '']
+      // Transport - Operating Expense
+      ['Transport', 'Fuel', 'Operating Expense', 'EQUITY_MAIN', ''],
+      ['Transport', 'Vehicle Maintenance', 'Operating Expense', '', ''],
+      ['Transport', 'Vehicle Insurance', 'Operating Expense', '', ''],
+      ['Transport', 'Vehicle Hire', 'Operating Expense', '', ''],
+
+      // Salaries - Operating Expense
+      ['Salaries', 'Permanent Staff', 'Operating Expense', 'NCBA_CURRENT', ''],
+      ['Salaries', 'Temporary Staff', 'Operating Expense', '', ''],
+      ['Salaries', 'Consultants', 'Operating Expense', '', ''],
+      ['Salaries', 'Allowances', 'Operating Expense', '', ''],
+
+      // Utilities - Operating Expense
+      ['Utilities', 'Electricity', 'Operating Expense', 'MPESA_TILL', 'Kenya Power'],
+      ['Utilities', 'Water', 'Operating Expense', '', ''],
+      ['Utilities', 'Internet', 'Operating Expense', '', 'Safaricom'],
+      ['Utilities', 'Telephone', 'Operating Expense', '', ''],
+
+      // Office Rent - Operating Expense
+      ['Office Rent', 'Monthly Rent', 'Operating Expense', '', ''],
+      ['Office Rent', 'Service Charge', 'Operating Expense', '', ''],
+
+      // Communications - Operating Expense
+      ['Communications', 'Mobile Airtime', 'Operating Expense', '', ''],
+      ['Communications', 'Internet', 'Operating Expense', '', ''],
+      ['Communications', 'Postage', 'Operating Expense', '', ''],
+
+      // Office Supplies - Operating Expense
+      ['Office Supplies', 'Stationery', 'Operating Expense', '', ''],
+      ['Office Supplies', 'Printing', 'Operating Expense', '', ''],
+      ['Office Supplies', 'Office Equipment', 'Operating Expense', '', 'Total Station'],
+
+      // Grants - Operating Income
+      ['Grants', 'Donor Grants', 'Operating Income', 'KCB_GRANT', 'USAID'],
+      ['Grants', 'Government Grants', 'Operating Income', '', ''],
+      ['Grants', 'Other Income', 'Operating Income', '', ''],
+
+      // Bank - Balance Sheet
+      ['Bank', 'Bank Charges', 'Bank', '', ''],
+      ['Bank', 'Bank Interest', 'Bank', '', ''],
+
+      // Capital Expenses
+      ['Capital Expenses', 'Equipment Purchase', 'Capital Expense', '', ''],
+      ['Capital Expenses', 'Furniture', 'Capital Expense', '', ''],
+      ['Capital Expenses', 'Vehicles', 'Capital Expense', '', ''],
+      ['Capital Expenses', 'Buildings', 'Capital Expense', '', '']
     ];
 
     sheet.getRange(2, 1, sampleData.length, headers.length).setValues(sampleData);
+
+    // Auto-resize columns for better visibility
+    sheet.autoResizeColumns(1, headers.length);
   }
   return sheet;
 }
@@ -464,6 +508,165 @@ function logout() {
  */
 function checkSession() {
   return getCurrentUser();
+}
+
+/**
+ * MASTER DATA HELPER FUNCTIONS
+ */
+
+/**
+ * Get all unique categories from MASTER_DATA
+ * @returns {Array} Array of unique category names
+ */
+function getCategories() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+
+    if (!sheet) {
+      Logger.log('MASTER_DATA sheet not found');
+      return [];
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return []; // No data
+
+    const categoryData = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    const uniqueCategories = [...new Set(categoryData.map(row => row[0]).filter(cat => cat !== ''))];
+
+    return uniqueCategories.sort();
+  } catch (error) {
+    Logger.log('Error in getCategories: ' + error.toString());
+    return [];
+  }
+}
+
+/**
+ * Get sub-categories for a specific category
+ * @param {string} category - The category to filter by
+ * @returns {Array} Array of sub-categories for the given category
+ */
+function getSubCategories(category) {
+  try {
+    if (!category) return [];
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+
+    if (!sheet) {
+      Logger.log('MASTER_DATA sheet not found');
+      return [];
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return []; // No data
+
+    // Get Category (col 1) and Sub_Category (col 2)
+    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+
+    // Filter by category and get unique sub-categories
+    const subCategories = data
+      .filter(row => row[0] === category && row[1] !== '')
+      .map(row => row[1]);
+
+    return [...new Set(subCategories)].sort();
+  } catch (error) {
+    Logger.log('Error in getSubCategories: ' + error.toString());
+    return [];
+  }
+}
+
+/**
+ * Get the category for a given sub-category
+ * @param {string} subCategory - The sub-category to look up
+ * @returns {string} The parent category name
+ */
+function getCategoryForSubCategory(subCategory) {
+  try {
+    if (!subCategory) return '';
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+
+    if (!sheet) {
+      Logger.log('MASTER_DATA sheet not found');
+      return '';
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return ''; // No data
+
+    // Get Category (col 1) and Sub_Category (col 2)
+    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+
+    // Find the first matching row
+    const matchingRow = data.find(row => row[1] === subCategory);
+
+    return matchingRow ? matchingRow[0] : '';
+  } catch (error) {
+    Logger.log('Error in getCategoryForSubCategory: ' + error.toString());
+    return '';
+  }
+}
+
+/**
+ * Get account type for a category
+ * @param {string} category - The category to look up
+ * @returns {string} The account type (Operating Expense, Operating Income, etc.)
+ */
+function getAccountType(category) {
+  try {
+    if (!category) return '';
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+
+    if (!sheet) {
+      Logger.log('MASTER_DATA sheet not found');
+      return '';
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return ''; // No data
+
+    // Get Category (col 1) and Account_Type (col 3)
+    const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+
+    // Find the first matching row
+    const matchingRow = data.find(row => row[0] === category);
+
+    return matchingRow ? matchingRow[2] : '';
+  } catch (error) {
+    Logger.log('Error in getAccountType: ' + error.toString());
+    return '';
+  }
+}
+
+/**
+ * Get all unique payees from MASTER_DATA
+ * @returns {Array} Array of unique payee names
+ */
+function getPayees() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+
+    if (!sheet) {
+      Logger.log('MASTER_DATA sheet not found');
+      return [];
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return []; // No data
+
+    const payeeData = sheet.getRange(2, 5, lastRow - 1, 1).getValues();
+    const uniquePayees = [...new Set(payeeData.map(row => row[0]).filter(payee => payee !== ''))];
+
+    return uniquePayees.sort();
+  } catch (error) {
+    Logger.log('Error in getPayees: ' + error.toString());
+    return [];
+  }
 }
 
 /**

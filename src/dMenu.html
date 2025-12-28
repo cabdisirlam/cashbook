@@ -118,11 +118,11 @@
       <span class="menu-item-text">Transactions</span>
     </div>
     <div class="submenu">
-      <div class="menu-item" data-role="admin,inputter" onclick="showPlaceholder('New Payment')">
+      <div class="menu-item" data-role="admin,inputter" onclick="openTransactionForm()">
         <span class="menu-item-icon">➕</span>
         <span class="menu-item-text">New Payment (Expense)</span>
       </div>
-      <div class="menu-item" data-role="admin,inputter" onclick="showPlaceholder('New Receipt')">
+      <div class="menu-item" data-role="admin,inputter" onclick="openTransactionForm()">
         <span class="menu-item-icon">➕</span>
         <span class="menu-item-text">New Receipt (Income)</span>
       </div>
@@ -306,6 +306,25 @@
           </button>
         </div>
       `;
+    }
+  }
+
+  function openTransactionForm() {
+    const contentArea = window.parent.document.querySelector('.content-area');
+    if (contentArea) {
+      google.script.run
+        .withSuccessHandler(function(html) {
+          contentArea.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error loading transaction form:', error);
+          contentArea.innerHTML = `
+            <div style="padding: 40px; text-align: center;">
+              <p style="color: red;">Error loading transaction form: ${error.message}</p>
+            </div>
+          `;
+        })
+        .include('fTransaction');
     }
   }
 </script>
