@@ -926,10 +926,12 @@
         .withSuccessHandler(function(user) {
           if (!user.authenticated) {
             const justLoggedIn = sessionStorage.getItem('justLoggedIn') === '1';
-            if (justLoggedIn && retryAttempt < 5) {
+
+            // Retry more times after fresh login to allow session to propagate
+            if (justLoggedIn && retryAttempt < 10) {
               setTimeout(function() {
                 loadUserInfo(retryAttempt + 1);
-              }, 500);
+              }, 600);
               return;
             }
 
@@ -941,6 +943,7 @@
             return;
           }
 
+          // Session confirmed, clear flag and initialize
           sessionStorage.removeItem('justLoggedIn');
           document.getElementById('userName').textContent = user.name;
           document.getElementById('userRole').textContent = user.role;
@@ -948,7 +951,16 @@
         })
         .withFailureHandler(function(error) {
           console.error('Failed to load user info:', error);
-          alert('Failed to load user information. Please refresh the page.');
+
+          // Retry on failure if just logged in
+          const justLoggedIn = sessionStorage.getItem('justLoggedIn') === '1';
+          if (justLoggedIn && retryAttempt < 10) {
+            setTimeout(function() {
+              loadUserInfo(retryAttempt + 1);
+            }, 600);
+          } else {
+            alert('Failed to load user information. Please refresh the page.');
+          }
         })
         .getCurrentUser();
     }

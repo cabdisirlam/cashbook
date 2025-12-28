@@ -400,21 +400,31 @@
       google.script.run
         .withSuccessHandler(function(user) {
           if (user && user.authenticated) {
+            // Session confirmed, redirect to dashboard
             window.location.replace(target);
             return;
           }
 
-          if (tries >= 8) {
+          if (tries >= 15) {
+            // Max retries reached, force reload
             window.location.replace(target);
             return;
           }
 
+          // Keep polling for session
           setTimeout(function() {
             waitForSession(tries + 1);
-          }, 350);
+          }, 500);
         })
-        .withFailureHandler(function() {
-          window.location.replace(target);
+        .withFailureHandler(function(error) {
+          console.error('Session check failed:', error);
+          if (tries >= 15) {
+            window.location.replace(target);
+          } else {
+            setTimeout(function() {
+              waitForSession(tries + 1);
+            }, 500);
+          }
         })
         .getCurrentUser();
     }
