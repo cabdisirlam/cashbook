@@ -1,4 +1,4 @@
-# Smatika Kenya - Financial System
+# Financial System
 
 A secure PIN-based authentication system for managing financial operations with role-based access control and comprehensive database structure.
 
@@ -121,7 +121,7 @@ cashbook/
 
 3. **Create a new Apps Script project**
    ```bash
-   clasp create --type webapp --title "Smatika Kenya System"
+   clasp create --type webapp --title "Financial System"
    ```
    This will create `.clasp.json` automatically.
 
@@ -151,7 +151,7 @@ cashbook/
 ### First-Time Setup
 
 When you first access the web app:
-1. The system will automatically create a Google Sheet named **"Smatika Kenya System"**
+1. The system will automatically create a Google Sheet named **"Financial System"**
 2. All **10 sheets** will be initialized with proper headers
 3. Sample data will be added to **MASTER_DATA**
 4. Default admin user will be created in **SYS_USERS**
@@ -257,7 +257,7 @@ Timestamp | User | Action | Target_ID | Details
 ## 🎨 User Interface
 
 ### Login Page
-- Clean, modern design matching Smatika Kenya brand
+- Clean, modern design with professional branding
 - Email and 4-digit PIN fields
 - Session expiration warnings
 - Error messages for failed login attempts
@@ -424,7 +424,7 @@ This is the initial skeleton with complete database structure. Future developers
 
 ## 📄 License
 
-Proprietary - Smatika Kenya System
+Proprietary - Financial System
 
 ## 👤 Contact
 

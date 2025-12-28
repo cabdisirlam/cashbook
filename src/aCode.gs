@@ -1,11 +1,11 @@
 /**
- * Smatika Kenya - Financial System
+ * Financial System
  * PIN-Based Authentication System with Complete Sheet Structure
  */
 
 // Configuration
 const CONFIG = {
-  SPREADSHEET_NAME: "Smatika Kenya System",
+  SPREADSHEET_NAME: "Financial System",
   SESSION_TIMEOUT: 5 * 60 * 1000, // 5 minutes in milliseconds
   SHEETS: {
     // Part 1: Views (Front-End Displays)
@@ -46,7 +46,7 @@ function doGet(e) {
       // Return dashboard
       return HtmlService.createTemplateFromFile('cDashboard')
         .evaluate()
-        .setTitle('Smatika Kenya - Dashboard')
+        .setTitle('Financial System - Dashboard')
         .addMetaTag('viewport', 'width=device-width, initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     } else {
@@ -58,7 +58,7 @@ function doGet(e) {
   // Show login page
   return HtmlService.createTemplateFromFile('bLogin')
     .evaluate()
-    .setTitle('Smatika Kenya - Login')
+    .setTitle('Financial System - Login')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -162,7 +162,7 @@ function initializeHomeSheet(ss) {
 
   // Only set this up once
   if (sheet.getLastRow() === 0) {
-    sheet.getRange('A1').setValue('🏠 Welcome to Smatika Kenya System');
+    sheet.getRange('A1').setValue('🏠 Welcome to Financial System');
     sheet.getRange('A1')
       .setFontSize(18)
       .setFontWeight('bold')
@@ -404,9 +404,20 @@ function logAction(user, action, targetId, details) {
  */
 function authenticateUser(email, pin) {
   try {
-    // Initialize spreadsheet if needed
+    // Initialize spreadsheet and ALL sheets if needed
     const ss = getOrCreateSpreadsheet();
+
+    // Initialize all 10 sheets on first access
+    initializeHomeSheet(ss);
+    initializeViewLedgerSheet(ss);
+    initializeViewReportsSheet(ss);
+    initializeViewReconSheet(ss);
+    initializeDbJournalSheet(ss);
+    initializeDbBankSheet(ss);
+    initializeDbBudgetSheet(ss);
+    initializeMasterDataSheet(ss);
     const usersSheet = initializeSysUsersSheet(ss);
+    initializeSysLogsSheet(ss);
 
     // Hardcoded PIN for now (will be enhanced later)
     const ADMIN_PIN = '1234';
