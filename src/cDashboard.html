@@ -533,12 +533,19 @@
     let countdownInterval;
     let lastActivity = Date.now();
 
-    window.onload = function() {
+    let dashboardInitialized = false;
+
+    function initializeDashboard() {
+      if (dashboardInitialized) return;
+      dashboardInitialized = true;
       renderContent('Dashboard');
       loadUserInfo();
       startSessionMonitoring();
       handleResponsiveSidebar();
-    };
+    }
+
+    document.addEventListener('DOMContentLoaded', initializeDashboard);
+    window.onload = initializeDashboard;
 
     function loadUserInfo() {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
