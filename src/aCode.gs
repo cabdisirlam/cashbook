@@ -31,8 +31,7 @@ const CONFIG = {
  */
 function doGet(e) {
   if (e && e.parameter && e.parameter.view === 'payment') {
-    return HtmlService.createTemplateFromFile('F_Transaction')
-      .evaluate()
+    return HtmlService.createHtmlOutputFromFile('F_Transaction')
       .setTitle('New Payment')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);

@@ -822,6 +822,9 @@
       iframe.onload = function() {
         loading.style.display = 'none';
       };
+      iframe.onerror = function() {
+        loading.textContent = 'Failed to load the payment form. Please refresh.';
+      };
 
       const baseUrl = window.location.origin + window.location.pathname;
       iframe.src = baseUrl + '?view=payment&t=' + Date.now();
