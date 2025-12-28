@@ -283,6 +283,28 @@
       box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
     }
 
+    .confirm-modal-card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 20px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .confirm-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .confirm-text {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -331,6 +353,34 @@
       background: rgba(239, 68, 68, 0.92);
     }
 
+    .result-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #ffffff;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .result-label {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
     @media (max-width: 900px) {
       .sidebar {
         position: fixed;
@@ -374,6 +424,10 @@
 
       .form-row {
         grid-template-columns: 1fr;
+      }
+
+      .table {
+        display: none;
       }
     }
   </style>
@@ -529,6 +583,17 @@
           <button type="submit" class="btn btn-primary">Save</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="modal" id="confirmModal">
+    <div class="confirm-modal-card">
+      <div class="confirm-title" id="confirmTitle">Confirm action</div>
+      <div class="confirm-text" id="confirmText">Are you sure?</div>
+      <div class="form-actions" style="justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+        <button class="btn btn-danger" id="confirmActionBtn">Confirm</button>
+      </div>
     </div>
   </div>
 
@@ -1018,6 +1083,7 @@
     let searchTimer;
     let searchMeta = { categories: [] };
     let selectedRowId = null;
+    let confirmAction = null;
 
     function bindSearchHandlers() {
       ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchPayee']
@@ -1093,7 +1159,7 @@
       }
 
       const rows = results.map(item => `
-        <tr onclick="loadJournalRow(${item.rowId})" style="cursor:pointer;">
+        <tr>
           <td>${item.date || ''}</td>
           <td>${item.payee || ''}</td>
           <td>${item.category || ''}</td>
@@ -1101,7 +1167,27 @@
           <td>${item.debit || ''}</td>
           <td>${item.credit || ''}</td>
           <td>${item.refNo || ''}</td>
+          <td>
+            <button class="btn btn-secondary" onclick="loadJournalRow(${item.rowId})">Edit</button>
+            <button class="btn btn-danger" onclick="confirmDelete(${item.rowId})">Delete</button>
+          </td>
         </tr>
+      `).join('');
+
+      const cards = results.map(item => `
+        <div class="result-card">
+          <div class="result-row"><span class="result-label">Date</span><span>${item.date || ''}</span></div>
+          <div class="result-row"><span class="result-label">Payee</span><span>${item.payee || ''}</span></div>
+          <div class="result-row"><span class="result-label">Category</span><span>${item.category || ''}</span></div>
+          <div class="result-row"><span class="result-label">Sub-Category</span><span>${item.subCategory || ''}</span></div>
+          <div class="result-row"><span class="result-label">Debit</span><span>${item.debit || ''}</span></div>
+          <div class="result-row"><span class="result-label">Credit</span><span>${item.credit || ''}</span></div>
+          <div class="result-row"><span class="result-label">Ref No</span><span>${item.refNo || ''}</span></div>
+          <div class="result-actions">
+            <button class="btn btn-secondary" onclick="loadJournalRow(${item.rowId})">Edit</button>
+            <button class="btn btn-danger" onclick="confirmDelete(${item.rowId})">Delete</button>
+          </div>
+        </div>
       `).join('');
 
       container.innerHTML = `
@@ -1115,10 +1201,12 @@
               <th>Debit</th>
               <th>Credit</th>
               <th>Ref No</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
+        <div class="mobile-results">${cards}</div>
       `;
     }
 
@@ -1159,8 +1247,12 @@
         return;
       }
 
-      if (!confirm('Update this record? This will overwrite the selected row.')) return;
+      openConfirmModal('Confirm Update', 'Update this record? This will overwrite the selected row.', function() {
+        doUpdateJournal();
+      });
+    }
 
+    function doUpdateJournal() {
       const payload = {
         rowId: selectedRowId,
         date: document.getElementById('editDate').value,
@@ -1182,7 +1274,7 @@
 
       google.script.run
         .withSuccessHandler(function() {
-          document.getElementById('editStatus').textContent = 'Row updated.';
+          document.getElementById('editStatus').textContent = 'Update successful.';
           runSearch();
         })
         .withFailureHandler(function(error) {
@@ -1197,19 +1289,27 @@
         return;
       }
 
-      if (!confirm('Are you sure you want to delete this record?')) return;
+      confirmDelete(selectedRowId);
+    }
 
+    function confirmDelete(rowId) {
+      openConfirmModal('Confirm Delete', 'Are you sure you want to delete this record?', function() {
+        doDeleteJournal(rowId);
+      });
+    }
+
+    function doDeleteJournal(rowId) {
       document.getElementById('editStatus').textContent = 'Deleting...';
       google.script.run
         .withSuccessHandler(function() {
-          document.getElementById('editStatus').textContent = 'Row deleted.';
+          document.getElementById('editStatus').textContent = 'Deleted successfully.';
           selectedRowId = null;
           runSearch();
         })
         .withFailureHandler(function(error) {
           document.getElementById('editStatus').textContent = error.message || 'Delete failed.';
         })
-        .deleteJournal(selectedRowId);
+        .deleteJournal(rowId);
     }
 
     function undoJournalAction() {
@@ -1219,13 +1319,32 @@
       document.getElementById('editStatus').textContent = 'Undoing last action...';
       google.script.run
         .withSuccessHandler(function(result) {
-          document.getElementById('editStatus').textContent = result || 'Undo completed.';
+          document.getElementById('editStatus').textContent = 'Undo successful.';
           runSearch();
         })
         .withFailureHandler(function(error) {
           document.getElementById('editStatus').textContent = error.message || 'Undo failed.';
         })
         .undoLastJournalAction();
+    }
+
+    function openConfirmModal(title, message, action) {
+      const modal = document.getElementById('confirmModal');
+      document.getElementById('confirmTitle').textContent = title;
+      document.getElementById('confirmText').textContent = message;
+      confirmAction = action;
+      const button = document.getElementById('confirmActionBtn');
+      button.onclick = function() {
+        closeConfirmModal();
+        if (confirmAction) confirmAction();
+      };
+      modal.classList.add('open');
+    }
+
+    function closeConfirmModal() {
+      const modal = document.getElementById('confirmModal');
+      modal.classList.remove('open');
+      confirmAction = null;
     }
 
     function renderReceiptLauncher() {

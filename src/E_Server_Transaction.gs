@@ -160,6 +160,7 @@ function searchJournal(criteria) {
   const payeeFilter = String(criteria && criteria.payee || '').trim().toLowerCase();
   const startDate = _parseDate_(criteria && criteria.startDate);
   const endDate = _parseDate_(criteria && criteria.endDate);
+  const hasFilters = Boolean(query || refOrId || categoryFilter || payeeFilter || startDate || endDate);
 
   const results = [];
 
@@ -205,6 +206,10 @@ function searchJournal(criteria) {
       credit: cols.credit ? row[cols.credit - 1] : ''
     });
   });
+
+  if (!hasFilters) {
+    return results.slice(-5).reverse();
+  }
 
   return results.slice(0, 200);
 }
