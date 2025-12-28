@@ -2010,16 +2010,22 @@
 
       const form = document.getElementById('userForm');
       const rowId = form.dataset.rowId;
+      const pinValue = document.getElementById('userPin').value.trim();
       const payload = {
         rowId: rowId ? Number(rowId) : null,
         email: document.getElementById('userEmail').value.trim(),
-        pin: document.getElementById('userPin').value.trim(),
+        pin: pinValue,
         name: document.getElementById('userNameInput').value.trim(),
         role: document.getElementById('userRoleInput').value,
         status: document.getElementById('userStatusInput').value
       };
 
-      if (!/^\d{4}$/.test(payload.pin)) {
+      if (!payload.rowId && !/^\d{4}$/.test(pinValue)) {
+        alert('PIN must be exactly 4 digits.');
+        return;
+      }
+
+      if (payload.rowId && pinValue && !/^\d{4}$/.test(pinValue)) {
         alert('PIN must be exactly 4 digits.');
         return;
       }
