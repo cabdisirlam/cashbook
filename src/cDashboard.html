@@ -151,7 +151,113 @@
   <div class="sidebar">
     <div class="sidebar-header">Financial System</div>
     <div class="menu-container" id="menuContainer">
-      <?!= include('dMenu'); ?>
+      <style>
+        .menu-section {
+          margin-bottom: 8px;
+        }
+
+        .menu-section-title {
+          padding: 10px 20px;
+          font-size: 11px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          color: #94a3b8;
+        }
+
+        .menu-item {
+          padding: 10px 20px;
+          color: #cbd5f5;
+          cursor: pointer;
+          transition: background 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 14px;
+          border-left: 3px solid transparent;
+        }
+
+        .menu-item:hover,
+        .menu-item.active {
+          background: #1e293b;
+          color: #ffffff;
+          border-left-color: #3b82f6;
+        }
+
+        .menu-item-icon {
+          font-size: 12px;
+          width: 16px;
+          text-align: center;
+        }
+      </style>
+
+      <div id="financialMenu">
+        <div class="menu-section">
+          <div class="menu-item active" data-label="Dashboard" onclick="navigateTo(this, 'Dashboard')">
+            <span class="menu-item-icon">-</span>
+            <span>Dashboard</span>
+          </div>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-section-title">Transactions</div>
+          <div class="menu-item" data-role="admin,inputter" data-label="New Payment" onclick="navigateTo(this, 'New Payment')">
+            <span class="menu-item-icon">+</span>
+            <span>New Payment</span>
+          </div>
+          <div class="menu-item" data-role="admin,inputter" data-label="New Receipt" onclick="navigateTo(this, 'New Receipt')">
+            <span class="menu-item-icon">+</span>
+            <span>New Receipt</span>
+          </div>
+          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Search / Edit" onclick="navigateTo(this, 'Search / Edit')">
+            <span class="menu-item-icon">-</span>
+            <span>Search / Edit</span>
+          </div>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-section-title">Banking</div>
+          <div class="menu-item" data-role="admin,inputter" data-label="Import Statement" onclick="navigateTo(this, 'Import Statement')">
+            <span class="menu-item-icon">-</span>
+            <span>Import Statement</span>
+          </div>
+          <div class="menu-item" data-role="admin,inputter" data-label="Reconciliation" onclick="navigateTo(this, 'Reconciliation')">
+            <span class="menu-item-icon">-</span>
+            <span>Reconciliation</span>
+          </div>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-section-title">Reports</div>
+          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Cashbook" onclick="navigateTo(this, 'Cashbook')">
+            <span class="menu-item-icon">-</span>
+            <span>Cashbook</span>
+          </div>
+          <div class="menu-item" data-role="admin,inputter,viewer" data-label="P &amp; L" onclick="navigateTo(this, 'P &amp; L')">
+            <span class="menu-item-icon">-</span>
+            <span>P &amp; L</span>
+          </div>
+          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Balance Sheet" onclick="navigateTo(this, 'Balance Sheet')">
+            <span class="menu-item-icon">-</span>
+            <span>Balance Sheet</span>
+          </div>
+          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Budget vs Actual" onclick="navigateTo(this, 'Budget vs Actual')">
+            <span class="menu-item-icon">-</span>
+            <span>Budget vs Actual</span>
+          </div>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-section-title">Admin</div>
+          <div class="menu-item" data-role="admin" data-label="Users" onclick="navigateTo(this, 'Users')">
+            <span class="menu-item-icon">*</span>
+            <span>Users</span>
+          </div>
+          <div class="menu-item" data-role="admin" data-label="Settings" onclick="navigateTo(this, 'Settings')">
+            <span class="menu-item-icon">*</span>
+            <span>Settings</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -185,11 +291,17 @@
     let lastActivity = Date.now();
 
     window.onload = function() {
+      renderContent('Dashboard');
       loadUserInfo();
       startSessionMonitoring();
     };
 
     function loadUserInfo() {
+      if (!google || !google.script || !google.script.run) {
+        renderError('App runtime missing. Open the web app via the deployed URL.');
+        return;
+      }
+
       google.script.run
         .withSuccessHandler(function(user) {
           if (!user.authenticated) {
@@ -252,6 +364,16 @@
         <div class="skeleton-card">
           <h2>${label}</h2>
           <p>Skeleton view for ${label}. Content will be added later.</p>
+        </div>
+      `;
+    }
+
+    function renderError(message) {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="skeleton-card">
+          <h2>Dashboard</h2>
+          <p>${message}</p>
         </div>
       `;
     }
