@@ -1740,13 +1740,13 @@
           console.log('Update successful:', result);
           hideAlert();
           closeEditModal();
-          showAlert('✓ Transaction updated successfully!', 'success');
+          showAlert('Transaction edited successfully.', 'success');
           setTimeout(() => runSearch(), 500);
         })
         .withFailureHandler(function(error) {
           console.error('Update failed:', error);
           hideAlert();
-          showAlert('✕ Failed to update: ' + (error.message || 'Unknown error'), 'error');
+          showAlert('Failed to edit: ' + (error.message || 'Unknown error'), 'error');
         })
         .updateJournal(payload);
     }
@@ -1780,14 +1780,14 @@
           console.log('Delete successful:', result);
           hideAlert();
           closeEditModal();
-          showAlert('✓ Transaction deleted successfully!', 'success');
+          showAlert('Transaction deleted successfully.', 'success');
           selectedRowId = null;
           setTimeout(() => runSearch(), 500);
         })
         .withFailureHandler(function(error) {
           console.error('Delete failed:', error);
           hideAlert();
-          showAlert('✕ Failed to delete: ' + (error.message || 'Unknown error'), 'error');
+          showAlert('Failed to delete: ' + (error.message || 'Unknown error'), 'error');
         })
         .deleteJournal(rowId);
     }

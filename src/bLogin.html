@@ -358,38 +358,13 @@
       }, 5000);
     }
 
-    function loadDashboardHtml(loginBtn) {
-      google.script.run
-        .withSuccessHandler(function(dashboardHtml) {
-          document.open();
-          document.write(dashboardHtml);
-          document.close();
-
-          if (typeof initializeDashboard === 'function') {
-            initializeDashboard();
-          } else {
-            setTimeout(function() {
-              if (typeof initializeDashboard === 'function') {
-                initializeDashboard();
-              }
-            }, 0);
-          }
-        })
-        .withFailureHandler(function(error) {
-          showError('Could not load dashboard. Please reload.');
-          console.error('Dashboard loading error:', error);
-          loginBtn.disabled = false;
-          loginBtn.classList.remove('loading');
-        })
-        .getDashboardHtml();
-    }
-
     function waitForSession(loginBtn, attempt) {
       const retryAttempt = attempt || 0;
       google.script.run
         .withSuccessHandler(function(user) {
           if (user && user.authenticated) {
-            loadDashboardHtml(loginBtn);
+            const targetUrl = window.location.origin + window.location.pathname + '?ts=' + Date.now();
+            window.location.replace(targetUrl);
             return;
           }
 
