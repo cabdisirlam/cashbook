@@ -155,9 +155,10 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
 
   if (typeKey === 'payee') {
     if (_valueExistsInColumn_(data, cols.payees, trimmed)) return;
-    const row = new Array(lastCol).fill('');
-    row[cols.payees - 1] = trimmed;
-    sheet.appendRow(row);
+    const targetRow = _findRowForInsert_(data, cols.payees, []);
+    _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+      [cols.payees]: trimmed
+    });
     return;
   }
 
@@ -168,11 +169,12 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
       throw new Error('Account type and report mapping are required.');
     }
     if (_valueExistsInColumn_(data, cols.accountCodes, trimmed)) return;
-    const row = new Array(lastCol).fill('');
-    row[cols.accountCodes - 1] = trimmed;
-    row[cols.accountType - 1] = accountTypeValue;
-    row[cols.reportMapping - 1] = reportValue;
-    sheet.appendRow(row);
+    const targetRow = _findRowForInsert_(data, cols.accountCodes, [cols.subCategory]);
+    _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+      [cols.accountCodes]: trimmed,
+      [cols.accountType]: accountTypeValue,
+      [cols.reportMapping]: reportValue
+    });
     return;
   }
 
@@ -185,12 +187,13 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
       throw new Error('Account type and report mapping are required.');
     }
     if (_valueExistsInColumn_(data, cols.subCategory, trimmed)) return;
-    const row = new Array(lastCol).fill('');
-    row[cols.subCategory - 1] = trimmed;
-    row[cols.category - 1] = parentCategory;
-    row[cols.accountType - 1] = accountTypeValue;
-    row[cols.reportMapping - 1] = reportValue;
-    sheet.appendRow(row);
+    const targetRow = _findRowForInsert_(data, cols.subCategory, [cols.accountCodes]);
+    _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+      [cols.subCategory]: trimmed,
+      [cols.category]: parentCategory,
+      [cols.accountType]: accountTypeValue,
+      [cols.reportMapping]: reportValue
+    });
     return;
   }
 
@@ -233,6 +236,40 @@ function _valueExistsInColumn_(data, colIndex, value) {
   return data.some(function(row) {
     return String(row[colIndex - 1]).trim().toLowerCase() === normalized;
   });
+}
+
+function _findRowForInsert_(data, colIndex, blockCols) {
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    if (String(row[colIndex - 1]).trim()) continue;
+    let blocked = false;
+    (blockCols || []).forEach(function(blockCol) {
+      if (blockCol && String(row[blockCol - 1]).trim()) {
+        blocked = true;
+      }
+    });
+    if (!blocked) return i + 2;
+  }
+  return null;
+}
+
+function _writeRowUpdate_(sheet, data, targetRow, lastCol, updates) {
+  let rowValues;
+  if (targetRow) {
+    const idx = targetRow - 2;
+    rowValues = idx >= 0 && idx < data.length ? data[idx].slice() : new Array(lastCol).fill('');
+  } else {
+    rowValues = new Array(lastCol).fill('');
+    targetRow = sheet.getLastRow() + 1;
+  }
+
+  Object.keys(updates).forEach(function(colKey) {
+    const colIndex = Number(colKey);
+    if (!colIndex) return;
+    rowValues[colIndex - 1] = updates[colKey];
+  });
+
+  sheet.getRange(targetRow, 1, 1, lastCol).setValues([rowValues]);
 }
 
 function _buildSubCategoryMeta_(data, cols) {
