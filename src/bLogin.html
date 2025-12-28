@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Financial System - Login</title>
   <style>
+    @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap");
+
+    :root {
+      --brand: #2ca01c;
+      --brand-dark: #187a0f;
+      --ink: #0f172a;
+      --muted: #6b7280;
+      --panel: #ffffff;
+      --bg: #f7faf8;
+      --border: #e5e7eb;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -12,35 +24,88 @@
     }
 
     body {
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: #f1f5f9;
+      font-family: "Manrope", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top left, #e8f8ef 0%, #f7faf8 45%, #eef6f8 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 24px;
-      color: #0f172a;
+      color: var(--ink);
+    }
+
+    .login-shell {
+      width: 100%;
+      max-width: 980px;
+      background: var(--panel);
+      border-radius: 24px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      overflow: hidden;
+      animation: fadeUp 0.6s ease;
+    }
+
+    .login-brand {
+      padding: 48px;
+      background: linear-gradient(160deg, #e9f9ef 0%, #f3fbff 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid #def3e1;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--brand-dark);
+      margin-bottom: 22px;
+    }
+
+    .brand-title {
+      font-size: 34px;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .brand-subtitle {
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 320px;
+    }
+
+    .brand-shape {
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(44, 160, 28, 0.2) 0%, rgba(44, 160, 28, 0) 70%);
+      bottom: -80px;
+      right: -80px;
     }
 
     .login-card {
-      background: #ffffff;
-      border-radius: 16px;
-      padding: 32px;
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-      width: 100%;
-      max-width: 420px;
+      padding: 48px 42px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 18px;
     }
 
-    .app-title {
-      font-size: 28px;
+    .card-title {
+      font-size: 22px;
       font-weight: 700;
-      margin-bottom: 6px;
     }
 
-    .app-subtitle {
-      color: #64748b;
-      font-size: 14px;
-      margin-bottom: 24px;
+    .card-subtitle {
+      color: var(--muted);
+      font-size: 13px;
     }
 
     .alert {
@@ -48,7 +113,6 @@
       padding: 10px 12px;
       border-radius: 8px;
       font-size: 13px;
-      margin-bottom: 16px;
     }
 
     .alert-warning {
@@ -64,50 +128,60 @@
     }
 
     .form-group {
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     label {
       display: block;
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 12px;
+      font-weight: 700;
       margin-bottom: 6px;
-      color: #1e293b;
+      color: var(--ink);
     }
 
     input {
       width: 100%;
       padding: 12px 14px;
-      border: 1px solid #cbd5f5;
-      border-radius: 8px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
       font-size: 14px;
       outline: none;
-      transition: border-color 0.2s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background: #ffffff;
     }
 
     input:focus {
-      border-color: #3b82f6;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(44, 160, 28, 0.12);
     }
 
     .btn-login {
       width: 100%;
       padding: 12px;
       border: none;
-      border-radius: 8px;
-      background: #2563eb;
+      border-radius: 10px;
+      background: var(--brand);
       color: #ffffff;
-      font-weight: 600;
+      font-weight: 700;
       font-size: 15px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn-login:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(44, 160, 28, 0.25);
     }
 
     .btn-login:disabled {
       opacity: 0.7;
       cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
     }
 
     .spinner {
@@ -129,64 +203,92 @@
     }
 
     .footer-text {
-      margin-top: 22px;
-      text-align: center;
+      margin-top: 10px;
       font-size: 12px;
-      color: #94a3b8;
+      color: #9ca3af;
+      text-align: center;
     }
 
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 820px) {
+      .login-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .login-brand {
+        padding: 36px;
+      }
+
+      .login-card {
+        padding: 36px;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="login-card">
-    <h1 class="app-title">Financial System</h1>
-    <p class="app-subtitle">Sign in to continue</p>
-
-    <div id="sessionExpiredAlert" class="alert alert-warning">
-      Session expired. Please login again.
+  <div class="login-shell">
+    <div class="login-brand">
+      <div class="brand-chip">SECURE FINANCE</div>
+      <h1 class="brand-title">Financial System</h1>
+      <p class="brand-subtitle">Control cashflow, monitor budgets, and keep your books ready.</p>
+      <div class="brand-shape"></div>
     </div>
 
-    <div id="errorAlert" class="alert alert-error">
-      <span id="errorMessage"></span>
-    </div>
-
-    <form id="loginForm" onsubmit="handleLogin(event)">
-      <div class="form-group">
-        <label for="email">Email Address</label>
-        <input
-          type="email"
-          id="email"
-          placeholder="name@example.com"
-          required
-          autocomplete="email"
-        />
+    <div class="login-card">
+      <div>
+        <div class="card-title">Sign in</div>
+        <div class="card-subtitle">Use your email and 4-digit PIN.</div>
       </div>
 
-      <div class="form-group">
-        <label for="pin">PIN (4 digits)</label>
-        <input
-          type="password"
-          id="pin"
-          placeholder="0000"
-          required
-          maxlength="4"
-          pattern="[0-9]{4}"
-          inputmode="numeric"
-          autocomplete="off"
-        />
+      <div id="sessionExpiredAlert" class="alert alert-warning">
+        Session expired. Please login again.
       </div>
 
-      <button type="submit" id="loginBtn" class="btn-login">
-        <span class="spinner"></span>
-        <span class="btn-text">Sign In</span>
-      </button>
-    </form>
+      <div id="errorAlert" class="alert alert-error">
+        <span id="errorMessage"></span>
+      </div>
 
-    <div class="footer-text">
-      Secure Authentication | Powered by Google Apps Script
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input
+            type="email"
+            id="email"
+            placeholder="name@example.com"
+            required
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="pin">PIN (4 digits)</label>
+          <input
+            type="password"
+            id="pin"
+            placeholder="0000"
+            required
+            maxlength="4"
+            pattern="[0-9]{4}"
+            inputmode="numeric"
+            autocomplete="off"
+          />
+        </div>
+
+        <button type="submit" id="loginBtn" class="btn-login">
+          <span class="spinner"></span>
+          <span class="btn-text">Sign In</span>
+        </button>
+      </form>
+
+      <div class="footer-text">Powered by Google Apps Script</div>
     </div>
   </div>
 
