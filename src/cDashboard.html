@@ -537,32 +537,91 @@
       background: rgba(239, 68, 68, 0.92);
     }
 
+    .mobile-results {
+      display: none;
+    }
+
     .result-card {
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 10px;
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
       background: #ffffff;
-      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+      box-shadow: var(--shadow-md);
+      transition: var(--transition);
+    }
+
+    .result-card:hover {
+      box-shadow: var(--shadow-lg);
+      border-color: var(--brand);
     }
 
     .result-row {
       display: flex;
       justify-content: space-between;
-      gap: 10px;
-      font-size: 12px;
-      margin-bottom: 4px;
+      gap: 12px;
+      font-size: 13px;
+      margin-bottom: 8px;
+      padding: 4px 0;
     }
 
     .result-label {
       color: var(--muted);
       font-weight: 600;
+      min-width: 100px;
     }
 
     .result-actions {
       display: flex;
       gap: 8px;
-      margin-top: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line-light);
+    }
+
+    .edit-modal {
+      display: none;
+    }
+
+    .edit-modal.open {
+      display: block;
+    }
+
+    .alert-message {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      font-weight: 500;
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+
+    .alert-message.show {
+      display: block;
+    }
+
+    .alert-success {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+
+    .alert-error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     @media (max-width: 900px) {
@@ -627,12 +686,11 @@
       }
 
       .table {
-        font-size: 12px;
+        display: none;
       }
 
-      .table th,
-      .table td {
-        padding: 8px 10px;
+      .mobile-results {
+        display: block;
       }
 
       .btn {
@@ -1098,6 +1156,8 @@
     function renderSearchEditContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
+        <div id="alertContainer"></div>
+
         <div class="card">
           <div class="panel-header">
             <div>
@@ -1145,21 +1205,16 @@
             </div>
           </div>
 
-          <div id="searchStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="searchStatus" style="color:#6b7280;font-size:13px;margin-bottom:12px;"></div>
           <div id="searchResults"></div>
         </div>
 
-        <div class="card" style="margin-top:16px;">
-          <div class="panel-header">
-            <div>
-              <h2 style="margin-bottom:4px;">Edit Transaction</h2>
-              <p style="color:#6b7280;font-size:13px;">Select a result to load fields.</p>
+        <div class="modal" id="editModal">
+          <div class="modal-card" style="max-width:700px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+              <h3 style="font-size:20px;font-weight:700;margin:0;">Edit Transaction</h3>
+              <button class="btn btn-secondary" onclick="closeEditModal()" style="padding:6px 12px;">Close</button>
             </div>
-            <div>
-              <button class="btn btn-primary" onclick="updateJournal()">Save Changes</button>
-              <button class="btn btn-danger" onclick="deleteJournal()">Delete</button>
-            </div>
-          </div>
 
           <div class="form-row">
             <div class="form-group">
@@ -1243,7 +1298,12 @@
             <input type="text" id="editReceiptUrl">
           </div>
 
-          <div id="editStatus" style="color:#6b7280;font-size:12px;"></div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:20px;border-top:1px solid var(--line);">
+            <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+            <button class="btn btn-danger" onclick="deleteJournal()">Delete</button>
+            <button class="btn btn-primary" onclick="updateJournal()">Save Changes</button>
+          </div>
+          </div>
         </div>
       `;
 
@@ -1450,13 +1510,42 @@
       `;
     }
 
+    function showAlert(message, type) {
+      const container = document.getElementById('alertContainer');
+      if (!container) return;
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      setTimeout(() => {
+        const alert = container.querySelector('.alert-message');
+        if (alert) alert.classList.remove('show');
+      }, 5000);
+    }
+
+    function openEditModal() {
+      const modal = document.getElementById('editModal');
+      if (modal) modal.classList.add('open');
+    }
+
+    function closeEditModal() {
+      const modal = document.getElementById('editModal');
+      if (modal) modal.classList.remove('open');
+    }
+
     function loadJournalRow(rowId) {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         return;
       }
       google.script.run
         .withSuccessHandler(function(row) {
-          if (!row) return;
+          if (!row) {
+            showAlert('Transaction not found', 'error');
+            return;
+          }
           selectedRowId = row.rowId;
           document.getElementById('editUuid').value = row.uuid || '';
           document.getElementById('editBatchId').value = row.batchId || '';
@@ -1473,17 +1562,17 @@
           document.getElementById('editReportMapping').value = row.reportMapping || '';
           document.getElementById('editReconStatus').value = row.reconStatus || '';
           document.getElementById('editReceiptUrl').value = row.receiptUrl || '';
-          document.getElementById('editStatus').textContent = 'Loaded row ' + row.rowId + '.';
+          openEditModal();
         })
         .withFailureHandler(function(error) {
-          document.getElementById('editStatus').textContent = error.message || 'Failed to load row.';
+          showAlert(error.message || 'Failed to load transaction', 'error');
         })
         .getJournalRow(rowId);
     }
 
     function updateJournal() {
       if (!selectedRowId) {
-        document.getElementById('editStatus').textContent = 'Select a row to update.';
+        showAlert('Please select a transaction to update', 'error');
         return;
       }
 
@@ -1510,22 +1599,21 @@
         receiptUrl: document.getElementById('editReceiptUrl').value.trim()
       };
 
-      document.getElementById('editStatus').textContent = 'Saving...';
-
       google.script.run
         .withSuccessHandler(function() {
-          document.getElementById('editStatus').textContent = 'Update successful.';
+          closeEditModal();
+          showAlert('Transaction updated successfully', 'success');
           runSearch();
         })
         .withFailureHandler(function(error) {
-          document.getElementById('editStatus').textContent = error.message || 'Update failed.';
+          showAlert(error.message || 'Failed to update transaction', 'error');
         })
         .updateJournal(payload);
     }
 
     function deleteJournal() {
       if (!selectedRowId) {
-        document.getElementById('editStatus').textContent = 'Select a row to delete.';
+        showAlert('Please select a transaction to delete', 'error');
         return;
       }
 
@@ -1533,21 +1621,21 @@
     }
 
     function confirmDelete(rowId) {
-      openConfirmModal('Confirm Delete', 'Are you sure you want to delete this record?', function() {
+      openConfirmModal('Confirm Delete', 'Are you sure you want to delete this record? This action cannot be undone.', function() {
         doDeleteJournal(rowId);
       });
     }
 
     function doDeleteJournal(rowId) {
-      document.getElementById('editStatus').textContent = 'Deleting...';
       google.script.run
         .withSuccessHandler(function() {
-          document.getElementById('editStatus').textContent = 'Deleted successfully.';
+          closeEditModal();
+          showAlert('Transaction deleted successfully', 'success');
           selectedRowId = null;
           runSearch();
         })
         .withFailureHandler(function(error) {
-          document.getElementById('editStatus').textContent = error.message || 'Delete failed.';
+          showAlert(error.message || 'Failed to delete transaction', 'error');
         })
         .deleteJournal(rowId);
     }
@@ -1556,14 +1644,13 @@
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         return;
       }
-      document.getElementById('editStatus').textContent = 'Undoing last action...';
       google.script.run
         .withSuccessHandler(function(result) {
-          document.getElementById('editStatus').textContent = 'Undo successful.';
+          showAlert('Last action undone successfully', 'success');
           runSearch();
         })
         .withFailureHandler(function(error) {
-          document.getElementById('editStatus').textContent = error.message || 'Undo failed.';
+          showAlert(error.message || 'Failed to undo last action', 'error');
         })
         .undoLastJournalAction();
     }
