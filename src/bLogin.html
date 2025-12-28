@@ -338,7 +338,9 @@
         .withSuccessHandler(function(result) {
           if (result.success) {
             const target = window.location.origin + window.location.pathname + '?t=' + Date.now();
-            window.location.replace(target);
+            setTimeout(function() {
+              window.location.replace(target);
+            }, 350);
           } else {
             showError(result.message || 'Login failed. Please try again.');
             loginBtn.disabled = false;
