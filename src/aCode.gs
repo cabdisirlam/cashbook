@@ -759,7 +759,7 @@ function saveSystemSettings(settings) {
  */
 function getCategories() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = _getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
 
     if (!sheet) {
@@ -789,7 +789,7 @@ function getSubCategories(category) {
   try {
     if (!category) return [];
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = _getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
 
     if (!sheet) {
@@ -824,7 +824,7 @@ function getCategoryForSubCategory(subCategory) {
   try {
     if (!subCategory) return '';
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = _getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
 
     if (!sheet) {
@@ -857,7 +857,7 @@ function getAccountType(category) {
   try {
     if (!category) return '';
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = _getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
 
     if (!sheet) {
@@ -887,7 +887,7 @@ function getAccountType(category) {
  */
 function getPayees() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = _getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
 
     if (!sheet) {
