@@ -907,26 +907,22 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
 
   if (typeKey === 'particular') {
     const parentSubCategory = String(parent || '').trim();
-    const accountTypeValue = String(accountType || '').trim();
-    const reportValue = String(reportMapping || '').trim();
+    const categoryValue = String(accountType || '').trim();
+    const accountTypeValue = String(reportMapping || '').trim();
+    const reportValue = String(arguments[5] || '').trim();
     if (!parentSubCategory) throw new Error('Parent sub-category is required.');
+    if (!categoryValue) throw new Error('Category is required.');
+    if (!accountTypeValue) throw new Error('Account type is required.');
+    if (!reportValue) throw new Error('Report mapping is required.');
     if (_valueExistsInColumn_(data, cols.particulars, trimmed)) return;
-    const subRow = data.find(function(row) {
-      return cols.subCategory && String(row[cols.subCategory - 1]).trim() === parentSubCategory;
-    });
-    if (!subRow) throw new Error('Parent sub-category not found.');
-    const categoryValue = cols.category ? String(subRow[cols.category - 1] || '').trim() : '';
-    const fallbackAccountType = cols.accountType ? String(subRow[cols.accountType - 1] || '').trim() : '';
-    const fallbackReportValue = cols.reportMapping ? String(subRow[cols.reportMapping - 1] || '').trim() : '';
-    if (!categoryValue) throw new Error('Parent category not found for sub-category.');
 
     const targetRow = _findRowForInsert_(data, cols.particulars, [cols.accountCodes]);
     _writeRowUpdate_(sheet, data, targetRow, lastCol, {
       [cols.particulars]: trimmed,
       [cols.subCategory]: parentSubCategory,
       [cols.category]: categoryValue,
-      [cols.accountType]: accountTypeValue || fallbackAccountType,
-      [cols.reportMapping]: reportValue || fallbackReportValue
+      [cols.accountType]: accountTypeValue,
+      [cols.reportMapping]: reportValue
     });
     logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: particular, Sub-Category: ' + parentSubCategory);
     return;

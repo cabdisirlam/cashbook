@@ -628,6 +628,7 @@
   function openAddParticularModal() {
     document.getElementById('addParticularName').value = '';
     document.getElementById('addParticularSubCategory').value = '';
+    document.getElementById('addParticularCategory').value = '';
     document.getElementById('addParticularAccountType').value = '';
     document.getElementById('addParticularReport').value = '';
     document.getElementById('addParticularModal').classList.add('open');
@@ -715,9 +716,10 @@
   function saveNewParticular() {
     const name = document.getElementById('addParticularName').value.trim();
     const parent = document.getElementById('addParticularSubCategory').value.trim();
+    const category = document.getElementById('addParticularCategory').value.trim();
     const accountType = document.getElementById('addParticularAccountType').value.trim();
     const reportMapping = document.getElementById('addParticularReport').value.trim();
-    if (!name || !parent) return;
+    if (!name || !parent || !category || !accountType || !reportMapping) return;
     if (isSaving) return;
     isSaving = true;
 
@@ -733,7 +735,7 @@
         setStatus(error.message || 'Failed to add particulars.');
         isSaving = false;
       })
-      .addMasterItem('particular', name, parent, accountType, reportMapping);
+      .addMasterItem('particular', name, parent, category, accountType, reportMapping);
   }
 
   function saveNewFinancialYear() {
@@ -942,6 +944,10 @@
     <div>
       <label class="form-label" for="addParticularSubCategory">Sub-Category</label>
       <input list="subCatList" id="addParticularSubCategory" class="input-field" type="text" placeholder="Select sub-category">
+    </div>
+    <div>
+      <label class="form-label" for="addParticularCategory">Category</label>
+      <input list="categoryList" id="addParticularCategory" class="input-field" type="text" placeholder="Select category">
     </div>
     <div>
       <label class="form-label" for="addParticularAccountType">Account Type</label>
