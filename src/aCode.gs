@@ -914,7 +914,7 @@ function getPayees() {
  */
 function getBudgetSubCategoryCatalog() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = _getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
 
     if (!sheet) {
