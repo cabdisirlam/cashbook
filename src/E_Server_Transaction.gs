@@ -467,11 +467,10 @@ function getBudgetVsActual(financialYear) {
       if (rowYear !== year) return;
       const sub = String(row[cols.subCategory - 1] || '').trim();
       if (!sub) return;
-      const debit = cols.debit ? Number(row[cols.debit - 1] || 0) : 0;
-      const credit = cols.credit ? Number(row[cols.credit - 1] || 0) : 0;
+      const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+      const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
       debitBySub[sub] = (debitBySub[sub] || 0) + debit;
       creditBySub[sub] = (creditBySub[sub] || 0) + credit;
-      actualBySub[sub] = (actualBySub[sub] || 0) + (debit - credit);
     });
   }
 
@@ -481,6 +480,7 @@ function getBudgetVsActual(financialYear) {
     const accountType = String(item.accountType || '').toLowerCase();
     const isReceipt = accountType.includes('income');
     const actual = isReceipt ? creditActual : debitActual;
+    actualBySub[item.subCategory] = actual;
     const finalBudget = item.originalBudget + item.reallocation + item.supplementary;
     const variance = finalBudget - actual;
     return {
@@ -771,6 +771,14 @@ function _resolveColumn_(headers, names, fallback) {
     if (idx >= 0) return idx + 1;
   }
   return fallback;
+}
+
+function _parseNumber_(value) {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') return value;
+  const cleaned = String(value).replace(/,/g, '').trim();
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function _setIfPresent_(row, colIndex, value) {
