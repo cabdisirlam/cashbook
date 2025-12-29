@@ -2719,8 +2719,9 @@
         return;
       }
       button.onclick = function() {
+        const actionToRun = confirmAction;
         closeConfirmModal();
-        if (confirmAction) confirmAction();
+        if (actionToRun) actionToRun();
       };
       modal.classList.add('open');
     }
