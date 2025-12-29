@@ -723,7 +723,21 @@
       }
 
       .table {
-        display: none;
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .table thead,
+      .table tbody {
+        display: table;
+        width: 100%;
+      }
+
+      .table th,
+      .table td {
+        white-space: nowrap;
       }
 
       .mobile-results {
