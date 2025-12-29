@@ -406,6 +406,13 @@
           <input type="date" id="txnDate" class="input-field" required>
         </div>
         <div>
+          <label class="form-label" for="txnFinancialYear">Financial Year</label>
+          <div class="input-action">
+            <input list="financialYearList" id="txnFinancialYear" class="input-field" placeholder="FY 2024/2025" required>
+            <button class="btn-icon" type="button" onclick="openAddFinancialYearModal()">+</button>
+          </div>
+        </div>
+        <div>
           <label class="form-label" for="accountCode">Bank Account</label>
           <div class="input-action">
             <input list="accountList" id="accountCode" class="input-field" placeholder="Select account" required>
@@ -459,6 +466,7 @@
 <datalist id="payeeList"></datalist>
 <datalist id="subCatList"></datalist>
 <datalist id="categoryList"></datalist>
+<datalist id="financialYearList"></datalist>
 
 <script>
   const paymentState = {
@@ -525,6 +533,7 @@
         fillList('payeeList', paymentState.payees);
         fillList('subCatList', paymentState.subCats);
         fillList('categoryList', payload.categories || []);
+        fillList('financialYearList', payload.financialYears || []);
         setStatus('');
       })
       .withFailureHandler(function(error) {
@@ -606,6 +615,12 @@
     document.getElementById('addSubName').focus();
   }
 
+  function openAddFinancialYearModal() {
+    document.getElementById('addFinancialYearInput').value = '';
+    document.getElementById('addFinancialYearModal').classList.add('open');
+    document.getElementById('addFinancialYearInput').focus();
+  }
+
   function closeSubModal(id) {
     document.getElementById(id).classList.remove('open');
   }
@@ -678,10 +693,32 @@
       .addMasterItem('subCategory', name, parent, accountType, reportMapping);
   }
 
+  function saveNewFinancialYear() {
+    const value = document.getElementById('addFinancialYearInput').value.trim();
+    if (!value) return;
+    if (isSaving) return;
+    isSaving = true;
+
+    setStatus('Saving financial year...');
+    google.script.run
+      .withSuccessHandler(function() {
+        closeSubModal('addFinancialYearModal');
+        loadDropdowns();
+        setStatus('Financial year saved.');
+        isSaving = false;
+      })
+      .withFailureHandler(function(error) {
+        setStatus(error.message || 'Failed to add financial year.');
+        isSaving = false;
+      })
+      .addMasterItem('financialYear', value);
+  }
+
   function saveTransaction() {
     if (isSaving) return;
     const header = {
       date: document.getElementById('txnDate').value,
+      financialYear: document.getElementById('txnFinancialYear').value.trim(),
       accountCode: document.getElementById('accountCode').value.trim(),
       payee: document.getElementById('payee').value.trim(),
       refNo: document.getElementById('refNo').value.trim()
@@ -704,8 +741,8 @@
       });
     });
 
-    if (!header.date || !header.accountCode) {
-      setStatus('Date and Bank Account are required.');
+    if (!header.date || !header.financialYear || !header.accountCode) {
+      setStatus('Date, Financial Year, and Bank Account are required.');
       return;
     }
 
@@ -737,6 +774,7 @@
     document.getElementById('accountCode').value = '';
     document.getElementById('payee').value = '';
     document.getElementById('refNo').value = '';
+    document.getElementById('txnFinancialYear').value = '';
     document.getElementById('totalAmount').textContent = '0.00';
     setDefaultDate();
   }
@@ -840,6 +878,23 @@
     <div class="submodal-actions">
       <button class="btn btn-secondary" type="button" onclick="closeSubModal('addSubModal')">Cancel</button>
       <button class="btn btn-primary" type="button" onclick="saveNewSubCategory()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="submodal" id="addFinancialYearModal">
+  <div class="submodal-card">
+    <div class="submodal-header">
+      <span>Add Financial Year</span>
+      <button class="close-btn" type="button" onclick="closeSubModal('addFinancialYearModal')">X</button>
+    </div>
+    <div>
+      <label class="form-label" for="addFinancialYearInput">Financial Year</label>
+      <input id="addFinancialYearInput" class="input-field" type="text" placeholder="FY 2024/2025">
+    </div>
+    <div class="submodal-actions">
+      <button class="btn btn-secondary" type="button" onclick="closeSubModal('addFinancialYearModal')">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="saveNewFinancialYear()">Save</button>
     </div>
   </div>
 </div>

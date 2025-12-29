@@ -7,7 +7,8 @@ function getDropdownData() {
     payees: [],
     subCats: [],
     subToCatMap: {},
-    categories: []
+    categories: [],
+    financialYears: []
   };
 
   const ss = _getOrCreateSpreadsheet();
@@ -27,10 +28,12 @@ function getDropdownData() {
     const payee = cols.payees ? String(row[cols.payees - 1]).trim() : '';
     const subCat = cols.subCategory ? String(row[cols.subCategory - 1]).trim() : '';
     const category = cols.category ? String(row[cols.category - 1]).trim() : '';
+    const financialYear = cols.financialYear ? String(row[cols.financialYear - 1]).trim() : '';
 
     if (account) payload.accounts.push(account);
     if (payee) payload.payees.push(payee);
     if (category) payload.categories.push(category);
+    if (financialYear) payload.financialYears.push(financialYear);
     if (subCat) {
       payload.subCats.push(subCat);
       if (category) payload.subToCatMap[subCat] = category;
@@ -41,6 +44,7 @@ function getDropdownData() {
   payload.payees = _uniqueSorted_(payload.payees);
   payload.subCats = _uniqueSorted_(payload.subCats);
   payload.categories = _uniqueSorted_(payload.categories);
+  payload.financialYears = _uniqueSorted_(payload.financialYears);
 
   return payload;
 }
@@ -58,7 +62,9 @@ function saveTransaction(data) {
   const dateValue = new Date(header.date);
   if (Number.isNaN(dateValue.getTime())) throw new Error('Invalid date.');
 
+  const financialYear = String(header.financialYear || '').trim();
   const accountCode = String(header.accountCode || '').trim();
+  if (!financialYear) throw new Error('Financial year is required.');
   if (!accountCode) throw new Error('Bank account is required.');
 
   const payee = String(header.payee || '').trim();
@@ -120,6 +126,7 @@ function saveTransaction(data) {
       Utilities.getUuid(),
       batchId,
       dateValue,
+      financialYear,
       accountCode,
       payee,
       refNo,
@@ -233,6 +240,7 @@ function getJournalRow(rowId) {
     uuid: values[cols.uuid - 1] || '',
     batchId: values[cols.batchId - 1] || '',
     date: dateValue instanceof Date ? _formatDate_(dateValue) : '',
+    financialYear: cols.financialYear ? values[cols.financialYear - 1] : '',
     accountCode: values[cols.accountCode - 1] || '',
     payee: values[cols.payee - 1] || '',
     refNo: values[cols.refNo - 1] || '',
@@ -266,6 +274,9 @@ function updateJournal(payload) {
 
   const updated = existing.slice();
   updated[cols.date - 1] = _parseDate_(payload.date) || existing[cols.date - 1];
+  if (cols.financialYear) {
+    updated[cols.financialYear - 1] = payload.financialYear || '';
+  }
   updated[cols.accountCode - 1] = payload.accountCode || '';
   updated[cols.payee - 1] = payload.payee || '';
   updated[cols.refNo - 1] = payload.refNo || '';
@@ -413,6 +424,15 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
     return;
   }
 
+  if (typeKey === 'financialyear') {
+    if (_valueExistsInColumn_(data, cols.financialYear, trimmed)) return;
+    const targetRow = _findRowForInsert_(data, cols.financialYear, [cols.subCategory, cols.accountCodes]);
+    _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+      [cols.financialYear]: trimmed
+    });
+    return;
+  }
+
   if (typeKey === 'account') {
     const accountTypeValue = String(accountType || '').trim();
     const reportValue = String(reportMapping || '').trim();
@@ -465,7 +485,8 @@ function _getMasterColumns_(headers) {
     category: _resolveColumn_(headers, ['category'], 3),
     accountCodes: _resolveColumn_(headers, ['account_codes', 'account_code'], 4),
     accountType: _resolveColumn_(headers, ['account_type', 'accounttype'], 5),
-    reportMapping: _resolveColumn_(headers, ['report_mapping', 'reportmapping'], 6)
+    reportMapping: _resolveColumn_(headers, ['report_mapping', 'reportmapping'], 6),
+    financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 7)
   };
 }
 
@@ -474,18 +495,19 @@ function _getJournalColumns_(headers) {
     uuid: _resolveColumn_(headers, ['uuid'], 1),
     batchId: _resolveColumn_(headers, ['batch_id'], 2),
     date: _resolveColumn_(headers, ['date'], 3),
-    accountCode: _resolveColumn_(headers, ['account_code'], 4),
-    payee: _resolveColumn_(headers, ['payee'], 5),
-    refNo: _resolveColumn_(headers, ['ref_no'], 6),
-    subCategory: _resolveColumn_(headers, ['sub_category'], 7),
-    category: _resolveColumn_(headers, ['category'], 8),
-    description: _resolveColumn_(headers, ['description'], 9),
-    debit: _resolveColumn_(headers, ['debit'], 10),
-    credit: _resolveColumn_(headers, ['credit'], 11),
-    accountType: _resolveColumn_(headers, ['account_type'], 12),
-    reportMapping: _resolveColumn_(headers, ['report_mapping'], 13),
-    reconStatus: _resolveColumn_(headers, ['recon_status'], 14),
-    receiptUrl: _resolveColumn_(headers, ['receipt_url'], 15)
+    financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 4),
+    accountCode: _resolveColumn_(headers, ['account_code'], 5),
+    payee: _resolveColumn_(headers, ['payee'], 6),
+    refNo: _resolveColumn_(headers, ['ref_no'], 7),
+    subCategory: _resolveColumn_(headers, ['sub_category'], 8),
+    category: _resolveColumn_(headers, ['category'], 9),
+    description: _resolveColumn_(headers, ['description'], 10),
+    debit: _resolveColumn_(headers, ['debit'], 11),
+    credit: _resolveColumn_(headers, ['credit'], 12),
+    accountType: _resolveColumn_(headers, ['account_type'], 13),
+    reportMapping: _resolveColumn_(headers, ['report_mapping'], 14),
+    reconStatus: _resolveColumn_(headers, ['recon_status'], 15),
+    receiptUrl: _resolveColumn_(headers, ['receipt_url'], 16)
   };
 }
 

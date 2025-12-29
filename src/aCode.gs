@@ -103,7 +103,7 @@ function cleanupSheetHeaders() {
   // Clean up VIEW_LEDGER headers
   let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_LEDGER);
   if (sheet) {
-    const headers = ['UUID', 'Batch_ID', 'Date', 'Account_Code', 'Payee', 'Ref_No',
+    const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
                      'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -115,7 +115,7 @@ function cleanupSheetHeaders() {
   // Clean up DB_JOURNAL headers
   sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (sheet) {
-    const headers = ['UUID', 'Batch_ID', 'Date', 'Account_Code', 'Payee', 'Ref_No',
+    const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
                      'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -150,7 +150,7 @@ function cleanupSheetHeaders() {
   // Clean up MASTER_DATA headers
   sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
   if (sheet) {
-    const headers = ['Payees', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping'];
+    const headers = ['Payees', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('MASTER_DATA');
@@ -266,7 +266,7 @@ function _initializeViewLedgerSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_LEDGER);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.VIEW_LEDGER);
-    const headers = ['UUID', 'Batch_ID', 'Date', 'Account_Code', 'Payee', 'Ref_No',
+    const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
                      'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -308,7 +308,7 @@ function _initializeDbJournalSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_JOURNAL);
-    const headers = ['UUID', 'Batch_ID', 'Date', 'Account_Code', 'Payee', 'Ref_No',
+    const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
                      'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -358,7 +358,7 @@ function _initializeMasterDataSheet(ss) {
     sheet = ss.insertSheet(CONFIG.SHEETS.MASTER_DATA);
 
     // Create headers - All data will come from user input
-    const headers = ['Payees', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping'];
+    const headers = ['Payees', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
 
@@ -957,6 +957,8 @@ function saveOriginalBudget(payload) {
   if (!payload) throw new Error('Missing payload.');
   const financialYear = String(payload.financialYear || '').trim();
   if (!financialYear) throw new Error('Financial year is required.');
+  const dateValue = payload.date ? new Date(payload.date) : new Date();
+  if (Number.isNaN(dateValue.getTime())) throw new Error('Invalid budget date.');
 
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
   if (!rows.length) throw new Error('No budget rows provided.');
@@ -977,7 +979,6 @@ function saveOriginalBudget(payload) {
     }
   }
 
-  const today = new Date();
   const headerCount = sheet.getLastColumn();
   const rowsToInsert = rows.map(item => {
     const subCategory = String(item.subCategory || '').trim();
@@ -990,7 +991,7 @@ function saveOriginalBudget(payload) {
     if (amount < 0) throw new Error('Original budget must be positive for ' + subCategory + '.');
 
     const row = new Array(headerCount).fill('');
-    row[headerMap.Date] = today;
+    row[headerMap.Date] = dateValue;
     row[headerMap.Financial_Year] = financialYear;
     row[headerMap.Sub_Category] = subCategory;
     row[headerMap.Category] = category;

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Financial System - Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 
@@ -1345,70 +1346,78 @@
               <input type="date" id="editDate">
             </div>
             <div class="form-group">
-              <label for="editAccountCode">Account Code</label>
-              <input type="text" id="editAccountCode">
+              <label for="editFinancialYear">Financial Year</label>
+              <input list="editFinancialYearList" id="editFinancialYear">
             </div>
           </div>
 
           <div class="form-row">
+            <div class="form-group">
+              <label for="editAccountCode">Account Code</label>
+              <input type="text" id="editAccountCode">
+            </div>
             <div class="form-group">
               <label for="editPayee">Payee</label>
               <input type="text" id="editPayee">
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editRefNo">Ref No</label>
               <input type="text" id="editRefNo">
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label for="editSubCategory">Sub-Category</label>
               <input type="text" id="editSubCategory">
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editCategory">Category</label>
               <input type="text" id="editCategory">
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label for="editDescription">Description</label>
               <input type="text" id="editDescription">
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editDebit">Debit</label>
               <input type="number" id="editDebit" step="0.01">
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label for="editCredit">Credit</label>
               <input type="number" id="editCredit" step="0.01">
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editAccountType">Account Type</label>
               <input type="text" id="editAccountType">
+            </div>
+            <div class="form-group">
+              <label for="editReportMapping">Report Mapping</label>
+              <input type="text" id="editReportMapping">
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="editReportMapping">Report Mapping</label>
-              <input type="text" id="editReportMapping">
-            </div>
-            <div class="form-group">
               <label for="editReconStatus">Recon Status</label>
               <input type="text" id="editReconStatus">
             </div>
+            <div class="form-group">
+              <label for="editReceiptUrl">Receipt URL</label>
+              <input type="text" id="editReceiptUrl">
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="editReceiptUrl">Receipt URL</label>
-            <input type="text" id="editReceiptUrl">
-          </div>
+          <datalist id="editFinancialYearList"></datalist>
 
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line);">
             <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
@@ -1494,6 +1503,7 @@
     function renderBudgetManagerContent() {
       const contentArea = document.getElementById('contentArea');
       budgetCatalog = [];
+      budgetYears = [];
       contentArea.innerHTML = `
         <div id="budgetAlert"></div>
         <div class="card">
@@ -1531,11 +1541,33 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="bulkFinancialYear">Financial Year</label>
-                <input type="text" id="bulkFinancialYear" placeholder="FY 2024/2025">
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <select id="bulkFinancialYear"></select>
+                  <button class="btn btn-secondary" type="button" onclick="openBudgetYearModal()">+</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="bulkBudgetDate">Budget Date</label>
+                <input type="date" id="bulkBudgetDate">
               </div>
               <div class="form-group">
                 <label>&nbsp;</label>
-                <button class="btn btn-secondary" type="button" style="width:100%;" onclick="loadBudgetCatalog()">Load Sub-Categories</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-secondary" type="button" onclick="loadBudgetCatalog()">Load Sub-Categories</button>
+                  <button class="btn btn-secondary" type="button" onclick="downloadBudgetTemplate()">Download CSV</button>
+                  <button class="btn btn-secondary" type="button" onclick="downloadBudgetTemplateXlsx()">Download XLSX</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row" style="margin-bottom:8px;">
+              <div class="form-group">
+                <label for="budgetUploadInput">Upload Completed Format (CSV or XLSX)</label>
+                <input type="file" id="budgetUploadInput" accept=".csv,.xlsx">
+              </div>
+              <div class="form-group">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" type="button" onclick="handleBudgetUpload()">Upload File</button>
               </div>
             </div>
 
@@ -1562,7 +1594,10 @@
               </div>
               <div class="form-group">
                 <label for="adjustFinancialYear">Financial Year</label>
-                <input type="text" id="adjustFinancialYear" placeholder="FY 2024/2025">
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <select id="adjustFinancialYear"></select>
+                  <button class="btn btn-secondary" type="button" onclick="openBudgetYearModal()">+</button>
+                </div>
               </div>
             </div>
 
@@ -1613,9 +1648,26 @@
             </div>
           </div>
         </div>
+        <div class="modal" id="budgetYearModal">
+          <div class="modal-card" style="max-width:420px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h3 style="font-size:18px;font-weight:700;margin:0;">Add Financial Year</h3>
+              <button class="btn btn-secondary" onclick="closeBudgetYearModal()" style="padding:6px 10px;font-size:12px;">Close</button>
+            </div>
+            <div class="form-group">
+              <label for="budgetYearInput">Financial Year</label>
+              <input type="text" id="budgetYearInput" placeholder="FY 2024/2025">
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-secondary" onclick="closeBudgetYearModal()">Cancel</button>
+              <button class="btn btn-primary" onclick="saveBudgetYear()">Save</button>
+            </div>
+          </div>
+        </div>
       `;
 
       clearBudgetAlert();
+      loadBudgetYears();
     }
 
     function openBudgetBulkModal() {
@@ -1623,7 +1675,12 @@
       if (modal) modal.classList.add('open');
       const table = document.getElementById('bulkBudgetTable');
       if (table) table.innerHTML = '';
+      const dateInput = document.getElementById('bulkBudgetDate');
+      if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+      }
       loadBudgetCatalog();
+      loadBudgetYears();
     }
 
     function closeBudgetBulkModal() {
@@ -1639,7 +1696,20 @@
         dateInput.value = new Date().toISOString().split('T')[0];
       }
       ensureBudgetCatalog(populateBudgetAdjustmentSelects);
+      loadBudgetYears();
       handleBudgetAdjustmentTypeChange();
+    }
+
+    function openBudgetYearModal() {
+      const modal = document.getElementById('budgetYearModal');
+      const input = document.getElementById('budgetYearInput');
+      if (input) input.value = '';
+      if (modal) modal.classList.add('open');
+    }
+
+    function closeBudgetYearModal() {
+      const modal = document.getElementById('budgetYearModal');
+      if (modal) modal.classList.remove('open');
     }
 
     function closeBudgetAdjustmentModal() {
@@ -1660,6 +1730,359 @@
       if (!container) return;
       container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading sub-categories...</p>';
       ensureBudgetCatalog(renderBudgetBulkTable);
+    }
+
+    function loadBudgetYears(callback) {
+      if (budgetYears.length) {
+        fillYearSelects();
+        if (callback) callback();
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBudgetAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          budgetYears = (data && data.financialYears) ? data.financialYears : [];
+          fillYearSelects();
+          if (callback) callback();
+        })
+        .withFailureHandler(function(error) {
+          showBudgetAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function fillYearSelects() {
+      fillSelectOptions('bulkFinancialYear', budgetYears);
+      fillSelectOptions('adjustFinancialYear', budgetYears);
+    }
+
+    function saveBudgetYear() {
+      const value = document.getElementById('budgetYearInput').value.trim();
+      if (!value) {
+        showBudgetAlert('Financial year is required.', 'error');
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBudgetAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function() {
+          closeBudgetYearModal();
+          budgetYears = [];
+          loadBudgetYears();
+          showBudgetAlert('Financial year saved.', 'success');
+        })
+        .withFailureHandler(function(error) {
+          showBudgetAlert(error.message || 'Failed to save financial year.', 'error');
+        })
+        .addMasterItem('financialYear', value);
+    }
+
+    function downloadBudgetTemplate() {
+      ensureBudgetCatalog(function() {
+        if (!budgetCatalog.length) {
+          showBudgetAlert('No sub-categories available for template.', 'error');
+          return;
+        }
+        const financialYear = document.getElementById('bulkFinancialYear').value.trim();
+        const budgetDate = document.getElementById('bulkBudgetDate').value;
+        if (!financialYear) {
+          showBudgetAlert('Select a financial year before downloading.', 'error');
+          return;
+        }
+        if (!budgetDate) {
+          showBudgetAlert('Select a budget date before downloading.', 'error');
+          return;
+        }
+
+        const headers = ['Date', 'Financial_Year', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
+        const rows = budgetCatalog.map(item => ([
+          budgetDate,
+          financialYear,
+          item.subCategory || '',
+          item.category || '',
+          item.accountType || '',
+          ''
+        ]));
+
+        const csv = [headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'budget_template.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showBudgetAlert('Template downloaded.', 'success');
+      });
+    }
+
+    function downloadBudgetTemplateXlsx() {
+      ensureBudgetCatalog(function() {
+        if (!budgetCatalog.length) {
+          showBudgetAlert('No sub-categories available for template.', 'error');
+          return;
+        }
+        if (typeof XLSX === 'undefined') {
+          showBudgetAlert('XLSX library not available. Use CSV download instead.', 'error');
+          return;
+        }
+        const financialYear = document.getElementById('bulkFinancialYear').value.trim();
+        const budgetDate = document.getElementById('bulkBudgetDate').value;
+        if (!financialYear) {
+          showBudgetAlert('Select a financial year before downloading.', 'error');
+          return;
+        }
+        if (!budgetDate) {
+          showBudgetAlert('Select a budget date before downloading.', 'error');
+          return;
+        }
+
+        const headers = ['Date', 'Financial_Year', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
+        const rows = budgetCatalog.map(item => ([
+          budgetDate,
+          financialYear,
+          item.subCategory || '',
+          item.category || '',
+          item.accountType || '',
+          ''
+        ]));
+
+        const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Budget Template');
+        XLSX.writeFile(workbook, 'budget_template.xlsx');
+        showBudgetAlert('Template downloaded.', 'success');
+      });
+    }
+
+    function escapeCsv(value) {
+      const text = String(value ?? '');
+      if (/[",\n]/.test(text)) {
+        return `"${text.replace(/"/g, '""')}"`;
+      }
+      return text;
+    }
+
+    function handleBudgetUpload() {
+      const fileInput = document.getElementById('budgetUploadInput');
+      if (!fileInput || !fileInput.files || !fileInput.files.length) {
+        showBudgetAlert('Select a CSV or XLSX file to upload.', 'error');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const fileName = file.name.toLowerCase();
+      if (!(fileName.endsWith('.csv') || fileName.endsWith('.xlsx'))) {
+        showBudgetAlert('Only CSV or XLSX files are supported.', 'error');
+        return;
+      }
+
+      ensureBudgetCatalog(function() {
+        loadBudgetYears(function() {
+          const reader = new FileReader();
+          reader.onload = function(event) {
+            try {
+              if (fileName.endsWith('.xlsx')) {
+                if (typeof XLSX === 'undefined') {
+                  showBudgetAlert('XLSX library not available. Use CSV upload.', 'error');
+                  return;
+                }
+                const data = event.target.result;
+              const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+              const sheetName = workbook.SheetNames[0];
+              const worksheet = workbook.Sheets[sheetName];
+              const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                if (rows.length <= 1) {
+                  showBudgetAlert('XLSX file is empty.', 'error');
+                  return;
+                }
+                applyBudgetUpload(rows);
+                return;
+              }
+
+              const csvText = event.target.result || '';
+              const parsed = parseCsvToRows(csvText);
+              if (parsed.rows.length <= 1) {
+                showBudgetAlert('CSV file is empty.', 'error');
+                return;
+              }
+              applyBudgetUpload(parsed.rows);
+            } catch (error) {
+              showBudgetAlert(error.message || 'Failed to read file.', 'error');
+            }
+          };
+          reader.onerror = function() {
+            showBudgetAlert('Failed to read file.', 'error');
+          };
+
+          if (fileName.endsWith('.xlsx')) {
+            reader.readAsArrayBuffer(file);
+          } else {
+            reader.readAsText(file);
+          }
+        });
+      });
+    }
+
+    function parseCsvToRows(csvText) {
+      const rows = [];
+      let current = [];
+      let value = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < csvText.length; i++) {
+        const char = csvText[i];
+        const next = csvText[i + 1];
+
+        if (inQuotes) {
+          if (char === '"' && next === '"') {
+            value += '"';
+            i++;
+          } else if (char === '"') {
+            inQuotes = false;
+          } else {
+            value += char;
+          }
+        } else {
+          if (char === '"') {
+            inQuotes = true;
+          } else if (char === ',') {
+            current.push(value);
+            value = '';
+          } else if (char === '\n') {
+            current.push(value);
+            rows.push(current);
+            current = [];
+            value = '';
+          } else if (char === '\r') {
+            continue;
+          } else {
+            value += char;
+          }
+        }
+      }
+
+      current.push(value);
+      if (current.length > 1 || current[0] !== '') {
+        rows.push(current);
+      }
+
+      return { rows: rows };
+    }
+
+    function applyBudgetUpload(csvRows) {
+      const headerRow = csvRows[0].map(value => String(value || '').trim());
+      const headerMap = {};
+      headerRow.forEach((header, index) => {
+        headerMap[header] = index;
+      });
+
+      const requiredHeaders = ['Date', 'Financial_Year', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
+      const missing = requiredHeaders.filter(header => headerMap[header] === undefined);
+      if (missing.length) {
+        showBudgetAlert('Missing headers: ' + missing.join(', '), 'error');
+        return;
+      }
+
+      if (!budgetCatalog.length) {
+        showBudgetAlert('No sub-categories loaded. Please load sub-categories first.', 'error');
+        return;
+      }
+
+      renderBudgetBulkTable();
+
+      const catalogIndex = new Map();
+      budgetCatalog.forEach((item, index) => {
+        catalogIndex.set(String(item.subCategory || '').trim(), index);
+      });
+
+      const yearValues = new Set();
+      const dateValues = new Set();
+      let invalidRows = [];
+
+      for (let i = 1; i < csvRows.length; i++) {
+        const row = csvRows[i];
+        if (!row || !row.length) continue;
+
+        const subCategory = String(row[headerMap.Sub_Category] || '').trim();
+        if (!subCategory) continue;
+
+        const index = catalogIndex.get(subCategory);
+        if (index === undefined) {
+          invalidRows.push(subCategory);
+          continue;
+        }
+
+        const amountRaw = String(row[headerMap.Original_Budget] || '').trim();
+        if (amountRaw !== '') {
+          const amount = Number(amountRaw);
+          if (!Number.isFinite(amount)) {
+            invalidRows.push(subCategory);
+            continue;
+          }
+          const input = document.getElementById(`bulkAmount_${index}`);
+          if (input) input.value = amount;
+        }
+
+        const yearValue = String(row[headerMap.Financial_Year] || '').trim();
+        if (yearValue) yearValues.add(yearValue);
+
+        const rawDate = row[headerMap.Date];
+        const normalizedDate = normalizeBudgetDate(rawDate);
+        if (normalizedDate) dateValues.add(normalizedDate);
+      }
+
+      if (invalidRows.length) {
+        const uniqueInvalid = Array.from(new Set(invalidRows));
+        showBudgetAlert('Some sub-categories are invalid or have bad amounts: ' + uniqueInvalid.join(', '), 'error');
+        return;
+      }
+
+      if (yearValues.size === 1) {
+        const yearValue = Array.from(yearValues)[0];
+        if (budgetYears.includes(yearValue)) {
+          document.getElementById('bulkFinancialYear').value = yearValue;
+        } else {
+          document.getElementById('bulkFinancialYear').value = '';
+          showBudgetAlert('Financial year "' + yearValue + '" is not in Master Data. Add it first.', 'error');
+        }
+      } else if (yearValues.size > 1) {
+        showBudgetAlert('Multiple financial years found in file. Please set the financial year manually.', 'error');
+      } else {
+        showBudgetAlert('Upload loaded. Set the financial year before saving.', 'info');
+      }
+
+      if (dateValues.size === 1) {
+        document.getElementById('bulkBudgetDate').value = Array.from(dateValues)[0];
+      } else if (dateValues.size > 1) {
+        showBudgetAlert('Multiple dates found in file. Please set the budget date manually.', 'error');
+      }
+    }
+
+    function normalizeBudgetDate(value) {
+      if (!value) return '';
+      if (value instanceof Date) {
+        return value.toISOString().split('T')[0];
+      }
+      if (typeof value === 'number') {
+        const epoch = new Date(Date.UTC(1899, 11, 30));
+        const date = new Date(epoch.getTime() + value * 24 * 60 * 60 * 1000);
+        if (!Number.isNaN(date.getTime())) {
+          return date.toISOString().split('T')[0];
+        }
+      }
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
+      return '';
     }
 
     function ensureBudgetCatalog(callback) {
@@ -1723,8 +2146,13 @@
 
     function saveOriginalBudget() {
       const financialYear = document.getElementById('bulkFinancialYear').value.trim();
+      const budgetDate = document.getElementById('bulkBudgetDate').value;
       if (!financialYear) {
         showBudgetAlert('Financial year is required.', 'error');
+        return;
+      }
+      if (!budgetDate) {
+        showBudgetAlert('Budget date is required.', 'error');
         return;
       }
 
@@ -1768,7 +2196,7 @@
         .withFailureHandler(function(error) {
           showBudgetAlert(error.message || 'Failed to save original budget.', 'error');
         })
-        .saveOriginalBudget({ financialYear: financialYear, rows: rows });
+        .saveOriginalBudget({ financialYear: financialYear, date: budgetDate, rows: rows });
     }
 
     function populateBudgetAdjustmentSelects() {
@@ -1902,6 +2330,7 @@
     let selectedRowId = null;
     let confirmAction = null;
     let budgetCatalog = [];
+    let budgetYears = [];
 
     function bindSearchHandlers() {
       ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchPayee']
@@ -1926,6 +2355,7 @@
       google.script.run
         .withSuccessHandler(function(data) {
           const categories = (data && data.categories) ? data.categories : [];
+          const years = (data && data.financialYears) ? data.financialYears : [];
           const select = document.getElementById('searchCategory');
           if (!select) return;
           select.innerHTML = '<option value="">All Categories</option>';
@@ -1936,8 +2366,20 @@
             select.appendChild(option);
           });
           searchMeta.categories = categories;
+          fillDatalist('editFinancialYearList', years);
         })
         .getDropdownData();
+    }
+
+    function fillDatalist(id, items) {
+      const list = document.getElementById(id);
+      if (!list) return;
+      list.innerHTML = '';
+      (items || []).forEach(item => {
+        const option = document.createElement('option');
+        option.value = item;
+        list.appendChild(option);
+      });
     }
 
     function runSearch() {
@@ -2094,6 +2536,7 @@
           document.getElementById('editUuid').value = row.uuid || '';
           document.getElementById('editBatchId').value = row.batchId || '';
           document.getElementById('editDate').value = row.date || '';
+          document.getElementById('editFinancialYear').value = row.financialYear || '';
           document.getElementById('editAccountCode').value = row.accountCode || '';
           document.getElementById('editPayee').value = row.payee || '';
           document.getElementById('editRefNo').value = row.refNo || '';
@@ -2143,6 +2586,7 @@
         debit: document.getElementById('editDebit').value,
         credit: document.getElementById('editCredit').value,
         accountType: document.getElementById('editAccountType').value.trim(),
+        financialYear: document.getElementById('editFinancialYear').value.trim(),
         reportMapping: document.getElementById('editReportMapping').value.trim(),
         reconStatus: document.getElementById('editReconStatus').value.trim(),
         receiptUrl: document.getElementById('editReceiptUrl').value.trim()
