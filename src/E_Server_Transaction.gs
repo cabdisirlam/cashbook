@@ -107,6 +107,8 @@ function saveTransaction(data) {
     const amount = Number(row.amount || 0);
     const particulars = String(row.particulars || '').trim();
     const description = String(row.description || '').trim();
+    const accountTypeInput = String(row.accountType || '').trim();
+    const reportMappingInput = String(row.reportMapping || '').trim();
 
     if (!particulars) throw new Error('Each line needs particulars.');
     const meta = particularMeta[particulars];
@@ -117,8 +119,8 @@ function saveTransaction(data) {
     const category = meta.category;
     if (amount <= 0) throw new Error('Line amount must be greater than zero.');
 
-    const accountTypeValue = meta.accountType || '';
-    const reportMappingValue = meta.reportMapping || '';
+    const accountTypeValue = accountTypeInput || meta.accountType || '';
+    const reportMappingValue = reportMappingInput || meta.reportMapping || '';
 
     return {
       particulars,
