@@ -842,6 +842,10 @@
             <span class="menu-item-icon">-</span>
             <span>Export Journal</span>
           </div>
+          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Add/Edit Budget" onclick="navigateTo(this, 'Add/Edit Budget')">
+            <span class="menu-item-icon">-</span>
+            <span>Add/Edit Budget</span>
+          </div>
         </div>
 
         <div class="menu-section">
@@ -1121,6 +1125,11 @@
 
       if (label === 'Export Journal') {
         renderExportJournalContent();
+        return;
+      }
+
+      if (label === 'Add/Edit Budget') {
+        renderBudgetManagerContent();
         return;
       }
 
@@ -1482,10 +1491,417 @@
         .exportJournal(criteria);
     }
 
+    function renderBudgetManagerContent() {
+      const contentArea = document.getElementById('contentArea');
+      budgetCatalog = [];
+      contentArea.innerHTML = `
+        <div id="budgetAlert"></div>
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Add/Edit Budget</h2>
+              <p style="color:#6b7280;font-size:13px;">Upload original budgets or post adjustments.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderBudgetManagerContent()">Refresh</button>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div style="border:1px solid var(--line);border-radius:var(--radius);padding:16px;background:#ffffff;box-shadow:var(--shadow-sm);">
+              <h3 style="margin-bottom:6px;font-size:16px;">Original Input</h3>
+              <p style="color:#6b7280;font-size:13px;margin-bottom:12px;">Bulk load the original budget for every sub-category.</p>
+              <button class="btn btn-primary" onclick="openBudgetBulkModal()">Original Input</button>
+            </div>
+            <div style="border:1px solid var(--line);border-radius:var(--radius);padding:16px;background:#ffffff;box-shadow:var(--shadow-sm);">
+              <h3 style="margin-bottom:6px;font-size:16px;">Adjustments</h3>
+              <p style="color:#6b7280;font-size:13px;margin-bottom:12px;">Supplementary or reallocation adjustments mid-year.</p>
+              <button class="btn btn-primary" onclick="openBudgetAdjustmentModal()">Adjustments</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal" id="budgetBulkModal">
+          <div class="modal-card" style="max-width:900px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h3 style="font-size:18px;font-weight:700;margin:0;">Original Input (Bulk Loader)</h3>
+              <button class="btn btn-secondary" onclick="closeBudgetBulkModal()" style="padding:6px 10px;font-size:12px;">Close</button>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="bulkFinancialYear">Financial Year</label>
+                <input type="text" id="bulkFinancialYear" placeholder="FY 2024/2025">
+              </div>
+              <div class="form-group">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" type="button" style="width:100%;" onclick="loadBudgetCatalog()">Load Sub-Categories</button>
+              </div>
+            </div>
+
+            <div id="bulkBudgetTable"></div>
+
+            <div class="form-actions">
+              <button class="btn btn-secondary" onclick="closeBudgetBulkModal()">Cancel</button>
+              <button class="btn btn-primary" onclick="saveOriginalBudget()">Save Original Budget</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal" id="budgetAdjustmentModal">
+          <div class="modal-card" style="max-width:640px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h3 style="font-size:18px;font-weight:700;margin:0;">Budget Adjustment</h3>
+              <button class="btn btn-secondary" onclick="closeBudgetAdjustmentModal()" style="padding:6px 10px;font-size:12px;">Close</button>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="adjustDate">Date</label>
+                <input type="date" id="adjustDate">
+              </div>
+              <div class="form-group">
+                <label for="adjustFinancialYear">Financial Year</label>
+                <input type="text" id="adjustFinancialYear" placeholder="FY 2024/2025">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="adjustmentType">Adjustment Type</label>
+                <select id="adjustmentType" onchange="handleBudgetAdjustmentTypeChange()">
+                  <option value="Supplementary">Supplementary</option>
+                  <option value="Reallocation">Reallocation</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="adjustAmount">Amount</label>
+                <input type="number" id="adjustAmount" step="0.01">
+              </div>
+            </div>
+
+            <div class="form-group" id="supplementarySection">
+              <label for="adjustSubCategory">Sub-Category</label>
+              <select id="adjustSubCategory"></select>
+            </div>
+
+            <div class="form-row" id="reallocationSection" style="display:none;">
+              <div class="form-group">
+                <label for="reallocFromSubCategory">From</label>
+                <select id="reallocFromSubCategory"></select>
+              </div>
+              <div class="form-group">
+                <label for="reallocToSubCategory">To</label>
+                <select id="reallocToSubCategory"></select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="adjustAuthRef">Auth Ref</label>
+                <input type="text" id="adjustAuthRef">
+              </div>
+              <div class="form-group">
+                <label for="adjustDescription">Description</label>
+                <input type="text" id="adjustDescription">
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-secondary" onclick="closeBudgetAdjustmentModal()">Cancel</button>
+              <button class="btn btn-primary" onclick="saveBudgetAdjustment()">Save Adjustment</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      clearBudgetAlert();
+    }
+
+    function openBudgetBulkModal() {
+      const modal = document.getElementById('budgetBulkModal');
+      if (modal) modal.classList.add('open');
+      const table = document.getElementById('bulkBudgetTable');
+      if (table) table.innerHTML = '';
+      loadBudgetCatalog();
+    }
+
+    function closeBudgetBulkModal() {
+      const modal = document.getElementById('budgetBulkModal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function openBudgetAdjustmentModal() {
+      const modal = document.getElementById('budgetAdjustmentModal');
+      if (modal) modal.classList.add('open');
+      const dateInput = document.getElementById('adjustDate');
+      if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+      }
+      ensureBudgetCatalog(populateBudgetAdjustmentSelects);
+      handleBudgetAdjustmentTypeChange();
+    }
+
+    function closeBudgetAdjustmentModal() {
+      const modal = document.getElementById('budgetAdjustmentModal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function handleBudgetAdjustmentTypeChange() {
+      const type = document.getElementById('adjustmentType').value;
+      const supplementary = document.getElementById('supplementarySection');
+      const reallocation = document.getElementById('reallocationSection');
+      if (supplementary) supplementary.style.display = type === 'Supplementary' ? 'block' : 'none';
+      if (reallocation) reallocation.style.display = type === 'Reallocation' ? 'grid' : 'none';
+    }
+
+    function loadBudgetCatalog() {
+      const container = document.getElementById('bulkBudgetTable');
+      if (!container) return;
+      container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading sub-categories...</p>';
+      ensureBudgetCatalog(renderBudgetBulkTable);
+    }
+
+    function ensureBudgetCatalog(callback) {
+      if (budgetCatalog.length) {
+        if (callback) callback();
+        return;
+      }
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBudgetAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(rows) {
+          budgetCatalog = rows || [];
+          if (!budgetCatalog.length) {
+            showBudgetAlert('No sub-categories found. Add them in Master Data first.', 'error');
+          }
+          if (callback) callback();
+        })
+        .withFailureHandler(function(error) {
+          showBudgetAlert(error.message || 'Failed to load sub-categories.', 'error');
+        })
+        .getBudgetSubCategoryCatalog();
+    }
+
+    function renderBudgetBulkTable() {
+      const container = document.getElementById('bulkBudgetTable');
+      if (!container) return;
+      if (!budgetCatalog.length) {
+        container.innerHTML = '<p style="color:#6b7280;font-size:13px;">No sub-categories available.</p>';
+        return;
+      }
+
+      const rows = budgetCatalog.map((item, index) => `
+        <tr>
+          <td>${item.subCategory || ''}</td>
+          <td>${item.category || ''}</td>
+          <td>${item.accountType || ''}</td>
+          <td>
+            <input type="number" id="bulkAmount_${index}" step="0.01" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;">
+          </td>
+        </tr>
+      `).join('');
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Sub-Category</th>
+              <th>Category</th>
+              <th>Account Type</th>
+              <th>Original Budget</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function saveOriginalBudget() {
+      const financialYear = document.getElementById('bulkFinancialYear').value.trim();
+      if (!financialYear) {
+        showBudgetAlert('Financial year is required.', 'error');
+        return;
+      }
+
+      if (!budgetCatalog.length) {
+        showBudgetAlert('No sub-categories available to save.', 'error');
+        return;
+      }
+
+      const rows = [];
+      for (let i = 0; i < budgetCatalog.length; i++) {
+        const input = document.getElementById(`bulkAmount_${i}`);
+        const value = input ? input.value.trim() : '';
+        const amount = value === '' ? 0 : Number(value);
+        if (!Number.isFinite(amount)) {
+          showBudgetAlert('Invalid amount for ' + budgetCatalog[i].subCategory + '.', 'error');
+          return;
+        }
+        if (amount < 0) {
+          showBudgetAlert('Original budget must be positive for ' + budgetCatalog[i].subCategory + '.', 'error');
+          return;
+        }
+        rows.push({
+          subCategory: budgetCatalog[i].subCategory,
+          category: budgetCatalog[i].category,
+          accountType: budgetCatalog[i].accountType,
+          amount: amount
+        });
+      }
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBudgetAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      showBudgetAlert('Saving original budget...', 'info');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          closeBudgetBulkModal();
+          showBudgetAlert('Original budget saved (' + (result ? result.count : 0) + ' rows).', 'success');
+        })
+        .withFailureHandler(function(error) {
+          showBudgetAlert(error.message || 'Failed to save original budget.', 'error');
+        })
+        .saveOriginalBudget({ financialYear: financialYear, rows: rows });
+    }
+
+    function populateBudgetAdjustmentSelects() {
+      const options = budgetCatalog.map(item => item.subCategory);
+      fillSelectOptions('adjustSubCategory', options);
+      fillSelectOptions('reallocFromSubCategory', options);
+      fillSelectOptions('reallocToSubCategory', options);
+    }
+
+    function fillSelectOptions(selectId, values) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      select.innerHTML = '<option value="">Select...</option>';
+      values.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+    }
+
+    function saveBudgetAdjustment() {
+      const date = document.getElementById('adjustDate').value;
+      const financialYear = document.getElementById('adjustFinancialYear').value.trim();
+      const type = document.getElementById('adjustmentType').value;
+      const amountValue = document.getElementById('adjustAmount').value.trim();
+      const amount = Number(amountValue);
+      const authRef = document.getElementById('adjustAuthRef').value.trim();
+      const description = document.getElementById('adjustDescription').value.trim();
+
+      if (!financialYear) {
+        showBudgetAlert('Financial year is required.', 'error');
+        return;
+      }
+      if (!amountValue || !Number.isFinite(amount) || amount === 0) {
+        showBudgetAlert('Amount must be non-zero.', 'error');
+        return;
+      }
+      if (!authRef) {
+        showBudgetAlert('Auth reference is required.', 'error');
+        return;
+      }
+      if (!description) {
+        showBudgetAlert('Description is required.', 'error');
+        return;
+      }
+
+      const payload = {
+        date: date,
+        financialYear: financialYear,
+        type: type,
+        amount: amount,
+        authRef: authRef,
+        description: description
+      };
+
+      if (type === 'Supplementary') {
+        const subCategory = document.getElementById('adjustSubCategory').value;
+        if (!subCategory) {
+          showBudgetAlert('Sub-Category is required.', 'error');
+          return;
+        }
+        payload.subCategory = subCategory;
+      } else {
+        const fromSub = document.getElementById('reallocFromSubCategory').value;
+        const toSub = document.getElementById('reallocToSubCategory').value;
+        if (!fromSub || !toSub) {
+          showBudgetAlert('From and To sub-categories are required.', 'error');
+          return;
+        }
+        if (fromSub === toSub) {
+          showBudgetAlert('From and To must be different.', 'error');
+          return;
+        }
+        payload.fromSubCategory = fromSub;
+        payload.toSubCategory = toSub;
+      }
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBudgetAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      showBudgetAlert('Saving adjustment...', 'info');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          closeBudgetAdjustmentModal();
+          showBudgetAlert('Adjustment saved (' + (result ? result.count : 0) + ' rows).', 'success');
+        })
+        .withFailureHandler(function(error) {
+          showBudgetAlert(error.message || 'Failed to save adjustment.', 'error');
+        })
+        .saveBudgetAdjustment(payload);
+    }
+
+    function showBudgetAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('budgetAlert');
+      if (!container) {
+        alert(message);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function clearBudgetAlert() {
+      const container = document.getElementById('budgetAlert');
+      if (container) {
+        container.innerHTML = '';
+      }
+    }
+
     let searchTimer;
     let searchMeta = { categories: [] };
     let selectedRowId = null;
     let confirmAction = null;
+    let budgetCatalog = [];
 
     function bindSearchHandlers() {
       ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchPayee']

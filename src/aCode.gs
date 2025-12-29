@@ -138,8 +138,9 @@ function cleanupSheetHeaders() {
   // Clean up DB_BUDGET headers
   sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
   if (sheet) {
-    const headers = ['Date', 'Type', 'Financial_Year', 'Sub_Category', 'Category',
-                     'Account_Type', 'Amount', 'Auth_Ref', 'Description'];
+    const headers = ['Date', 'Financial_Year', 'Sub_Category', 'Category', 'Account_Type',
+                     'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget',
+                     'Actual_Amount', 'Variance', 'Auth_Ref', 'Description'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('DB_BUDGET');
@@ -334,13 +335,14 @@ function _initializeDbBudgetSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_BUDGET);
-    const headers = ['Date', 'Type', 'Financial_Year', 'Sub_Category', 'Category',
-                     'Account_Type', 'Amount', 'Auth_Ref', 'Description'];
+    const headers = ['Date', 'Financial_Year', 'Sub_Category', 'Category', 'Account_Type',
+                     'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget',
+                     'Actual_Amount', 'Variance', 'Auth_Ref', 'Description'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
 
     // Add a note about never deleting rows
-    sheet.getRange('A2').setNote('CRITICAL RULE: Never delete rows! For budget adjustments, add new rows with negative amounts.');
+    sheet.getRange('A2').setNote('CRITICAL RULE: Never delete rows! For adjustments, add new rows with Supplementary or Reallocation amounts.');
   }
   return sheet;
 }
@@ -904,6 +906,227 @@ function getPayees() {
     Logger.log('Error in getPayees: ' + error.toString());
     return [];
   }
+}
+
+/**
+ * Get all unique sub-categories with category + account type for budget input.
+ * @returns {Array} Array of { subCategory, category, accountType }
+ */
+function getBudgetSubCategoryCatalog() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+
+    if (!sheet) {
+      Logger.log('MASTER_DATA sheet not found');
+      return [];
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return [];
+
+    // Columns: Sub_Category (2), Category (3), Account_Type (5)
+    const data = sheet.getRange(2, 2, lastRow - 1, 4).getValues();
+    const catalogMap = new Map();
+
+    data.forEach(row => {
+      const subCategory = String(row[0] || '').trim();
+      const category = String(row[1] || '').trim();
+      const accountType = String(row[3] || '').trim();
+      if (!subCategory) return;
+      if (!catalogMap.has(subCategory)) {
+        catalogMap.set(subCategory, {
+          subCategory: subCategory,
+          category: category,
+          accountType: accountType
+        });
+      }
+    });
+
+    return Array.from(catalogMap.values()).sort((a, b) => a.subCategory.localeCompare(b.subCategory));
+  } catch (error) {
+    Logger.log('Error in getBudgetSubCategoryCatalog: ' + error.toString());
+    return [];
+  }
+}
+
+/**
+ * Save original budget via bulk loader. Blocks if original budget exists for year.
+ */
+function saveOriginalBudget(payload) {
+  if (!payload) throw new Error('Missing payload.');
+  const financialYear = String(payload.financialYear || '').trim();
+  if (!financialYear) throw new Error('Financial year is required.');
+
+  const rows = Array.isArray(payload.rows) ? payload.rows : [];
+  if (!rows.length) throw new Error('No budget rows provided.');
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = _initializeDbBudgetSheet(ss);
+  const headerMap = _getBudgetHeaderMap(sheet);
+  _ensureBudgetHeaders(headerMap);
+
+  const data = sheet.getDataRange().getValues();
+  const yearIndex = headerMap.Financial_Year;
+  const originalIndex = headerMap.Original_Budget;
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (String(row[yearIndex]).trim() === financialYear && row[originalIndex] !== '') {
+      throw new Error('Original budget already exists for ' + financialYear + '.');
+    }
+  }
+
+  const today = new Date();
+  const headerCount = sheet.getLastColumn();
+  const rowsToInsert = rows.map(item => {
+    const subCategory = String(item.subCategory || '').trim();
+    const category = String(item.category || '').trim();
+    const accountType = String(item.accountType || '').trim();
+    const amount = Number(item.amount);
+
+    if (!subCategory) throw new Error('Sub-Category is required.');
+    if (!Number.isFinite(amount)) throw new Error('Invalid amount for ' + subCategory + '.');
+    if (amount < 0) throw new Error('Original budget must be positive for ' + subCategory + '.');
+
+    const row = new Array(headerCount).fill('');
+    row[headerMap.Date] = today;
+    row[headerMap.Financial_Year] = financialYear;
+    row[headerMap.Sub_Category] = subCategory;
+    row[headerMap.Category] = category;
+    row[headerMap.Account_Type] = accountType;
+    row[headerMap.Original_Budget] = amount;
+    return row;
+  });
+
+  const startRow = sheet.getLastRow() + 1;
+  sheet.getRange(startRow, 1, rowsToInsert.length, headerCount).setValues(rowsToInsert);
+
+  return { success: true, count: rowsToInsert.length };
+}
+
+/**
+ * Save a budget adjustment (Supplementary or Reallocation).
+ */
+function saveBudgetAdjustment(payload) {
+  if (!payload) throw new Error('Missing payload.');
+  const dateValue = payload.date ? new Date(payload.date) : new Date();
+  const financialYear = String(payload.financialYear || '').trim();
+  const type = String(payload.type || '').trim();
+  const amount = Number(payload.amount);
+  const authRef = String(payload.authRef || '').trim();
+  const description = String(payload.description || '').trim();
+
+  if (!financialYear) throw new Error('Financial year is required.');
+  if (!type) throw new Error('Adjustment type is required.');
+  if (!Number.isFinite(amount) || amount === 0) throw new Error('Amount must be non-zero.');
+  if (!authRef) throw new Error('Auth reference is required.');
+  if (!description) throw new Error('Description is required.');
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = _initializeDbBudgetSheet(ss);
+  const headerMap = _getBudgetHeaderMap(sheet);
+  _ensureBudgetHeaders(headerMap);
+  const headerCount = sheet.getLastColumn();
+  const rowsToInsert = [];
+
+  if (type === 'Supplementary') {
+    const subCategory = String(payload.subCategory || '').trim();
+    if (!subCategory) throw new Error('Sub-Category is required.');
+    const details = _getSubCategoryDetails(subCategory);
+
+    const row = new Array(headerCount).fill('');
+    row[headerMap.Date] = dateValue;
+    row[headerMap.Financial_Year] = financialYear;
+    row[headerMap.Sub_Category] = subCategory;
+    row[headerMap.Category] = details.category;
+    row[headerMap.Account_Type] = details.accountType;
+    row[headerMap.Supplementary] = amount;
+    row[headerMap.Auth_Ref] = authRef;
+    row[headerMap.Description] = description;
+    rowsToInsert.push(row);
+  } else if (type === 'Reallocation') {
+    const fromSub = String(payload.fromSubCategory || '').trim();
+    const toSub = String(payload.toSubCategory || '').trim();
+    if (!fromSub || !toSub) throw new Error('From and To sub-categories are required.');
+    if (fromSub === toSub) throw new Error('From and To sub-categories must be different.');
+
+    const delta = Math.abs(amount);
+    const fromDetails = _getSubCategoryDetails(fromSub);
+    const toDetails = _getSubCategoryDetails(toSub);
+
+    const fromRow = new Array(headerCount).fill('');
+    fromRow[headerMap.Date] = dateValue;
+    fromRow[headerMap.Financial_Year] = financialYear;
+    fromRow[headerMap.Sub_Category] = fromSub;
+    fromRow[headerMap.Category] = fromDetails.category;
+    fromRow[headerMap.Account_Type] = fromDetails.accountType;
+    fromRow[headerMap.Reallocation] = -delta;
+    fromRow[headerMap.Auth_Ref] = authRef;
+    fromRow[headerMap.Description] = description;
+
+    const toRow = new Array(headerCount).fill('');
+    toRow[headerMap.Date] = dateValue;
+    toRow[headerMap.Financial_Year] = financialYear;
+    toRow[headerMap.Sub_Category] = toSub;
+    toRow[headerMap.Category] = toDetails.category;
+    toRow[headerMap.Account_Type] = toDetails.accountType;
+    toRow[headerMap.Reallocation] = delta;
+    toRow[headerMap.Auth_Ref] = authRef;
+    toRow[headerMap.Description] = description;
+
+    rowsToInsert.push(fromRow, toRow);
+  } else {
+    throw new Error('Unknown adjustment type.');
+  }
+
+  const startRow = sheet.getLastRow() + 1;
+  sheet.getRange(startRow, 1, rowsToInsert.length, headerCount).setValues(rowsToInsert);
+  return { success: true, count: rowsToInsert.length };
+}
+
+function _getSubCategoryDetails(subCategory) {
+  const category = getCategoryForSubCategory(subCategory);
+  if (!category) {
+    throw new Error('Sub-Category not found: ' + subCategory + '.');
+  }
+  const accountType = getAccountType(category);
+  return {
+    category: category,
+    accountType: accountType || ''
+  };
+}
+
+function _getBudgetHeaderMap(sheet) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const map = {};
+  headers.forEach((header, index) => {
+    map[String(header || '').trim()] = index;
+  });
+  return map;
+}
+
+function _ensureBudgetHeaders(map) {
+  const required = [
+    'Date',
+    'Financial_Year',
+    'Sub_Category',
+    'Category',
+    'Account_Type',
+    'Original_Budget',
+    'Reallocation',
+    'Supplementary',
+    'Final_Budget',
+    'Actual_Amount',
+    'Variance',
+    'Auth_Ref',
+    'Description'
+  ];
+  required.forEach(header => {
+    if (map[header] === undefined) {
+      throw new Error('DB_BUDGET headers are missing. Please run cleanupSheetHeaders().');
+    }
+  });
 }
 
 function getDashboardHtml() {
