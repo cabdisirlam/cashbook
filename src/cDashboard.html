@@ -2487,7 +2487,10 @@
         return;
       }
 
-      const bodyRows = rows.map(item => `
+      const receipts = rows.filter(item => item.section === 'Receipts');
+      const payments = rows.filter(item => item.section === 'Payments');
+
+      const receiptRows = receipts.map(item => `
         <tr>
           <td>${item.subCategory || ''}</td>
           <td>${item.category || ''}</td>
@@ -2500,16 +2503,59 @@
         </tr>
       `).join('');
 
-      const totals = result.totals || {};
-      const totalsRow = `
+      const paymentRows = payments.map(item => `
         <tr>
-          <td colspan="2"><strong>Total</strong></td>
-          <td><strong>${formatAmount(totals.originalBudget)}</strong></td>
-          <td><strong>${formatAmount(totals.reallocation)}</strong></td>
-          <td><strong>${formatAmount(totals.supplementary)}</strong></td>
-          <td><strong>${formatAmount(totals.finalBudget)}</strong></td>
-          <td><strong>${formatAmount(totals.actualAmount)}</strong></td>
-          <td><strong>${formatAmount(totals.variance)}</strong></td>
+          <td>${item.subCategory || ''}</td>
+          <td>${item.category || ''}</td>
+          <td>${formatAmount(item.originalBudget)}</td>
+          <td>${formatAmount(item.reallocation)}</td>
+          <td>${formatAmount(item.supplementary)}</td>
+          <td>${formatAmount(item.finalBudget)}</td>
+          <td>${formatAmount(item.actualAmount)}</td>
+          <td>${formatAmount(item.variance)}</td>
+        </tr>
+      `).join('');
+
+      const receiptTotals = (result.sectionTotals && result.sectionTotals.receipts) || {};
+      const paymentTotals = (result.sectionTotals && result.sectionTotals.payments) || {};
+      const surplus = result.surplus || {};
+
+      const receiptTotalsRow = `
+        <tr>
+          <td><strong>Total Receipts</strong></td>
+          <td></td>
+          <td><strong>${formatAmount(receiptTotals.originalBudget)}</strong></td>
+          <td><strong>${formatAmount(receiptTotals.reallocation)}</strong></td>
+          <td><strong>${formatAmount(receiptTotals.supplementary)}</strong></td>
+          <td><strong>${formatAmount(receiptTotals.finalBudget)}</strong></td>
+          <td><strong>${formatAmount(receiptTotals.actualAmount)}</strong></td>
+          <td><strong>${formatAmount(receiptTotals.variance)}</strong></td>
+        </tr>
+      `;
+
+      const paymentTotalsRow = `
+        <tr>
+          <td><strong>Total Payments</strong></td>
+          <td></td>
+          <td><strong>${formatAmount(paymentTotals.originalBudget)}</strong></td>
+          <td><strong>${formatAmount(paymentTotals.reallocation)}</strong></td>
+          <td><strong>${formatAmount(paymentTotals.supplementary)}</strong></td>
+          <td><strong>${formatAmount(paymentTotals.finalBudget)}</strong></td>
+          <td><strong>${formatAmount(paymentTotals.actualAmount)}</strong></td>
+          <td><strong>${formatAmount(paymentTotals.variance)}</strong></td>
+        </tr>
+      `;
+
+      const surplusRow = `
+        <tr>
+          <td><strong>Surplus / Deficit</strong></td>
+          <td></td>
+          <td><strong>${formatAmount(surplus.originalBudget)}</strong></td>
+          <td><strong>${formatAmount(surplus.reallocation)}</strong></td>
+          <td><strong>${formatAmount(surplus.supplementary)}</strong></td>
+          <td><strong>${formatAmount(surplus.finalBudget)}</strong></td>
+          <td><strong>${formatAmount(surplus.actualAmount)}</strong></td>
+          <td><strong>${formatAmount(surplus.variance)}</strong></td>
         </tr>
       `;
 
@@ -2528,8 +2574,13 @@
             </tr>
           </thead>
           <tbody>
-            ${bodyRows}
-            ${totalsRow}
+            <tr><td colspan="8"><strong>Receipts</strong></td></tr>
+            ${receiptRows}
+            ${receiptTotalsRow}
+            <tr><td colspan="8"><strong>Payments</strong></td></tr>
+            ${paymentRows}
+            ${paymentTotalsRow}
+            ${surplusRow}
           </tbody>
         </table>
       `;

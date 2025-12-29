@@ -454,6 +454,8 @@ function getBudgetVsActual(financialYear) {
   const journalLastRow = journal.getLastRow();
   const journalLastCol = journal.getLastColumn();
   const actualBySub = {};
+  const debitBySub = {};
+  const creditBySub = {};
   if (journalLastRow >= 2) {
     const journalHeaders = journal.getRange(1, 1, 1, journalLastCol).getValues()[0].map(_normalizeHeader_);
     const cols = _getJournalColumns_(journalHeaders);
@@ -467,12 +469,18 @@ function getBudgetVsActual(financialYear) {
       if (!sub) return;
       const debit = cols.debit ? Number(row[cols.debit - 1] || 0) : 0;
       const credit = cols.credit ? Number(row[cols.credit - 1] || 0) : 0;
+      debitBySub[sub] = (debitBySub[sub] || 0) + debit;
+      creditBySub[sub] = (creditBySub[sub] || 0) + credit;
       actualBySub[sub] = (actualBySub[sub] || 0) + (debit - credit);
     });
   }
 
   const results = Object.values(budgetBySub).map(item => {
-    const actual = actualBySub[item.subCategory] || 0;
+    const debitActual = debitBySub[item.subCategory] || 0;
+    const creditActual = creditBySub[item.subCategory] || 0;
+    const accountType = String(item.accountType || '').toLowerCase();
+    const isReceipt = accountType.includes('income');
+    const actual = isReceipt ? creditActual : debitActual;
     const finalBudget = item.originalBudget + item.reallocation + item.supplementary;
     const variance = finalBudget - actual;
     return {
@@ -483,9 +491,11 @@ function getBudgetVsActual(financialYear) {
       supplementary: item.supplementary,
       finalBudget: finalBudget,
       actualAmount: actual,
-      variance: variance
+      variance: variance,
+      section: isReceipt ? 'Receipts' : 'Payments'
     };
   }).sort((a, b) => {
+    if (a.section !== b.section) return a.section.localeCompare(b.section);
     if (a.category === b.category) return a.subCategory.localeCompare(b.subCategory);
     return a.category.localeCompare(b.category);
   });
@@ -517,11 +527,37 @@ function getBudgetVsActual(financialYear) {
     return acc;
   }, { originalBudget: 0, reallocation: 0, supplementary: 0, finalBudget: 0, actualAmount: 0, variance: 0 });
 
+  const sectionTotals = {
+    receipts: { originalBudget: 0, reallocation: 0, supplementary: 0, finalBudget: 0, actualAmount: 0, variance: 0 },
+    payments: { originalBudget: 0, reallocation: 0, supplementary: 0, finalBudget: 0, actualAmount: 0, variance: 0 }
+  };
+
+  results.forEach(row => {
+    const key = row.section === 'Receipts' ? 'receipts' : 'payments';
+    sectionTotals[key].originalBudget += row.originalBudget || 0;
+    sectionTotals[key].reallocation += row.reallocation || 0;
+    sectionTotals[key].supplementary += row.supplementary || 0;
+    sectionTotals[key].finalBudget += row.finalBudget || 0;
+    sectionTotals[key].actualAmount += row.actualAmount || 0;
+    sectionTotals[key].variance += row.variance || 0;
+  });
+
+  const surplus = {
+    originalBudget: sectionTotals.receipts.originalBudget - sectionTotals.payments.originalBudget,
+    reallocation: sectionTotals.receipts.reallocation - sectionTotals.payments.reallocation,
+    supplementary: sectionTotals.receipts.supplementary - sectionTotals.payments.supplementary,
+    finalBudget: sectionTotals.receipts.finalBudget - sectionTotals.payments.finalBudget,
+    actualAmount: sectionTotals.receipts.actualAmount - sectionTotals.payments.actualAmount,
+    variance: sectionTotals.receipts.variance - sectionTotals.payments.variance
+  };
+
   logSystemEventSafe('REFRESH_BUDGET_ACTUALS', year, 'Rows: ' + results.length);
 
   return {
     rows: results,
-    totals: totals
+    totals: totals,
+    sectionTotals: sectionTotals,
+    surplus: surplus
   };
 }
 
@@ -530,16 +566,72 @@ function exportBudgetVsActual(financialYear) {
   if (!result.rows || !result.rows.length) return { csv: '', filename: '' };
 
   const headers = ['Sub_Category', 'Category', 'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget', 'Actual_Amount', 'Variance'];
-  const lines = [headers].concat(result.rows.map(row => ([
-    row.subCategory,
-    row.category,
-    row.originalBudget,
-    row.reallocation,
-    row.supplementary,
-    row.finalBudget,
-    row.actualAmount,
-    row.variance
-  ])));
+  const lines = [headers];
+
+  const receipts = result.rows.filter(row => row.section === 'Receipts');
+  const payments = result.rows.filter(row => row.section === 'Payments');
+
+  lines.push(['Receipts', '', '', '', '', '', '', '']);
+  receipts.forEach(row => {
+    lines.push([
+      row.subCategory,
+      row.category,
+      row.originalBudget,
+      row.reallocation,
+      row.supplementary,
+      row.finalBudget,
+      row.actualAmount,
+      row.variance
+    ]);
+  });
+  const receiptTotals = result.sectionTotals.receipts;
+  lines.push([
+    'Total Receipts',
+    '',
+    receiptTotals.originalBudget,
+    receiptTotals.reallocation,
+    receiptTotals.supplementary,
+    receiptTotals.finalBudget,
+    receiptTotals.actualAmount,
+    receiptTotals.variance
+  ]);
+
+  lines.push(['Payments', '', '', '', '', '', '', '']);
+  payments.forEach(row => {
+    lines.push([
+      row.subCategory,
+      row.category,
+      row.originalBudget,
+      row.reallocation,
+      row.supplementary,
+      row.finalBudget,
+      row.actualAmount,
+      row.variance
+    ]);
+  });
+  const paymentTotals = result.sectionTotals.payments;
+  lines.push([
+    'Total Payments',
+    '',
+    paymentTotals.originalBudget,
+    paymentTotals.reallocation,
+    paymentTotals.supplementary,
+    paymentTotals.finalBudget,
+    paymentTotals.actualAmount,
+    paymentTotals.variance
+  ]);
+
+  const surplus = result.surplus;
+  lines.push([
+    'Surplus / Deficit',
+    '',
+    surplus.originalBudget,
+    surplus.reallocation,
+    surplus.supplementary,
+    surplus.finalBudget,
+    surplus.actualAmount,
+    surplus.variance
+  ]);
 
   const csv = lines.map(line => line.map(cell => {
     const value = String(cell == null ? '' : cell);
