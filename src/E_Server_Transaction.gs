@@ -500,22 +500,7 @@ function getBudgetVsActual(financialYear) {
     return a.category.localeCompare(b.category);
   });
 
-  if (results.length) {
-    const updated = budgetData.map(row => {
-      const rowYear = String(row[budgetMap.Financial_Year] || '').trim();
-      if (rowYear !== year) return row;
-      const sub = String(row[budgetMap.Sub_Category] || '').trim();
-      const summary = budgetBySub[sub];
-      if (!summary) return row;
-      const actual = actualBySub[sub] || 0;
-      const finalBudget = summary.originalBudget + summary.reallocation + summary.supplementary;
-      row[budgetMap.Final_Budget] = finalBudget;
-      row[budgetMap.Actual_Amount] = actual;
-      row[budgetMap.Variance] = finalBudget - actual;
-      return row;
-    });
-    budgetSheet.getRange(2, 1, updated.length, budgetLastCol).setValues(updated);
-  }
+  // Actuals are always derived from DB_JOURNAL during refresh; DB_BUDGET is not the source of truth.
 
   const totals = results.reduce((acc, row) => {
     acc.originalBudget += row.originalBudget || 0;

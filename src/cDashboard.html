@@ -879,6 +879,10 @@
             <span class="menu-item-icon">-</span>
             <span>Budget vs Actual</span>
           </div>
+          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Notes" onclick="navigateTo(this, 'Notes')">
+            <span class="menu-item-icon">-</span>
+            <span>Notes</span>
+          </div>
         </div>
 
         <div class="menu-section">
@@ -1136,6 +1140,11 @@
 
       if (label === 'Budget vs Actual') {
         renderBudgetVsActualContent();
+        return;
+      }
+
+      if (label === 'Notes') {
+        renderNotesContent();
         return;
       }
 
@@ -2179,6 +2188,23 @@
       `;
 
       loadBudgetReportYears();
+    }
+
+    function renderNotesContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Notes</h2>
+              <p style="color:#6b7280;font-size:13px;">Notes workspace will be added here.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderNotesContent()">Refresh</button>
+            </div>
+          </div>
+        </div>
+      `;
     }
 
     function saveOriginalBudget() {
