@@ -1133,7 +1133,22 @@ function _getBudgetHeaderMap(sheet) {
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const map = {};
   headers.forEach((header, index) => {
-    map[String(header || '').trim()] = index;
+    const raw = String(header || '').trim();
+    map[raw] = index;
+    const normalized = raw.toLowerCase().replace(/\s+/g, '_');
+    if (normalized === 'date') map.Date = index;
+    if (normalized === 'financial_year') map.Financial_Year = index;
+    if (normalized === 'sub_category') map.Sub_Category = index;
+    if (normalized === 'category') map.Category = index;
+    if (normalized === 'account_type') map.Account_Type = index;
+    if (normalized === 'original_budget') map.Original_Budget = index;
+    if (normalized === 'reallocation') map.Reallocation = index;
+    if (normalized === 'supplementary') map.Supplementary = index;
+    if (normalized === 'final_budget') map.Final_Budget = index;
+    if (normalized === 'actual_amount') map.Actual_Amount = index;
+    if (normalized === 'variance') map.Variance = index;
+    if (normalized === 'auth_ref') map.Auth_Ref = index;
+    if (normalized === 'description') map.Description = index;
   });
   return map;
 }
