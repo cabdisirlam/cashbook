@@ -107,8 +107,6 @@ function saveTransaction(data) {
     const amount = Number(row.amount || 0);
     const particulars = String(row.particulars || '').trim();
     const description = String(row.description || '').trim();
-    const accountTypeInput = String(row.accountType || '').trim();
-    const reportMappingInput = String(row.reportMapping || '').trim();
 
     if (!particulars) throw new Error('Each line needs particulars.');
     const meta = particularMeta[particulars];
@@ -119,8 +117,8 @@ function saveTransaction(data) {
     const category = meta.category;
     if (amount <= 0) throw new Error('Line amount must be greater than zero.');
 
-    const accountTypeValue = accountTypeInput || meta.accountType || '';
-    const reportMappingValue = reportMappingInput || meta.reportMapping || '';
+    const accountTypeValue = meta.accountType || '';
+    const reportMappingValue = meta.reportMapping || '';
 
     return {
       particulars,
@@ -174,6 +172,47 @@ function saveTransaction(data) {
   );
 
   return 'Success';
+}
+
+function getRecentTransactionsByType(type, limit) {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return [];
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  const requested = String(type || '').toLowerCase();
+  const maxRows = Math.max(1, Number(limit) || 5);
+  const results = [];
+
+  for (let i = data.length - 1; i >= 0 && results.length < maxRows; i--) {
+    const row = data[i];
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+    const isReceipt = credit > 0 && debit === 0;
+    const isPayment = debit > 0 && credit === 0;
+    if (requested === 'receipt' && !isReceipt) continue;
+    if (requested === 'payment' && !isPayment) continue;
+
+    const dateValue = cols.date ? row[cols.date - 1] : '';
+    results.push({
+      date: dateValue ? _formatDate_(dateValue) : '',
+      payee: cols.payee ? row[cols.payee - 1] : '',
+      refNo: cols.refNo ? row[cols.refNo - 1] : '',
+      particulars: cols.particulars ? row[cols.particulars - 1] : '',
+      subCategory: cols.subCategory ? row[cols.subCategory - 1] : '',
+      category: cols.category ? row[cols.category - 1] : '',
+      amount: requested === 'receipt' ? credit : debit
+    });
+  }
+
+  return results;
 }
 
 function searchJournal(criteria) {
@@ -868,6 +907,8 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
 
   if (typeKey === 'particular') {
     const parentSubCategory = String(parent || '').trim();
+    const accountTypeValue = String(accountType || '').trim();
+    const reportValue = String(reportMapping || '').trim();
     if (!parentSubCategory) throw new Error('Parent sub-category is required.');
     if (_valueExistsInColumn_(data, cols.particulars, trimmed)) return;
     const subRow = data.find(function(row) {
@@ -875,8 +916,8 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
     });
     if (!subRow) throw new Error('Parent sub-category not found.');
     const categoryValue = cols.category ? String(subRow[cols.category - 1] || '').trim() : '';
-    const accountTypeValue = cols.accountType ? String(subRow[cols.accountType - 1] || '').trim() : '';
-    const reportValue = cols.reportMapping ? String(subRow[cols.reportMapping - 1] || '').trim() : '';
+    const fallbackAccountType = cols.accountType ? String(subRow[cols.accountType - 1] || '').trim() : '';
+    const fallbackReportValue = cols.reportMapping ? String(subRow[cols.reportMapping - 1] || '').trim() : '';
     if (!categoryValue) throw new Error('Parent category not found for sub-category.');
 
     const targetRow = _findRowForInsert_(data, cols.particulars, [cols.accountCodes]);
@@ -884,8 +925,8 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
       [cols.particulars]: trimmed,
       [cols.subCategory]: parentSubCategory,
       [cols.category]: categoryValue,
-      [cols.accountType]: accountTypeValue,
-      [cols.reportMapping]: reportValue
+      [cols.accountType]: accountTypeValue || fallbackAccountType,
+      [cols.reportMapping]: reportValue || fallbackReportValue
     });
     logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: particular, Sub-Category: ' + parentSubCategory);
     return;

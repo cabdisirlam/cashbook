@@ -55,13 +55,13 @@
 
     .sidebar {
       width: 220px;
-      background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
-      border-right: 1px solid var(--line);
+      background: linear-gradient(180deg, #e9f9ee 0%, #f5fff8 100%);
+      border-right: 1px solid #cfead8;
       display: flex;
       flex-direction: column;
       position: fixed;
       height: 100vh;
-      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+      box-shadow: 2px 0 8px rgba(34, 197, 94, 0.08);
       z-index: 100;
     }
 
@@ -69,9 +69,9 @@
       padding: 14px 16px 12px;
       font-weight: 700;
       font-size: 14px;
-      color: var(--brand);
+      color: #166534;
       letter-spacing: -0.02em;
-      border-bottom: 1px solid var(--line-light);
+      border-bottom: 1px solid #d5f0dd;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -117,14 +117,14 @@
     }
 
     .menu-item:hover {
-      background: var(--bg-secondary);
-      color: var(--brand);
+      background: #e4f6ea;
+      color: #166534;
       transform: translateX(2px);
     }
 
     .menu-item.active {
-      background: linear-gradient(135deg, #ecfdf3 0%, #d1fae5 100%);
-      color: var(--brand);
+      background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+      color: #166534;
       box-shadow: var(--shadow-sm);
     }
 
@@ -136,7 +136,7 @@
       transform: translateY(-50%);
       width: 3px;
       height: 60%;
-      background: var(--brand);
+      background: #16a34a;
       border-radius: 0 2px 2px 0;
     }
 
@@ -150,7 +150,7 @@
 
     .menu-item:hover .menu-item-icon,
     .menu-item.active .menu-item-icon {
-      color: var(--brand);
+      color: #16a34a;
     }
 
     .main {
@@ -302,19 +302,19 @@
     }
 
     .card {
-      background: linear-gradient(135deg, #ffffff 0%, #f7f9ff 45%, #f2fbff 100%);
+      background: #ffffff;
       border-radius: var(--radius-lg);
       padding: 24px;
-      box-shadow: 0 10px 24px -18px rgba(90, 102, 255, 0.35), var(--shadow-md);
-      border: 1px solid rgba(90, 102, 255, 0.14);
+      box-shadow: 0 10px 24px -18px rgba(34, 197, 94, 0.25), var(--shadow-md);
+      border: 1px solid #d9f2e1;
       transition: var(--transition);
       position: relative;
       overflow: hidden;
     }
 
     .card:hover {
-      box-shadow: 0 16px 32px -18px rgba(90, 102, 255, 0.35), var(--shadow-lg);
-      border-color: rgba(90, 102, 255, 0.22);
+      box-shadow: 0 16px 32px -18px rgba(34, 197, 94, 0.25), var(--shadow-lg);
+      border-color: #bfe6cc;
     }
 
     .card::after {
@@ -322,21 +322,25 @@
       position: absolute;
       inset: -40% -30% auto -30%;
       height: 140%;
-      background: radial-gradient(circle at top, rgba(86, 103, 255, 0.12), transparent 60%);
+      background: radial-gradient(circle at top, rgba(34, 197, 94, 0.08), transparent 60%);
       pointer-events: none;
+    }
+
+    .content .card:nth-of-type(even) {
+      background: #f6fdf8;
     }
 
     .section-hero {
       border-radius: 18px;
       padding: 22px 24px;
-      color: #ffffff;
+      color: #0f172a;
       display: flex;
       align-items: center;
       gap: 16px;
       margin-bottom: 18px;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 18px 40px -26px rgba(76, 94, 255, 0.6);
+      box-shadow: 0 18px 40px -26px rgba(34, 197, 94, 0.45);
     }
 
     .section-hero::after {
@@ -346,14 +350,15 @@
       top: -10%;
       width: 45%;
       height: 140%;
-      background: radial-gradient(circle, rgba(255, 255, 255, 0.25), transparent 70%);
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.55), transparent 70%);
     }
 
     .section-hero__icon {
       width: 48px;
       height: 48px;
       border-radius: 14px;
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.7);
+      color: #166534;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -361,6 +366,7 @@
       font-weight: 700;
       letter-spacing: -0.02em;
       z-index: 1;
+      box-shadow: 0 6px 18px rgba(34, 197, 94, 0.25);
     }
 
     .section-hero__title {
@@ -372,33 +378,14 @@
 
     .section-hero__subtitle {
       font-size: 13px;
-      color: rgba(255, 255, 255, 0.88);
+      color: #334155;
       max-width: 520px;
       line-height: 1.5;
     }
 
-    .tone-indigo {
-      background: linear-gradient(135deg, #5b6df3 0%, #6f4dbb 100%);
-    }
-
-    .tone-emerald {
-      background: linear-gradient(135deg, #10b981 0%, #0f766e 100%);
-    }
-
-    .tone-amber {
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    }
-
-    .tone-cyan {
-      background: linear-gradient(135deg, #06b6d4 0%, #2563eb 100%);
-    }
-
-    .tone-rose {
-      background: linear-gradient(135deg, #f43f5e 0%, #db2777 100%);
-    }
-
-    .tone-slate {
-      background: linear-gradient(135deg, #64748b 0%, #334155 100%);
+    .tone-green {
+      background: linear-gradient(135deg, #dff7e6 0%, #c7f0d4 100%);
+      border: 1px solid #b8e8c7;
     }
 
     .card h2 {
@@ -1251,7 +1238,7 @@
       if (label === 'Dashboard') {
         const contentArea = document.getElementById('contentArea');
         contentArea.innerHTML = `
-          ${renderSectionHero('Dashboard', 'Welcome back. Track activity, balances, and quick actions in one place.', 'indigo')}
+          ${renderSectionHero('Dashboard', 'Welcome back. Track activity, balances, and quick actions in one place.')}
           <div class="card">
             <h2>Dashboard</h2>
             <p>This is the skeleton dashboard. Use the menu to navigate.</p>
@@ -1261,7 +1248,7 @@
       }
 
       contentArea.innerHTML = `
-        ${renderSectionHero(label, 'Section overview and quick actions live here.', 'slate')}
+        ${renderSectionHero(label, 'Section overview and quick actions live here.')}
         <div class="card">
           <h2>${label}</h2>
           <p>Skeleton view for ${label}. Content will be added later.</p>
@@ -1279,13 +1266,12 @@
       `;
     }
 
-    function renderSectionHero(title, subtitle, tone) {
+    function renderSectionHero(title, subtitle) {
       const safeTitle = String(title || '');
       const safeSubtitle = String(subtitle || '');
       const badge = safeTitle ? safeTitle.charAt(0).toUpperCase() : '';
-      const toneClass = tone ? `tone-${tone}` : 'tone-indigo';
       return `
-        <div class="section-hero ${toneClass}">
+        <div class="section-hero tone-green">
           <div class="section-hero__icon">${badge}</div>
           <div>
             <div class="section-hero__title">${safeTitle}</div>
@@ -1298,7 +1284,7 @@
     function renderUsersContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
-        ${renderSectionHero('Users', 'Manage access, roles, and PINs for your team.', 'rose')}
+        ${renderSectionHero('Users', 'Manage access, roles, and PINs for your team.')}
         <div class="panel-header">
           <div>
             <h2 style="margin-bottom:4px;">Users</h2>
@@ -1348,7 +1334,7 @@
     function renderSettingsContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
-        ${renderSectionHero('Settings', 'Configure system defaults, entities, and reporting preferences.', 'slate')}
+        ${renderSectionHero('Settings', 'Configure system defaults, entities, and reporting preferences.')}
         <div class="card">
           <div class="panel-header" style="margin-bottom: 20px;">
             <div>
@@ -1395,7 +1381,7 @@
     function renderPaymentLauncher() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
-        ${renderSectionHero('New Payment', 'Create and post split payment transactions.', 'emerald')}
+        ${renderSectionHero('New Payment', 'Create and post split payment transactions.')}
         <div class="card">
           <div class="panel-header">
             <div>
@@ -1409,7 +1395,18 @@
           </div>
 
         </div>
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Last 5 Payments</h2>
+              <p style="color:#6b7280;font-size:13px;">Most recent payment transactions.</p>
+            </div>
+            <button class="btn btn-secondary" onclick="loadRecentPayments()">Refresh</button>
+          </div>
+          <div id="recentPayments"></div>
+        </div>
       `;
+      loadRecentPayments();
     }
 
     function renderSearchEditContent() {
@@ -1417,7 +1414,7 @@
       contentArea.innerHTML = `
         <div id="alertContainer"></div>
 
-        ${renderSectionHero('Search / Edit', 'Find transactions and update or delete entries quickly.', 'cyan')}
+        ${renderSectionHero('Search / Edit', 'Find transactions and update or delete entries quickly.')}
         <div class="card">
           <div class="panel-header">
             <div>
@@ -1600,7 +1597,7 @@
     function renderExportJournalContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
-        ${renderSectionHero('Cash Book', 'Export cash book entries for audit or reporting.', 'indigo')}
+        ${renderSectionHero('Cash Book', 'Export cash book entries for audit or reporting.')}
         <div class="card">
           <div class="panel-header">
             <div>
@@ -1672,7 +1669,7 @@
       budgetYears = [];
       contentArea.innerHTML = `
         <div id="budgetAlert"></div>
-        ${renderSectionHero('Budget', 'Upload original budgets and track adjustments with clear approvals.', 'amber')}
+        ${renderSectionHero('Budget', 'Upload original budgets and track adjustments with clear approvals.')}
         <div class="card">
           <div class="panel-header">
             <div>
@@ -2319,7 +2316,7 @@
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
         <div id="budgetVsActualAlert"></div>
-        ${renderSectionHero('Budget vs Actual', 'Compare planned budgets with live actuals by particulars.', 'emerald')}
+        ${renderSectionHero('Budget vs Actual', 'Compare planned budgets with live actuals by particulars.')}
         <div class="card">
           <div class="panel-header">
             <div>
@@ -2351,7 +2348,7 @@
     function renderNotesContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
-        ${renderSectionHero('Notes', 'Capture working notes and audit follow-ups.', 'slate')}
+        ${renderSectionHero('Notes', 'Capture working notes and audit follow-ups.')}
         <div class="card">
           <div class="panel-header">
             <div>
@@ -3236,7 +3233,7 @@
     function renderReceiptLauncher() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
-        ${renderSectionHero('New Receipt', 'Record receipts and allocate particulars per line.', 'emerald')}
+        ${renderSectionHero('New Receipt', 'Record receipts and allocate particulars per line.')}
         <div class="card">
           <div class="panel-header">
             <div>
@@ -3250,7 +3247,18 @@
           </div>
 
         </div>
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Last 5 Receipts</h2>
+              <p style="color:#6b7280;font-size:13px;">Most recent receipt transactions.</p>
+            </div>
+            <button class="btn btn-secondary" onclick="loadRecentReceipts()">Refresh</button>
+          </div>
+          <div id="recentReceipts"></div>
+        </div>
       `;
+      loadRecentReceipts();
     }
 
     function ensureDashboardLoaded() {
@@ -3314,6 +3322,96 @@
           console.error('Failed to save settings:', error);
         })
         .saveSystemSettings(payload);
+    }
+
+    function loadRecentPayments() {
+      const container = document.getElementById('recentPayments');
+      if (!container) return;
+      container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading payments...</p>';
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        container.innerHTML = '<p style="color:#6b7280;font-size:13px;">App runtime missing.</p>';
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(rows) {
+          renderRecentTransactions(rows || [], container, 'payments');
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#ef4444;font-size:13px;">' + (error.message || 'Failed to load payments.') + '</p>';
+        })
+        .getRecentTransactionsByType('Payment', 5);
+    }
+
+    function loadRecentReceipts() {
+      const container = document.getElementById('recentReceipts');
+      if (!container) return;
+      container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading receipts...</p>';
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        container.innerHTML = '<p style="color:#6b7280;font-size:13px;">App runtime missing.</p>';
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(rows) {
+          renderRecentTransactions(rows || [], container, 'receipts');
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#ef4444;font-size:13px;">' + (error.message || 'Failed to load receipts.') + '</p>';
+        })
+        .getRecentTransactionsByType('Receipt', 5);
+    }
+
+    function renderRecentTransactions(rows, container, label) {
+      if (!container) return;
+      if (!rows.length) {
+        container.innerHTML = '<p style="color:#6b7280;font-size:13px;">No recent ' + label + ' found.</p>';
+        return;
+      }
+
+      const tableRows = rows.map(row => `
+        <tr>
+          <td>${row.date || ''}</td>
+          <td>${row.payee || ''}</td>
+          <td>${row.particulars || ''}</td>
+          <td>${row.subCategory || ''}</td>
+          <td>${row.category || ''}</td>
+          <td>${row.amount || ''}</td>
+          <td>${row.refNo || ''}</td>
+        </tr>
+      `).join('');
+
+      const cards = rows.map(row => `
+        <div class="result-card">
+          <div class="result-row"><span class="result-label">Date</span><span>${row.date || ''}</span></div>
+          <div class="result-row"><span class="result-label">Payee</span><span>${row.payee || ''}</span></div>
+          <div class="result-row"><span class="result-label">Particulars</span><span>${row.particulars || ''}</span></div>
+          <div class="result-row"><span class="result-label">Sub-Category</span><span>${row.subCategory || ''}</span></div>
+          <div class="result-row"><span class="result-label">Category</span><span>${row.category || ''}</span></div>
+          <div class="result-row"><span class="result-label">Amount</span><span>${row.amount || ''}</span></div>
+          <div class="result-row"><span class="result-label">Ref No</span><span>${row.refNo || ''}</span></div>
+        </div>
+      `).join('');
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Payee</th>
+              <th>Particulars</th>
+              <th>Sub-Category</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Ref No</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+        <div class="mobile-results">${cards}</div>
+      `;
     }
 
     function loadUsers() {
