@@ -419,12 +419,14 @@ function getBudgetVsActual(financialYear) {
 
   const budgetLastRow = budgetSheet.getLastRow();
   const budgetLastCol = budgetSheet.getLastColumn();
-  if (budgetLastRow < 2) return { rows: [], totals: {} };
+  if (budgetLastCol < 1) return { rows: [], totals: {} };
 
   const budgetHeaders = budgetSheet.getRange(1, 1, 1, budgetLastCol).getValues()[0];
   const budgetMap = _getBudgetHeaderMap(budgetSheet);
   _ensureBudgetHeaders(budgetMap);
-  const budgetData = budgetSheet.getRange(2, 1, budgetLastRow - 1, budgetLastCol).getValues();
+  const budgetData = budgetLastRow >= 2
+    ? budgetSheet.getRange(2, 1, budgetLastRow - 1, budgetLastCol).getValues()
+    : [];
 
   const budgetBySub = {};
   budgetData.forEach(row => {
@@ -456,6 +458,9 @@ function getBudgetVsActual(financialYear) {
   const actualBySub = {};
   const debitBySub = {};
   const creditBySub = {};
+  const journalMetaBySub = {};
+  let journalDebitTotal = 0;
+  let journalCreditTotal = 0;
   if (journalLastRow >= 2) {
     const journalHeaders = journal.getRange(1, 1, 1, journalLastCol).getValues()[0].map(_normalizeHeader_);
     const cols = _getJournalColumns_(journalHeaders);
@@ -471,14 +476,45 @@ function getBudgetVsActual(financialYear) {
       const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
       debitBySub[sub] = (debitBySub[sub] || 0) + debit;
       creditBySub[sub] = (creditBySub[sub] || 0) + credit;
+      journalDebitTotal += debit;
+      journalCreditTotal += credit;
+      if (!journalMetaBySub[sub]) {
+        journalMetaBySub[sub] = { category: '', accountType: '' };
+      }
+      if (cols.category && !journalMetaBySub[sub].category) {
+        journalMetaBySub[sub].category = String(row[cols.category - 1] || '').trim();
+      }
+      if (cols.accountType && !journalMetaBySub[sub].accountType) {
+        journalMetaBySub[sub].accountType = String(row[cols.accountType - 1] || '').trim();
+      }
     });
   }
+
+  const actualSubs = new Set(Object.keys(debitBySub).concat(Object.keys(creditBySub)));
+  const missingSubs = [];
+  actualSubs.forEach(sub => {
+    if (budgetBySub[sub]) return;
+    const meta = journalMetaBySub[sub] || {};
+    let category = String(meta.category || '').trim();
+    if (!category) category = getCategoryForSubCategory(sub);
+    let accountType = String(meta.accountType || '').trim();
+    if (!accountType) accountType = getAccountType(category);
+    budgetBySub[sub] = {
+      subCategory: sub,
+      category: category,
+      accountType: accountType,
+      originalBudget: 0,
+      reallocation: 0,
+      supplementary: 0
+    };
+    missingSubs.push(sub);
+  });
 
   const results = Object.values(budgetBySub).map(item => {
     const debitActual = debitBySub[item.subCategory] || 0;
     const creditActual = creditBySub[item.subCategory] || 0;
     const accountType = String(item.accountType || '').toLowerCase();
-    const isReceipt = accountType.includes('income');
+    const isReceipt = accountType.includes('income') || (!accountType && creditActual > debitActual);
     const actual = isReceipt ? creditActual : debitActual;
     actualBySub[item.subCategory] = actual;
     const finalBudget = item.originalBudget + item.reallocation + item.supplementary;
@@ -500,7 +536,7 @@ function getBudgetVsActual(financialYear) {
     return a.category.localeCompare(b.category);
   });
 
-  if (results.length) {
+  if (budgetData.length) {
     const updated = budgetData.map(row => {
       const rowYear = String(row[budgetMap.Financial_Year] || '').trim();
       if (rowYear !== year) return row;
@@ -510,7 +546,7 @@ function getBudgetVsActual(financialYear) {
       const debitActual = debitBySub[sub] || 0;
       const creditActual = creditBySub[sub] || 0;
       const accountType = String(summary.accountType || '').toLowerCase();
-      const isReceipt = accountType.includes('income');
+      const isReceipt = accountType.includes('income') || (!accountType && creditActual > debitActual);
       const actual = isReceipt ? creditActual : debitActual;
       const finalBudget = summary.originalBudget + summary.reallocation + summary.supplementary;
       row[budgetMap.Final_Budget] = finalBudget;
@@ -519,6 +555,36 @@ function getBudgetVsActual(financialYear) {
       return row;
     });
     budgetSheet.getRange(2, 1, updated.length, budgetLastCol).setValues(updated);
+  }
+
+  if (missingSubs.length) {
+    const headerCount = budgetLastCol;
+    const now = new Date();
+    const rowsToInsert = missingSubs.map(sub => {
+      const summary = budgetBySub[sub];
+      const debitActual = debitBySub[sub] || 0;
+      const creditActual = creditBySub[sub] || 0;
+      const accountType = String(summary.accountType || '').toLowerCase();
+      const isReceipt = accountType.includes('income') || (!accountType && creditActual > debitActual);
+      const actual = isReceipt ? creditActual : debitActual;
+      const row = new Array(headerCount).fill('');
+      row[budgetMap.Date] = now;
+      row[budgetMap.Financial_Year] = year;
+      row[budgetMap.Sub_Category] = summary.subCategory;
+      row[budgetMap.Category] = summary.category;
+      row[budgetMap.Account_Type] = summary.accountType;
+      row[budgetMap.Original_Budget] = '';
+      row[budgetMap.Reallocation] = '';
+      row[budgetMap.Supplementary] = '';
+      row[budgetMap.Final_Budget] = 0;
+      row[budgetMap.Actual_Amount] = actual;
+      row[budgetMap.Variance] = 0 - actual;
+      row[budgetMap.Description] = 'Audit: actual without budget';
+      return row;
+    });
+    const startRow = budgetSheet.getLastRow() + 1;
+    budgetSheet.getRange(startRow, 1, rowsToInsert.length, headerCount).setValues(rowsToInsert);
+    logSystemEventSafe('AUDIT_MISSING_BUDGET_SUBS', year, 'Rows: ' + rowsToInsert.length);
   }
 
   const totals = results.reduce((acc, row) => {
@@ -554,6 +620,24 @@ function getBudgetVsActual(financialYear) {
     actualAmount: sectionTotals.receipts.actualAmount - sectionTotals.payments.actualAmount,
     variance: sectionTotals.receipts.variance - sectionTotals.payments.variance
   };
+
+  const journalActualTotal = Array.from(actualSubs).reduce((sum, sub) => {
+    const debitActual = debitBySub[sub] || 0;
+    const creditActual = creditBySub[sub] || 0;
+    const summary = budgetBySub[sub] || {};
+    const accountType = String(summary.accountType || '').toLowerCase();
+    const isReceipt = accountType.includes('income') || (!accountType && creditActual > debitActual);
+    const actual = isReceipt ? creditActual : debitActual;
+    return sum + actual;
+  }, 0);
+
+  if (Math.abs(journalActualTotal - totals.actualAmount) > 0.01) {
+    logSystemEventSafe(
+      'AUDIT_ACTUAL_MISMATCH',
+      year,
+      'Budget total: ' + totals.actualAmount + ', Journal total: ' + journalActualTotal + ', Debit: ' + journalDebitTotal + ', Credit: ' + journalCreditTotal
+    );
+  }
 
   logSystemEventSafe('REFRESH_BUDGET_ACTUALS', year, 'Rows: ' + results.length);
 

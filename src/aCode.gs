@@ -991,15 +991,34 @@ function saveOriginalBudget(payload) {
   const data = sheet.getDataRange().getValues();
   const yearIndex = headerMap.Financial_Year;
   const originalIndex = headerMap.Original_Budget;
-
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    if (String(row[yearIndex]).trim() === financialYear && row[originalIndex] !== '') {
-      throw new Error('Original budget already exists for ' + financialYear + '.');
+  const headerCount = sheet.getLastColumn();
+  let removedCount = 0;
+  let existingCount = 0;
+  const user = getCurrentUser();
+  const isAdmin = user && user.authenticated && String(user.role || '').toUpperCase() === 'ADMIN';
+  if (data.length > 1) {
+    const kept = [data[0]];
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowYear = String(row[yearIndex] || '').trim();
+      const originalValue = String(row[originalIndex] || '').trim();
+      if (rowYear === financialYear && originalValue !== '') {
+        existingCount += 1;
+        if (!isAdmin) {
+          throw new Error('Original budget already exists for ' + financialYear + '. Admin required to overwrite.');
+        }
+        removedCount += 1;
+        continue;
+      }
+      kept.push(row);
+    }
+    if (removedCount) {
+      sheet.getRange(1, 1, sheet.getLastRow(), headerCount).clearContent();
+      sheet.getRange(1, 1, kept.length, headerCount).setValues(kept);
+      logSystemEventSafe('OVERWRITE_ORIGINAL_BUDGET', financialYear, 'Removed rows: ' + removedCount);
     }
   }
 
-  const headerCount = sheet.getLastColumn();
   const rowsToInsert = rows.map(item => {
     const subCategory = String(item.subCategory || '').trim();
     const category = String(item.category || '').trim();

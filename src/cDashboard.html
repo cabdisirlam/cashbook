@@ -839,10 +839,6 @@
             <span class="menu-item-icon">-</span>
             <span>Search / Edit</span>
           </div>
-          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Export Journal" onclick="navigateTo(this, 'Export Journal')">
-            <span class="menu-item-icon">-</span>
-            <span>Export Journal</span>
-          </div>
           <div class="menu-item" data-role="admin,inputter,viewer" data-label="Add/Edit Budget" onclick="navigateTo(this, 'Add/Edit Budget')">
             <span class="menu-item-icon">-</span>
             <span>Add/Edit Budget</span>
@@ -878,6 +874,10 @@
           <div class="menu-item" data-role="admin,inputter,viewer" data-label="Budget vs Actual" onclick="navigateTo(this, 'Budget vs Actual')">
             <span class="menu-item-icon">-</span>
             <span>Budget vs Actual</span>
+          </div>
+          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Cash Book" onclick="navigateTo(this, 'Cash Book')">
+            <span class="menu-item-icon">-</span>
+            <span>Cash Book</span>
           </div>
           <div class="menu-item" data-role="admin,inputter,viewer" data-label="Notes" onclick="navigateTo(this, 'Notes')">
             <span class="menu-item-icon">-</span>
@@ -1128,7 +1128,7 @@
         return;
       }
 
-      if (label === 'Export Journal') {
+      if (label === 'Cash Book') {
         renderExportJournalContent();
         return;
       }
@@ -1452,7 +1452,7 @@
         <div class="card">
           <div class="panel-header">
             <div>
-              <h2 style="margin-bottom:4px;">Export Journal</h2>
+              <h2 style="margin-bottom:4px;">Cash Book</h2>
               <p style="color:#6b7280;font-size:13px;"></p>
             </div>
           </div>
@@ -1501,7 +1501,7 @@
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = result.filename || 'journal_export.csv';
+          link.download = result.filename || 'cash_book_export.csv';
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
