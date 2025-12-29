@@ -2514,7 +2514,11 @@
 
     function openEditModal() {
       const modal = document.getElementById('editModal');
-      if (modal) modal.classList.add('open');
+      if (!modal) {
+        showAlert('Edit modal is unavailable. Reload the page.', 'error');
+        return;
+      }
+      modal.classList.add('open');
     }
 
     function closeEditModal() {
@@ -2524,6 +2528,7 @@
 
     function loadJournalRow(rowId) {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showAlert('App runtime missing. Open via the deployed URL.', 'error');
         return;
       }
       google.script.run
@@ -2669,10 +2674,18 @@
 
     function openConfirmModal(title, message, action) {
       const modal = document.getElementById('confirmModal');
+      if (!modal) {
+        if (typeof action === 'function') action();
+        return;
+      }
       document.getElementById('confirmTitle').textContent = title;
       document.getElementById('confirmText').textContent = message;
       confirmAction = action;
       const button = document.getElementById('confirmActionBtn');
+      if (!button) {
+        if (confirmAction) confirmAction();
+        return;
+      }
       button.onclick = function() {
         closeConfirmModal();
         if (confirmAction) confirmAction();

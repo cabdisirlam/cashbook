@@ -279,22 +279,20 @@ function updateJournal(payload) {
   _storeUndoAction_('update', row, existing);
 
   const updated = existing.slice();
-  updated[cols.date - 1] = _parseDate_(payload.date) || existing[cols.date - 1];
-  if (cols.financialYear) {
-    updated[cols.financialYear - 1] = payload.financialYear || '';
-  }
-  updated[cols.accountCode - 1] = payload.accountCode || '';
-  updated[cols.payee - 1] = payload.payee || '';
-  updated[cols.refNo - 1] = payload.refNo || '';
-  updated[cols.subCategory - 1] = payload.subCategory || '';
-  updated[cols.category - 1] = payload.category || '';
-  updated[cols.description - 1] = payload.description || '';
-  updated[cols.debit - 1] = Number(payload.debit || 0);
-  updated[cols.credit - 1] = Number(payload.credit || 0);
-  updated[cols.accountType - 1] = payload.accountType || '';
-  updated[cols.reportMapping - 1] = payload.reportMapping || '';
-  updated[cols.reconStatus - 1] = payload.reconStatus || '';
-  updated[cols.receiptUrl - 1] = payload.receiptUrl || '';
+  _setIfPresent_(updated, cols.date, _parseDate_(payload.date) || existing[cols.date - 1]);
+  _setIfPresent_(updated, cols.financialYear, payload.financialYear || '');
+  _setIfPresent_(updated, cols.accountCode, payload.accountCode || '');
+  _setIfPresent_(updated, cols.payee, payload.payee || '');
+  _setIfPresent_(updated, cols.refNo, payload.refNo || '');
+  _setIfPresent_(updated, cols.subCategory, payload.subCategory || '');
+  _setIfPresent_(updated, cols.category, payload.category || '');
+  _setIfPresent_(updated, cols.description, payload.description || '');
+  _setIfPresent_(updated, cols.debit, Number(payload.debit || 0));
+  _setIfPresent_(updated, cols.credit, Number(payload.credit || 0));
+  _setIfPresent_(updated, cols.accountType, payload.accountType || '');
+  _setIfPresent_(updated, cols.reportMapping, payload.reportMapping || '');
+  _setIfPresent_(updated, cols.reconStatus, payload.reconStatus || '');
+  _setIfPresent_(updated, cols.receiptUrl, payload.receiptUrl || '');
 
   sheet.getRange(row, 1, 1, lastCol).setValues([updated]);
 
@@ -533,6 +531,12 @@ function _resolveColumn_(headers, names, fallback) {
     if (idx >= 0) return idx + 1;
   }
   return fallback;
+}
+
+function _setIfPresent_(row, colIndex, value) {
+  if (!colIndex) return;
+  if (colIndex > row.length) return;
+  row[colIndex - 1] = value;
 }
 
 function _uniqueSorted_(items) {
