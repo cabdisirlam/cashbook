@@ -2475,27 +2475,31 @@
     }
 
     function bindResultActions() {
-      document.querySelectorAll('.edit-transaction-btn').forEach(button => {
-        button.onclick = function() {
-          const rowId = Number(this.dataset.rowId);
+      const container = document.getElementById('searchResults');
+      if (!container) return;
+
+      container.onclick = function(event) {
+        const editBtn = event.target.closest('.edit-transaction-btn');
+        if (editBtn) {
+          const rowId = Number(editBtn.dataset.rowId);
           if (!rowId) {
             showAlert('Invalid transaction row.', 'error');
             return;
           }
           loadJournalRow(rowId);
-        };
-      });
+          return;
+        }
 
-      document.querySelectorAll('.delete-transaction-btn').forEach(button => {
-        button.onclick = function() {
-          const rowId = Number(this.dataset.rowId);
+        const deleteBtn = event.target.closest('.delete-transaction-btn');
+        if (deleteBtn) {
+          const rowId = Number(deleteBtn.dataset.rowId);
           if (!rowId) {
             showAlert('Invalid transaction row.', 'error');
             return;
           }
           confirmDelete(rowId);
-        };
-      });
+        }
+      };
     }
 
     function showAlert(message, type = 'success', duration = 6000) {
