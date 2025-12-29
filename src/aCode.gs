@@ -908,6 +908,16 @@ function getPayees() {
   }
 }
 
+function logSystemEventSafe(action, targetId, details) {
+  try {
+    const user = getCurrentUser();
+    const actor = user && user.authenticated ? user.email : 'system';
+    logSystemEvent(actor, action, targetId || '', details || '');
+  } catch (error) {
+    Logger.log('Log failure: ' + error.toString());
+  }
+}
+
 /**
  * Get all unique sub-categories with category + account type for budget input.
  * @returns {Array} Array of { subCategory, category, accountType }
@@ -1013,6 +1023,12 @@ function saveOriginalBudget(payload) {
   const startRow = sheet.getLastRow() + 1;
   sheet.getRange(startRow, 1, rowsToInsert.length, headerCount).setValues(rowsToInsert);
 
+  logSystemEventSafe(
+    'CREATE_ORIGINAL_BUDGET',
+    financialYear,
+    'Rows: ' + rowsToInsert.length + ', Date: ' + _formatDate_(dateValue)
+  );
+
   return { success: true, count: rowsToInsert.length };
 }
 
@@ -1093,6 +1109,11 @@ function saveBudgetAdjustment(payload) {
 
   const startRow = sheet.getLastRow() + 1;
   sheet.getRange(startRow, 1, rowsToInsert.length, headerCount).setValues(rowsToInsert);
+  logSystemEventSafe(
+    'CREATE_BUDGET_ADJUSTMENT',
+    financialYear,
+    'Type: ' + type + ', Rows: ' + rowsToInsert.length + ', Auth: ' + authRef
+  );
   return { success: true, count: rowsToInsert.length };
 }
 

@@ -145,6 +145,12 @@ function saveTransaction(data) {
   const startRow = journal.getLastRow() + 1;
   journal.getRange(startRow, 1, entries.length, entries[0].length).setValues(entries);
 
+  logSystemEventSafe(
+    'CREATE_JOURNAL',
+    batchId,
+    'Type: ' + type + ', Rows: ' + entries.length + ', Total: ' + total
+  );
+
   return 'Success';
 }
 
@@ -348,6 +354,8 @@ function undoLastJournalAction() {
     throw new Error('Unknown action.');
   }
 
+  logSystemEventSafe('UNDO_JOURNAL', '', 'Undo ' + action.type + ' on row ' + action.rowId);
+
   props.deleteProperty('lastJournalAction');
   return 'Undo completed.';
 }
@@ -380,7 +388,10 @@ function exportJournal(criteria) {
     return true;
   });
 
-  if (!filtered.length) return { csv: '', filename: '' };
+  if (!filtered.length) {
+    logSystemEventSafe('EXPORT_JOURNAL', '', 'No data to export.');
+    return { csv: '', filename: '' };
+  }
 
   const output = [headers].concat(filtered).map(function(row) {
     return row.map(function(cell) {
@@ -393,6 +404,7 @@ function exportJournal(criteria) {
   }).join('\n');
 
   const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+  logSystemEventSafe('EXPORT_JOURNAL', '', 'Rows: ' + filtered.length);
   return {
     csv: output,
     filename: 'journal_export_' + stamp + '.csv'
@@ -421,6 +433,7 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
     _writeRowUpdate_(sheet, data, targetRow, lastCol, {
       [cols.payees]: trimmed
     });
+    logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: payee');
     return;
   }
 
@@ -430,6 +443,7 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
     _writeRowUpdate_(sheet, data, targetRow, lastCol, {
       [cols.financialYear]: trimmed
     });
+    logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: financialYear');
     return;
   }
 
@@ -446,6 +460,7 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
       [cols.accountType]: accountTypeValue,
       [cols.reportMapping]: reportValue
     });
+    logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: account');
     return;
   }
 
@@ -465,6 +480,7 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
       [cols.accountType]: accountTypeValue,
       [cols.reportMapping]: reportValue
     });
+    logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: subCategory, Category: ' + parentCategory);
     return;
   }
 
