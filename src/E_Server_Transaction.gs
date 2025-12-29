@@ -409,6 +409,150 @@ function exportJournal(criteria) {
   };
 }
 
+function getBudgetVsActual(financialYear) {
+  const year = String(financialYear || '').trim();
+  if (!year) throw new Error('Financial year is required.');
+
+  const ss = _getOrCreateSpreadsheet();
+  const budgetSheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
+  if (!budgetSheet) throw new Error('DB_BUDGET not found.');
+
+  const budgetLastRow = budgetSheet.getLastRow();
+  const budgetLastCol = budgetSheet.getLastColumn();
+  if (budgetLastRow < 2) return { rows: [], totals: {} };
+
+  const budgetHeaders = budgetSheet.getRange(1, 1, 1, budgetLastCol).getValues()[0];
+  const budgetMap = _getBudgetHeaderMap(budgetSheet);
+  _ensureBudgetHeaders(budgetMap);
+  const budgetData = budgetSheet.getRange(2, 1, budgetLastRow - 1, budgetLastCol).getValues();
+
+  const budgetBySub = {};
+  budgetData.forEach(row => {
+    const rowYear = String(row[budgetMap.Financial_Year] || '').trim();
+    if (rowYear !== year) return;
+    const sub = String(row[budgetMap.Sub_Category] || '').trim();
+    if (!sub) return;
+
+    if (!budgetBySub[sub]) {
+      budgetBySub[sub] = {
+        subCategory: sub,
+        category: String(row[budgetMap.Category] || '').trim(),
+        accountType: String(row[budgetMap.Account_Type] || '').trim(),
+        originalBudget: 0,
+        reallocation: 0,
+        supplementary: 0
+      };
+    }
+    budgetBySub[sub].originalBudget += Number(row[budgetMap.Original_Budget] || 0);
+    budgetBySub[sub].reallocation += Number(row[budgetMap.Reallocation] || 0);
+    budgetBySub[sub].supplementary += Number(row[budgetMap.Supplementary] || 0);
+  });
+
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) throw new Error('DB_JOURNAL not found.');
+
+  const journalLastRow = journal.getLastRow();
+  const journalLastCol = journal.getLastColumn();
+  const actualBySub = {};
+  if (journalLastRow >= 2) {
+    const journalHeaders = journal.getRange(1, 1, 1, journalLastCol).getValues()[0].map(_normalizeHeader_);
+    const cols = _getJournalColumns_(journalHeaders);
+    const journalData = journal.getRange(2, 1, journalLastRow - 1, journalLastCol).getValues();
+
+    journalData.forEach(row => {
+      if (!cols.subCategory) return;
+      const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
+      if (rowYear !== year) return;
+      const sub = String(row[cols.subCategory - 1] || '').trim();
+      if (!sub) return;
+      const debit = cols.debit ? Number(row[cols.debit - 1] || 0) : 0;
+      const credit = cols.credit ? Number(row[cols.credit - 1] || 0) : 0;
+      actualBySub[sub] = (actualBySub[sub] || 0) + (debit - credit);
+    });
+  }
+
+  const results = Object.values(budgetBySub).map(item => {
+    const actual = actualBySub[item.subCategory] || 0;
+    const finalBudget = item.originalBudget + item.reallocation + item.supplementary;
+    const variance = finalBudget - actual;
+    return {
+      subCategory: item.subCategory,
+      category: item.category,
+      originalBudget: item.originalBudget,
+      reallocation: item.reallocation,
+      supplementary: item.supplementary,
+      finalBudget: finalBudget,
+      actualAmount: actual,
+      variance: variance
+    };
+  }).sort((a, b) => {
+    if (a.category === b.category) return a.subCategory.localeCompare(b.subCategory);
+    return a.category.localeCompare(b.category);
+  });
+
+  if (results.length) {
+    const updated = budgetData.map(row => {
+      const rowYear = String(row[budgetMap.Financial_Year] || '').trim();
+      if (rowYear !== year) return row;
+      const sub = String(row[budgetMap.Sub_Category] || '').trim();
+      const summary = budgetBySub[sub];
+      if (!summary) return row;
+      const actual = actualBySub[sub] || 0;
+      const finalBudget = summary.originalBudget + summary.reallocation + summary.supplementary;
+      row[budgetMap.Final_Budget] = finalBudget;
+      row[budgetMap.Actual_Amount] = actual;
+      row[budgetMap.Variance] = finalBudget - actual;
+      return row;
+    });
+    budgetSheet.getRange(2, 1, updated.length, budgetLastCol).setValues(updated);
+  }
+
+  const totals = results.reduce((acc, row) => {
+    acc.originalBudget += row.originalBudget || 0;
+    acc.reallocation += row.reallocation || 0;
+    acc.supplementary += row.supplementary || 0;
+    acc.finalBudget += row.finalBudget || 0;
+    acc.actualAmount += row.actualAmount || 0;
+    acc.variance += row.variance || 0;
+    return acc;
+  }, { originalBudget: 0, reallocation: 0, supplementary: 0, finalBudget: 0, actualAmount: 0, variance: 0 });
+
+  logSystemEventSafe('REFRESH_BUDGET_ACTUALS', year, 'Rows: ' + results.length);
+
+  return {
+    rows: results,
+    totals: totals
+  };
+}
+
+function exportBudgetVsActual(financialYear) {
+  const result = getBudgetVsActual(financialYear);
+  if (!result.rows || !result.rows.length) return { csv: '', filename: '' };
+
+  const headers = ['Sub_Category', 'Category', 'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget', 'Actual_Amount', 'Variance'];
+  const lines = [headers].concat(result.rows.map(row => ([
+    row.subCategory,
+    row.category,
+    row.originalBudget,
+    row.reallocation,
+    row.supplementary,
+    row.finalBudget,
+    row.actualAmount,
+    row.variance
+  ])));
+
+  const csv = lines.map(line => line.map(cell => {
+    const value = String(cell == null ? '' : cell);
+    return '"' + value.replace(/"/g, '""') + '"';
+  }).join(',')).join('\n');
+
+  const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+  return {
+    csv: csv,
+    filename: 'budget_vs_actual_' + stamp + '.csv'
+  };
+}
+
 function addMasterItem(type, value, parent, accountType, reportMapping) {
   const trimmed = String(value || '').trim();
   if (!trimmed) throw new Error('Value is required.');

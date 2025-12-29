@@ -1134,6 +1134,11 @@
         return;
       }
 
+      if (label === 'Budget vs Actual') {
+        renderBudgetVsActualContent();
+        return;
+      }
+
       contentArea.innerHTML = `
         <div class="card">
           <h2>${label}</h2>
@@ -2144,6 +2149,38 @@
       `;
     }
 
+    function renderBudgetVsActualContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="budgetVsActualAlert"></div>
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Budget vs Actual</h2>
+              <p style="color:#6b7280;font-size:13px;">Refresh actuals and review variance by sub-category.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderBudgetVsActualContent()">Refresh</button>
+              <button class="btn btn-primary" onclick="refreshBudgetVsActual()">Run</button>
+              <button class="btn btn-secondary" onclick="exportBudgetVsActual()">Download CSV</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="budgetReportYear">Financial Year</label>
+              <select id="budgetReportYear"></select>
+            </div>
+          </div>
+
+          <div id="budgetVsActualStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="budgetVsActualTable"></div>
+        </div>
+      `;
+
+      loadBudgetReportYears();
+    }
+
     function saveOriginalBudget() {
       const financialYear = document.getElementById('bulkFinancialYear').value.trim();
       const budgetDate = document.getElementById('bulkBudgetDate').value;
@@ -2380,6 +2417,188 @@
         option.value = item;
         list.appendChild(option);
       });
+    }
+
+    function loadBudgetReportYears() {
+      const status = document.getElementById('budgetVsActualStatus');
+      if (status) status.textContent = 'Loading financial years...';
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBudgetVsActualAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const years = (data && data.financialYears) ? data.financialYears : [];
+          const select = document.getElementById('budgetReportYear');
+          if (!select) return;
+          select.innerHTML = '<option value="">Select...</option>';
+          years.forEach(year => {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            select.appendChild(option);
+          });
+          if (years.length && !select.value) {
+            select.value = years[0];
+            refreshBudgetVsActual();
+          } else if (status) {
+            status.textContent = '';
+          }
+        })
+        .withFailureHandler(function(error) {
+          showBudgetVsActualAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function refreshBudgetVsActual() {
+      const year = document.getElementById('budgetReportYear').value.trim();
+      if (!year) {
+        showBudgetVsActualAlert('Select a financial year.', 'error');
+        return;
+      }
+      const status = document.getElementById('budgetVsActualStatus');
+      if (status) status.textContent = 'Refreshing actuals...';
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBudgetVsActualAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          renderBudgetVsActualTable(result || { rows: [], totals: {} });
+          if (status) status.textContent = 'Last refreshed just now.';
+        })
+        .withFailureHandler(function(error) {
+          showBudgetVsActualAlert(error.message || 'Failed to refresh actuals.', 'error');
+          if (status) status.textContent = '';
+        })
+        .getBudgetVsActual(year);
+    }
+
+    function renderBudgetVsActualTable(result) {
+      const container = document.getElementById('budgetVsActualTable');
+      if (!container) return;
+      const rows = result.rows || [];
+      if (!rows.length) {
+        container.innerHTML = '<div class="card"><p>No budget rows found for this year.</p></div>';
+        return;
+      }
+
+      const bodyRows = rows.map(item => `
+        <tr>
+          <td>${item.subCategory || ''}</td>
+          <td>${item.category || ''}</td>
+          <td>${formatAmount(item.originalBudget)}</td>
+          <td>${formatAmount(item.reallocation)}</td>
+          <td>${formatAmount(item.supplementary)}</td>
+          <td>${formatAmount(item.finalBudget)}</td>
+          <td>${formatAmount(item.actualAmount)}</td>
+          <td>${formatAmount(item.variance)}</td>
+        </tr>
+      `).join('');
+
+      const totals = result.totals || {};
+      const totalsRow = `
+        <tr>
+          <td colspan="2"><strong>Total</strong></td>
+          <td><strong>${formatAmount(totals.originalBudget)}</strong></td>
+          <td><strong>${formatAmount(totals.reallocation)}</strong></td>
+          <td><strong>${formatAmount(totals.supplementary)}</strong></td>
+          <td><strong>${formatAmount(totals.finalBudget)}</strong></td>
+          <td><strong>${formatAmount(totals.actualAmount)}</strong></td>
+          <td><strong>${formatAmount(totals.variance)}</strong></td>
+        </tr>
+      `;
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Sub-Category</th>
+              <th>Category</th>
+              <th>Original</th>
+              <th>Reallocation</th>
+              <th>Supplementary</th>
+              <th>Final</th>
+              <th>Actual</th>
+              <th>Variance</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+            ${totalsRow}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function exportBudgetVsActual() {
+      const year = document.getElementById('budgetReportYear').value.trim();
+      if (!year) {
+        showBudgetVsActualAlert('Select a financial year.', 'error');
+        return;
+      }
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBudgetVsActualAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || !result.csv) {
+            showBudgetVsActualAlert('No data to export.', 'error');
+            return;
+          }
+          const blob = new Blob([result.csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = result.filename || 'budget_vs_actual.csv';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        })
+        .withFailureHandler(function(error) {
+          showBudgetVsActualAlert(error.message || 'Failed to export report.', 'error');
+        })
+        .exportBudgetVsActual(year);
+    }
+
+    function showBudgetVsActualAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('budgetVsActualAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function formatAmount(value) {
+      const amount = Number(value || 0);
+      if (!Number.isFinite(amount)) return '';
+      return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function runSearch() {
