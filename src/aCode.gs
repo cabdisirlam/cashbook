@@ -104,7 +104,7 @@ function cleanupSheetHeaders() {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_LEDGER);
   if (sheet) {
     const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
-                     'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
@@ -116,7 +116,7 @@ function cleanupSheetHeaders() {
   sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (sheet) {
     const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
-                     'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
@@ -138,7 +138,7 @@ function cleanupSheetHeaders() {
   // Clean up DB_BUDGET headers
   sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
   if (sheet) {
-    const headers = ['Date', 'Financial_Year', 'Sub_Category', 'Category', 'Account_Type',
+    const headers = ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type',
                      'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget',
                      'Actual_Amount', 'Variance', 'Auth_Ref', 'Description'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -150,7 +150,7 @@ function cleanupSheetHeaders() {
   // Clean up MASTER_DATA headers
   sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
   if (sheet) {
-    const headers = ['Payees', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'];
+    const headers = ['Payees', 'Particulars', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
     updatedSheets.push('MASTER_DATA');
@@ -267,7 +267,7 @@ function _initializeViewLedgerSheet(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.VIEW_LEDGER);
     const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
-                     'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
@@ -309,7 +309,7 @@ function _initializeDbJournalSheet(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_JOURNAL);
     const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
-                     'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
@@ -335,7 +335,7 @@ function _initializeDbBudgetSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_BUDGET);
-    const headers = ['Date', 'Financial_Year', 'Sub_Category', 'Category', 'Account_Type',
+    const headers = ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type',
                      'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget',
                      'Actual_Amount', 'Variance', 'Auth_Ref', 'Description'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -358,7 +358,7 @@ function _initializeMasterDataSheet(ss) {
     sheet = ss.insertSheet(CONFIG.SHEETS.MASTER_DATA);
 
     // Create headers - All data will come from user input
-    const headers = ['Payees', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'];
+    const headers = ['Payees', 'Particulars', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
 
@@ -768,10 +768,18 @@ function getCategories() {
     }
 
     const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) return []; // No data
+    const lastCol = sheet.getLastColumn();
+    if (lastRow <= 1 || lastCol < 1) return []; // No data
 
-    const categoryData = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
-    const uniqueCategories = [...new Set(categoryData.map(row => row[0]).filter(cat => cat !== ''))];
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+      .map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_'));
+    const categoryIndex = headers.indexOf('category');
+    if (categoryIndex < 0) return [];
+
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    const uniqueCategories = [...new Set(
+      data.map(row => String(row[categoryIndex] || '').trim()).filter(cat => cat !== '')
+    )];
 
     return uniqueCategories.sort();
   } catch (error) {
@@ -798,15 +806,20 @@ function getSubCategories(category) {
     }
 
     const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) return []; // No data
+    const lastCol = sheet.getLastColumn();
+    if (lastRow <= 1 || lastCol < 1) return []; // No data
 
-    // Get Sub_Category (col 2) and Category (col 3)
-    const data = sheet.getRange(2, 2, lastRow - 1, 2).getValues();
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+      .map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_'));
+    const subIndex = headers.indexOf('sub_category');
+    const categoryIndex = headers.indexOf('category');
+    if (subIndex < 0 || categoryIndex < 0) return [];
 
-    // Filter by category and get unique sub-categories
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
     const subCategories = data
-      .filter(row => row[1] === category && row[0] !== '')
-      .map(row => row[0]);
+      .filter(row => String(row[categoryIndex] || '').trim() === category && String(row[subIndex] || '').trim() !== '')
+      .map(row => String(row[subIndex] || '').trim());
 
     return [...new Set(subCategories)].sort();
   } catch (error) {
@@ -833,15 +846,21 @@ function getCategoryForSubCategory(subCategory) {
     }
 
     const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) return ''; // No data
+    const lastCol = sheet.getLastColumn();
+    if (lastRow <= 1 || lastCol < 1) return ''; // No data
 
-    // Get Sub_Category (col 2) and Category (col 3)
-    const data = sheet.getRange(2, 2, lastRow - 1, 2).getValues();
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+      .map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_'));
+    const subIndex = headers.indexOf('sub_category');
+    const categoryIndex = headers.indexOf('category');
+    if (subIndex < 0 || categoryIndex < 0) return '';
+
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
     // Find the first matching row
-    const matchingRow = data.find(row => row[0] === subCategory);
+    const matchingRow = data.find(row => String(row[subIndex] || '').trim() === subCategory);
 
-    return matchingRow ? matchingRow[1] : '';
+    return matchingRow ? String(matchingRow[categoryIndex] || '').trim() : '';
   } catch (error) {
     Logger.log('Error in getCategoryForSubCategory: ' + error.toString());
     return '';
@@ -866,18 +885,72 @@ function getAccountType(category) {
     }
 
     const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) return ''; // No data
+    const lastCol = sheet.getLastColumn();
+    if (lastRow <= 1 || lastCol < 1) return ''; // No data
 
-    // Get Category (col 3) and Account_Type (col 5)
-    const data = sheet.getRange(2, 3, lastRow - 1, 3).getValues();
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+      .map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_'));
+    const categoryIndex = headers.indexOf('category');
+    const accountTypeIndex = headers.indexOf('account_type');
+    if (categoryIndex < 0 || accountTypeIndex < 0) return '';
+
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
     // Find the first matching row
-    const matchingRow = data.find(row => row[0] === category);
+    const matchingRow = data.find(row => String(row[categoryIndex] || '').trim() === category);
 
-    return matchingRow ? matchingRow[2] : '';
+    return matchingRow ? String(matchingRow[accountTypeIndex] || '').trim() : '';
   } catch (error) {
     Logger.log('Error in getAccountType: ' + error.toString());
     return '';
+  }
+}
+
+/**
+ * Get sub-category, category, and account type for a particulars entry.
+ * @param {string} particulars - The particulars to look up
+ * @returns {Object} { subCategory, category, accountType }
+ */
+function getDetailsForParticulars(particulars) {
+  try {
+    if (!particulars) return { subCategory: '', category: '', accountType: '' };
+
+    const ss = _getOrCreateSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+
+    if (!sheet) {
+      Logger.log('MASTER_DATA sheet not found');
+      return { subCategory: '', category: '', accountType: '' };
+    }
+
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow <= 1 || lastCol < 1) return { subCategory: '', category: '', accountType: '' };
+
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+      .map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_'));
+    const particularsIndex = headers.indexOf('particulars');
+    const subIndex = headers.indexOf('sub_category');
+    const categoryIndex = headers.indexOf('category');
+    const accountTypeIndex = headers.indexOf('account_type');
+    if (particularsIndex < 0 || subIndex < 0 || categoryIndex < 0) {
+      return { subCategory: '', category: '', accountType: '' };
+    }
+
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    const matchingRow = data.find(row => String(row[particularsIndex] || '').trim() === particulars);
+    if (!matchingRow) {
+      return { subCategory: '', category: '', accountType: '' };
+    }
+
+    return {
+      subCategory: String(matchingRow[subIndex] || '').trim(),
+      category: String(matchingRow[categoryIndex] || '').trim(),
+      accountType: accountTypeIndex >= 0 ? String(matchingRow[accountTypeIndex] || '').trim() : ''
+    };
+  } catch (error) {
+    Logger.log('Error in getDetailsForParticulars: ' + error.toString());
+    return { subCategory: '', category: '', accountType: '' };
   }
 }
 
@@ -938,11 +1011,12 @@ function getBudgetSubCategoryCatalog() {
 
     const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
       .map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_'));
+    const particularsIndex = headers.indexOf('particulars');
     const subIndex = headers.indexOf('sub_category');
     const categoryIndex = headers.indexOf('category');
     const accountTypeIndex = headers.indexOf('account_type');
-    if (subIndex < 0 || categoryIndex < 0) {
-      Logger.log('MASTER_DATA headers missing Sub_Category or Category');
+    if (particularsIndex < 0 || subIndex < 0 || categoryIndex < 0) {
+      Logger.log('MASTER_DATA headers missing Particulars, Sub_Category, or Category');
       return [];
     }
 
@@ -950,12 +1024,14 @@ function getBudgetSubCategoryCatalog() {
     const catalogMap = new Map();
 
     data.forEach(row => {
+      const particulars = String(row[particularsIndex] || '').trim();
       const subCategory = String(row[subIndex] || '').trim();
       const category = String(row[categoryIndex] || '').trim();
       const accountType = accountTypeIndex >= 0 ? String(row[accountTypeIndex] || '').trim() : '';
-      if (!subCategory) return;
-      if (!catalogMap.has(subCategory)) {
-        catalogMap.set(subCategory, {
+      if (!particulars) return;
+      if (!catalogMap.has(particulars)) {
+        catalogMap.set(particulars, {
+          particulars: particulars,
           subCategory: subCategory,
           category: category,
           accountType: accountType
@@ -963,7 +1039,7 @@ function getBudgetSubCategoryCatalog() {
       }
     });
 
-    return Array.from(catalogMap.values()).sort((a, b) => a.subCategory.localeCompare(b.subCategory));
+    return Array.from(catalogMap.values()).sort((a, b) => a.particulars.localeCompare(b.particulars));
   } catch (error) {
     Logger.log('Error in getBudgetSubCategoryCatalog: ' + error.toString());
     return [];
@@ -1020,11 +1096,13 @@ function saveOriginalBudget(payload) {
   }
 
   const rowsToInsert = rows.map(item => {
+    const particulars = String(item.particulars || '').trim();
     const subCategory = String(item.subCategory || '').trim();
     const category = String(item.category || '').trim();
     const accountType = String(item.accountType || '').trim();
     const amount = Number(item.amount);
 
+    if (!particulars) throw new Error('Particulars is required.');
     if (!subCategory) throw new Error('Sub-Category is required.');
     if (!Number.isFinite(amount)) throw new Error('Invalid amount for ' + subCategory + '.');
     if (amount < 0) throw new Error('Original budget must be positive for ' + subCategory + '.');
@@ -1032,6 +1110,7 @@ function saveOriginalBudget(payload) {
     const row = new Array(headerCount).fill('');
     row[headerMap.Date] = dateValue;
     row[headerMap.Financial_Year] = financialYear;
+    row[headerMap.Particulars] = particulars;
     row[headerMap.Sub_Category] = subCategory;
     row[headerMap.Category] = category;
     row[headerMap.Account_Type] = accountType;
@@ -1077,14 +1156,15 @@ function saveBudgetAdjustment(payload) {
   const rowsToInsert = [];
 
   if (type === 'Supplementary') {
-    const subCategory = String(payload.subCategory || '').trim();
-    if (!subCategory) throw new Error('Sub-Category is required.');
-    const details = _getSubCategoryDetails(subCategory);
+    const particulars = String(payload.particulars || '').trim();
+    if (!particulars) throw new Error('Particulars is required.');
+    const details = _getParticularDetails(particulars);
 
     const row = new Array(headerCount).fill('');
     row[headerMap.Date] = dateValue;
     row[headerMap.Financial_Year] = financialYear;
-    row[headerMap.Sub_Category] = subCategory;
+    row[headerMap.Particulars] = particulars;
+    row[headerMap.Sub_Category] = details.subCategory;
     row[headerMap.Category] = details.category;
     row[headerMap.Account_Type] = details.accountType;
     row[headerMap.Supplementary] = amount;
@@ -1092,19 +1172,20 @@ function saveBudgetAdjustment(payload) {
     row[headerMap.Description] = description;
     rowsToInsert.push(row);
   } else if (type === 'Reallocation') {
-    const fromSub = String(payload.fromSubCategory || '').trim();
-    const toSub = String(payload.toSubCategory || '').trim();
-    if (!fromSub || !toSub) throw new Error('From and To sub-categories are required.');
-    if (fromSub === toSub) throw new Error('From and To sub-categories must be different.');
+    const fromParticular = String(payload.fromParticulars || '').trim();
+    const toParticular = String(payload.toParticulars || '').trim();
+    if (!fromParticular || !toParticular) throw new Error('From and To particulars are required.');
+    if (fromParticular === toParticular) throw new Error('From and To particulars must be different.');
 
     const delta = Math.abs(amount);
-    const fromDetails = _getSubCategoryDetails(fromSub);
-    const toDetails = _getSubCategoryDetails(toSub);
+    const fromDetails = _getParticularDetails(fromParticular);
+    const toDetails = _getParticularDetails(toParticular);
 
     const fromRow = new Array(headerCount).fill('');
     fromRow[headerMap.Date] = dateValue;
     fromRow[headerMap.Financial_Year] = financialYear;
-    fromRow[headerMap.Sub_Category] = fromSub;
+    fromRow[headerMap.Particulars] = fromParticular;
+    fromRow[headerMap.Sub_Category] = fromDetails.subCategory;
     fromRow[headerMap.Category] = fromDetails.category;
     fromRow[headerMap.Account_Type] = fromDetails.accountType;
     fromRow[headerMap.Reallocation] = -delta;
@@ -1114,7 +1195,8 @@ function saveBudgetAdjustment(payload) {
     const toRow = new Array(headerCount).fill('');
     toRow[headerMap.Date] = dateValue;
     toRow[headerMap.Financial_Year] = financialYear;
-    toRow[headerMap.Sub_Category] = toSub;
+    toRow[headerMap.Particulars] = toParticular;
+    toRow[headerMap.Sub_Category] = toDetails.subCategory;
     toRow[headerMap.Category] = toDetails.category;
     toRow[headerMap.Account_Type] = toDetails.accountType;
     toRow[headerMap.Reallocation] = delta;
@@ -1136,15 +1218,15 @@ function saveBudgetAdjustment(payload) {
   return { success: true, count: rowsToInsert.length };
 }
 
-function _getSubCategoryDetails(subCategory) {
-  const category = getCategoryForSubCategory(subCategory);
-  if (!category) {
-    throw new Error('Sub-Category not found: ' + subCategory + '.');
+function _getParticularDetails(particulars) {
+  const details = getDetailsForParticulars(particulars);
+  if (!details || !details.subCategory) {
+    throw new Error('Particulars not found: ' + particulars + '.');
   }
-  const accountType = getAccountType(category);
   return {
-    category: category,
-    accountType: accountType || ''
+    subCategory: details.subCategory,
+    category: details.category,
+    accountType: details.accountType || ''
   };
 }
 
@@ -1157,6 +1239,7 @@ function _getBudgetHeaderMap(sheet) {
     const normalized = raw.toLowerCase().replace(/\s+/g, '_');
     if (normalized === 'date') map.Date = index;
     if (normalized === 'financial_year') map.Financial_Year = index;
+    if (normalized === 'particulars') map.Particulars = index;
     if (normalized === 'sub_category') map.Sub_Category = index;
     if (normalized === 'category') map.Category = index;
     if (normalized === 'account_type') map.Account_Type = index;
@@ -1176,6 +1259,7 @@ function _ensureBudgetHeaders(map) {
   const required = [
     'Date',
     'Financial_Year',
+    'Particulars',
     'Sub_Category',
     'Category',
     'Account_Type',

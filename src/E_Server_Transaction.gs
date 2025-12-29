@@ -5,8 +5,10 @@ function getDropdownData() {
   const payload = {
     accounts: [],
     payees: [],
+    particulars: [],
     subCats: [],
     subToCatMap: {},
+    particularMeta: {},
     categories: [],
     financialYears: []
   };
@@ -26,9 +28,12 @@ function getDropdownData() {
   data.forEach(function(row) {
     const account = cols.accountCodes ? String(row[cols.accountCodes - 1]).trim() : '';
     const payee = cols.payees ? String(row[cols.payees - 1]).trim() : '';
+    const particulars = cols.particulars ? String(row[cols.particulars - 1]).trim() : '';
     const subCat = cols.subCategory ? String(row[cols.subCategory - 1]).trim() : '';
     const category = cols.category ? String(row[cols.category - 1]).trim() : '';
     const financialYear = cols.financialYear ? String(row[cols.financialYear - 1]).trim() : '';
+    const accountType = cols.accountType ? String(row[cols.accountType - 1]).trim() : '';
+    const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1]).trim() : '';
 
     if (account) payload.accounts.push(account);
     if (payee) payload.payees.push(payee);
@@ -38,10 +43,20 @@ function getDropdownData() {
       payload.subCats.push(subCat);
       if (category) payload.subToCatMap[subCat] = category;
     }
+    if (particulars) {
+      payload.particulars.push(particulars);
+      payload.particularMeta[particulars] = {
+        subCategory: subCat,
+        category: category,
+        accountType: accountType,
+        reportMapping: reportMapping
+      };
+    }
   });
 
   payload.accounts = _uniqueSorted_(payload.accounts);
   payload.payees = _uniqueSorted_(payload.payees);
+  payload.particulars = _uniqueSorted_(payload.particulars);
   payload.subCats = _uniqueSorted_(payload.subCats);
   payload.categories = _uniqueSorted_(payload.categories);
   payload.financialYears = _uniqueSorted_(payload.financialYears);
@@ -86,23 +101,27 @@ function saveTransaction(data) {
   const masterData = masterLastRow > 1
     ? master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues()
     : [];
-  const subMeta = _buildSubCategoryMeta_(masterData, masterCols);
+  const particularMeta = _buildParticularMeta_(masterData, masterCols);
 
   const cleanedRows = rows.map(function(row) {
     const amount = Number(row.amount || 0);
-    const subCategory = String(row.subCategory || '').trim();
-    const category = String(row.category || '').trim();
+    const particulars = String(row.particulars || '').trim();
     const description = String(row.description || '').trim();
 
-    if (!subCategory) throw new Error('Each line needs a sub-category.');
-    if (!category) throw new Error('Each line needs a category.');
+    if (!particulars) throw new Error('Each line needs particulars.');
+    const meta = particularMeta[particulars];
+    if (!meta || !meta.subCategory || !meta.category) {
+      throw new Error('Particulars not found: ' + particulars + '.');
+    }
+    const subCategory = meta.subCategory;
+    const category = meta.category;
     if (amount <= 0) throw new Error('Line amount must be greater than zero.');
 
-    const meta = subMeta[subCategory] || {};
     const accountTypeValue = meta.accountType || '';
     const reportMappingValue = meta.reportMapping || '';
 
     return {
+      particulars,
       subCategory,
       category,
       description,
@@ -130,6 +149,7 @@ function saveTransaction(data) {
       accountCode,
       payee,
       refNo,
+      row.particulars,
       row.subCategory,
       row.category,
       row.description,
@@ -170,10 +190,11 @@ function searchJournal(criteria) {
   const query = String(criteria && criteria.query || '').trim().toLowerCase();
   const refOrId = String(criteria && criteria.refOrId || '').trim().toLowerCase();
   const categoryFilter = String(criteria && criteria.category || '').trim();
+  const particularsFilter = String(criteria && criteria.particulars || '').trim();
   const payeeFilter = String(criteria && criteria.payee || '').trim().toLowerCase();
   const startDate = _parseDate_(criteria && criteria.startDate);
   const endDate = _parseDate_(criteria && criteria.endDate);
-  const hasFilters = Boolean(query || refOrId || categoryFilter || payeeFilter || startDate || endDate);
+  const hasFilters = Boolean(query || refOrId || categoryFilter || particularsFilter || payeeFilter || startDate || endDate);
 
   const results = [];
 
@@ -186,6 +207,9 @@ function searchJournal(criteria) {
     const category = cols.category ? String(row[cols.category - 1]).trim() : '';
     if (categoryFilter && category !== categoryFilter) return;
 
+    const particulars = cols.particulars ? String(row[cols.particulars - 1]).trim() : '';
+    if (particularsFilter && particulars !== particularsFilter) return;
+
     const payee = cols.payee ? String(row[cols.payee - 1]).trim() : '';
     if (payeeFilter && !payee.toLowerCase().includes(payeeFilter)) return;
 
@@ -197,6 +221,7 @@ function searchJournal(criteria) {
       cols.accountCode ? row[cols.accountCode - 1] : '',
       payee,
       category,
+      particulars,
       cols.subCategory ? row[cols.subCategory - 1] : '',
       cols.description ? row[cols.description - 1] : '',
       refNo
@@ -212,6 +237,7 @@ function searchJournal(criteria) {
       accountCode: cols.accountCode ? row[cols.accountCode - 1] : '',
       payee: payee,
       refNo: refNo,
+      particulars: cols.particulars ? row[cols.particulars - 1] : '',
       subCategory: cols.subCategory ? row[cols.subCategory - 1] : '',
       category: category,
       description: cols.description ? row[cols.description - 1] : '',
@@ -250,6 +276,7 @@ function getJournalRow(rowId) {
     accountCode: values[cols.accountCode - 1] || '',
     payee: values[cols.payee - 1] || '',
     refNo: values[cols.refNo - 1] || '',
+    particulars: cols.particulars ? values[cols.particulars - 1] || '' : '',
     subCategory: values[cols.subCategory - 1] || '',
     category: values[cols.category - 1] || '',
     description: values[cols.description - 1] || '',
@@ -284,8 +311,15 @@ function updateJournal(payload) {
   _setIfPresent_(updated, cols.accountCode, payload.accountCode || '');
   _setIfPresent_(updated, cols.payee, payload.payee || '');
   _setIfPresent_(updated, cols.refNo, payload.refNo || '');
-  _setIfPresent_(updated, cols.subCategory, payload.subCategory || '');
-  _setIfPresent_(updated, cols.category, payload.category || '');
+  _setIfPresent_(updated, cols.particulars, payload.particulars || '');
+  if (payload.particulars && (!payload.subCategory || !payload.category)) {
+    const details = getDetailsForParticulars(String(payload.particulars || '').trim());
+    _setIfPresent_(updated, cols.subCategory, details.subCategory || '');
+    _setIfPresent_(updated, cols.category, details.category || '');
+  } else {
+    _setIfPresent_(updated, cols.subCategory, payload.subCategory || '');
+    _setIfPresent_(updated, cols.category, payload.category || '');
+  }
   _setIfPresent_(updated, cols.description, payload.description || '');
   _setIfPresent_(updated, cols.debit, Number(payload.debit || 0));
   _setIfPresent_(updated, cols.credit, Number(payload.credit || 0));
@@ -428,15 +462,17 @@ function getBudgetVsActual(financialYear) {
     ? budgetSheet.getRange(2, 1, budgetLastRow - 1, budgetLastCol).getValues()
     : [];
 
-  const budgetBySub = {};
+  const budgetByParticular = {};
   budgetData.forEach(row => {
     const rowYear = String(row[budgetMap.Financial_Year] || '').trim();
     if (rowYear !== year) return;
+    const particulars = String(row[budgetMap.Particulars] || '').trim();
+    if (!particulars) return;
     const sub = String(row[budgetMap.Sub_Category] || '').trim();
-    if (!sub) return;
 
-    if (!budgetBySub[sub]) {
-      budgetBySub[sub] = {
+    if (!budgetByParticular[particulars]) {
+      budgetByParticular[particulars] = {
+        particulars: particulars,
         subCategory: sub,
         category: String(row[budgetMap.Category] || '').trim(),
         accountType: String(row[budgetMap.Account_Type] || '').trim(),
@@ -445,9 +481,9 @@ function getBudgetVsActual(financialYear) {
         supplementary: 0
       };
     }
-    budgetBySub[sub].originalBudget += Number(row[budgetMap.Original_Budget] || 0);
-    budgetBySub[sub].reallocation += Number(row[budgetMap.Reallocation] || 0);
-    budgetBySub[sub].supplementary += Number(row[budgetMap.Supplementary] || 0);
+    budgetByParticular[particulars].originalBudget += Number(row[budgetMap.Original_Budget] || 0);
+    budgetByParticular[particulars].reallocation += Number(row[budgetMap.Reallocation] || 0);
+    budgetByParticular[particulars].supplementary += Number(row[budgetMap.Supplementary] || 0);
   });
 
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -455,10 +491,10 @@ function getBudgetVsActual(financialYear) {
 
   const journalLastRow = journal.getLastRow();
   const journalLastCol = journal.getLastColumn();
-  const actualBySub = {};
-  const debitBySub = {};
-  const creditBySub = {};
-  const journalMetaBySub = {};
+  const actualByParticular = {};
+  const debitByParticular = {};
+  const creditByParticular = {};
+  const journalMetaByParticular = {};
   let journalDebitTotal = 0;
   let journalCreditTotal = 0;
   if (journalLastRow >= 2) {
@@ -467,59 +503,69 @@ function getBudgetVsActual(financialYear) {
     const journalData = journal.getRange(2, 1, journalLastRow - 1, journalLastCol).getValues();
 
     journalData.forEach(row => {
-      if (!cols.subCategory) return;
+      if (!cols.particulars) return;
       const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
       if (rowYear !== year) return;
-      const sub = String(row[cols.subCategory - 1] || '').trim();
-      if (!sub) return;
+      const particulars = String(row[cols.particulars - 1] || '').trim();
+      if (!particulars) return;
       const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
       const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
-      debitBySub[sub] = (debitBySub[sub] || 0) + debit;
-      creditBySub[sub] = (creditBySub[sub] || 0) + credit;
+      debitByParticular[particulars] = (debitByParticular[particulars] || 0) + debit;
+      creditByParticular[particulars] = (creditByParticular[particulars] || 0) + credit;
       journalDebitTotal += debit;
       journalCreditTotal += credit;
-      if (!journalMetaBySub[sub]) {
-        journalMetaBySub[sub] = { category: '', accountType: '' };
+      if (!journalMetaByParticular[particulars]) {
+        journalMetaByParticular[particulars] = { subCategory: '', category: '', accountType: '' };
       }
-      if (cols.category && !journalMetaBySub[sub].category) {
-        journalMetaBySub[sub].category = String(row[cols.category - 1] || '').trim();
+      if (cols.subCategory && !journalMetaByParticular[particulars].subCategory) {
+        journalMetaByParticular[particulars].subCategory = String(row[cols.subCategory - 1] || '').trim();
       }
-      if (cols.accountType && !journalMetaBySub[sub].accountType) {
-        journalMetaBySub[sub].accountType = String(row[cols.accountType - 1] || '').trim();
+      if (cols.category && !journalMetaByParticular[particulars].category) {
+        journalMetaByParticular[particulars].category = String(row[cols.category - 1] || '').trim();
+      }
+      if (cols.accountType && !journalMetaByParticular[particulars].accountType) {
+        journalMetaByParticular[particulars].accountType = String(row[cols.accountType - 1] || '').trim();
       }
     });
   }
 
-  const actualSubs = new Set(Object.keys(debitBySub).concat(Object.keys(creditBySub)));
-  const missingSubs = [];
-  actualSubs.forEach(sub => {
-    if (budgetBySub[sub]) return;
-    const meta = journalMetaBySub[sub] || {};
+  const actualParticulars = new Set(Object.keys(debitByParticular).concat(Object.keys(creditByParticular)));
+  const missingParticulars = [];
+  actualParticulars.forEach(particulars => {
+    if (budgetByParticular[particulars]) return;
+    const meta = journalMetaByParticular[particulars] || {};
+    let subCategory = String(meta.subCategory || '').trim();
     let category = String(meta.category || '').trim();
-    if (!category) category = getCategoryForSubCategory(sub);
     let accountType = String(meta.accountType || '').trim();
-    if (!accountType) accountType = getAccountType(category);
-    budgetBySub[sub] = {
-      subCategory: sub,
+    if (!subCategory || !category || !accountType) {
+      const details = getDetailsForParticulars(particulars);
+      subCategory = subCategory || details.subCategory || '';
+      category = category || details.category || '';
+      accountType = accountType || details.accountType || '';
+    }
+    budgetByParticular[particulars] = {
+      particulars: particulars,
+      subCategory: subCategory,
       category: category,
       accountType: accountType,
       originalBudget: 0,
       reallocation: 0,
       supplementary: 0
     };
-    missingSubs.push(sub);
+    missingParticulars.push(particulars);
   });
 
-  const results = Object.values(budgetBySub).map(item => {
-    const debitActual = debitBySub[item.subCategory] || 0;
-    const creditActual = creditBySub[item.subCategory] || 0;
+  const results = Object.values(budgetByParticular).map(item => {
+    const debitActual = debitByParticular[item.particulars] || 0;
+    const creditActual = creditByParticular[item.particulars] || 0;
     const accountType = String(item.accountType || '').toLowerCase();
     const isReceipt = accountType.includes('income') || (!accountType && creditActual > debitActual);
     const actual = isReceipt ? creditActual : debitActual;
-    actualBySub[item.subCategory] = actual;
+    actualByParticular[item.particulars] = actual;
     const finalBudget = item.originalBudget + item.reallocation + item.supplementary;
     const variance = finalBudget - actual;
     return {
+      particulars: item.particulars,
       subCategory: item.subCategory,
       category: item.category,
       originalBudget: item.originalBudget,
@@ -532,7 +578,10 @@ function getBudgetVsActual(financialYear) {
     };
   }).sort((a, b) => {
     if (a.section !== b.section) return a.section.localeCompare(b.section);
-    if (a.category === b.category) return a.subCategory.localeCompare(b.subCategory);
+    if (a.category === b.category) {
+      if (a.subCategory === b.subCategory) return a.particulars.localeCompare(b.particulars);
+      return a.subCategory.localeCompare(b.subCategory);
+    }
     return a.category.localeCompare(b.category);
   });
 
@@ -540,11 +589,11 @@ function getBudgetVsActual(financialYear) {
     const updated = budgetData.map(row => {
       const rowYear = String(row[budgetMap.Financial_Year] || '').trim();
       if (rowYear !== year) return row;
-      const sub = String(row[budgetMap.Sub_Category] || '').trim();
-      const summary = budgetBySub[sub];
+      const particulars = String(row[budgetMap.Particulars] || '').trim();
+      const summary = budgetByParticular[particulars];
       if (!summary) return row;
-      const debitActual = debitBySub[sub] || 0;
-      const creditActual = creditBySub[sub] || 0;
+      const debitActual = debitByParticular[summary.particulars] || 0;
+      const creditActual = creditByParticular[summary.particulars] || 0;
       const accountType = String(summary.accountType || '').toLowerCase();
       const isReceipt = accountType.includes('income') || (!accountType && creditActual > debitActual);
       const actual = isReceipt ? creditActual : debitActual;
@@ -557,19 +606,20 @@ function getBudgetVsActual(financialYear) {
     budgetSheet.getRange(2, 1, updated.length, budgetLastCol).setValues(updated);
   }
 
-  if (missingSubs.length) {
+  if (missingParticulars.length) {
     const headerCount = budgetLastCol;
     const now = new Date();
-    const rowsToInsert = missingSubs.map(sub => {
-      const summary = budgetBySub[sub];
-      const debitActual = debitBySub[sub] || 0;
-      const creditActual = creditBySub[sub] || 0;
+    const rowsToInsert = missingParticulars.map(particulars => {
+      const summary = budgetByParticular[particulars];
+      const debitActual = debitByParticular[particulars] || 0;
+      const creditActual = creditByParticular[particulars] || 0;
       const accountType = String(summary.accountType || '').toLowerCase();
       const isReceipt = accountType.includes('income') || (!accountType && creditActual > debitActual);
       const actual = isReceipt ? creditActual : debitActual;
       const row = new Array(headerCount).fill('');
       row[budgetMap.Date] = now;
       row[budgetMap.Financial_Year] = year;
+      row[budgetMap.Particulars] = summary.particulars;
       row[budgetMap.Sub_Category] = summary.subCategory;
       row[budgetMap.Category] = summary.category;
       row[budgetMap.Account_Type] = summary.accountType;
@@ -621,10 +671,10 @@ function getBudgetVsActual(financialYear) {
     variance: sectionTotals.receipts.variance - sectionTotals.payments.variance
   };
 
-  const journalActualTotal = Array.from(actualSubs).reduce((sum, sub) => {
-    const debitActual = debitBySub[sub] || 0;
-    const creditActual = creditBySub[sub] || 0;
-    const summary = budgetBySub[sub] || {};
+  const journalActualTotal = Array.from(actualParticulars).reduce((sum, particulars) => {
+    const debitActual = debitByParticular[particulars] || 0;
+    const creditActual = creditByParticular[particulars] || 0;
+    const summary = budgetByParticular[particulars] || {};
     const accountType = String(summary.accountType || '').toLowerCase();
     const isReceipt = accountType.includes('income') || (!accountType && creditActual > debitActual);
     const actual = isReceipt ? creditActual : debitActual;
@@ -653,15 +703,16 @@ function exportBudgetVsActual(financialYear) {
   const result = getBudgetVsActual(financialYear);
   if (!result.rows || !result.rows.length) return { csv: '', filename: '' };
 
-  const headers = ['Sub_Category', 'Category', 'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget', 'Actual_Amount', 'Variance'];
+  const headers = ['Particulars', 'Sub_Category', 'Category', 'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget', 'Actual_Amount', 'Variance'];
   const lines = [headers];
 
   const receipts = result.rows.filter(row => row.section === 'Receipts');
   const payments = result.rows.filter(row => row.section === 'Payments');
 
-  lines.push(['Receipts', '', '', '', '', '', '', '']);
+  lines.push(['Receipts', '', '', '', '', '', '', '', '']);
   receipts.forEach(row => {
     lines.push([
+      row.particulars,
       row.subCategory,
       row.category,
       row.originalBudget,
@@ -676,6 +727,8 @@ function exportBudgetVsActual(financialYear) {
   lines.push([
     'Total Receipts',
     '',
+    '',
+    '',
     receiptTotals.originalBudget,
     receiptTotals.reallocation,
     receiptTotals.supplementary,
@@ -684,9 +737,10 @@ function exportBudgetVsActual(financialYear) {
     receiptTotals.variance
   ]);
 
-  lines.push(['Payments', '', '', '', '', '', '', '']);
+  lines.push(['Payments', '', '', '', '', '', '', '', '']);
   payments.forEach(row => {
     lines.push([
+      row.particulars,
       row.subCategory,
       row.category,
       row.originalBudget,
@@ -701,6 +755,8 @@ function exportBudgetVsActual(financialYear) {
   lines.push([
     'Total Payments',
     '',
+    '',
+    '',
     paymentTotals.originalBudget,
     paymentTotals.reallocation,
     paymentTotals.supplementary,
@@ -712,6 +768,8 @@ function exportBudgetVsActual(financialYear) {
   const surplus = result.surplus;
   lines.push([
     'Surplus / Deficit',
+    '',
+    '',
     '',
     surplus.originalBudget,
     surplus.reallocation,
@@ -806,6 +864,31 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
     return;
   }
 
+  if (typeKey === 'particular') {
+    const parentSubCategory = String(parent || '').trim();
+    if (!parentSubCategory) throw new Error('Parent sub-category is required.');
+    if (_valueExistsInColumn_(data, cols.particulars, trimmed)) return;
+    const subRow = data.find(function(row) {
+      return cols.subCategory && String(row[cols.subCategory - 1]).trim() === parentSubCategory;
+    });
+    if (!subRow) throw new Error('Parent sub-category not found.');
+    const categoryValue = cols.category ? String(subRow[cols.category - 1] || '').trim() : '';
+    const accountTypeValue = cols.accountType ? String(subRow[cols.accountType - 1] || '').trim() : '';
+    const reportValue = cols.reportMapping ? String(subRow[cols.reportMapping - 1] || '').trim() : '';
+    if (!categoryValue) throw new Error('Parent category not found for sub-category.');
+
+    const targetRow = _findRowForInsert_(data, cols.particulars, [cols.accountCodes]);
+    _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+      [cols.particulars]: trimmed,
+      [cols.subCategory]: parentSubCategory,
+      [cols.category]: categoryValue,
+      [cols.accountType]: accountTypeValue,
+      [cols.reportMapping]: reportValue
+    });
+    logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: particular, Sub-Category: ' + parentSubCategory);
+    return;
+  }
+
   throw new Error('Unknown master data type.');
 }
 
@@ -819,12 +902,13 @@ function _normalizeHeader_(value) {
 function _getMasterColumns_(headers) {
   return {
     payees: _resolveColumn_(headers, ['payees', 'payee'], 1),
-    subCategory: _resolveColumn_(headers, ['sub_category', 'subcategory'], 2),
-    category: _resolveColumn_(headers, ['category'], 3),
-    accountCodes: _resolveColumn_(headers, ['account_codes', 'account_code'], 4),
-    accountType: _resolveColumn_(headers, ['account_type', 'accounttype'], 5),
-    reportMapping: _resolveColumn_(headers, ['report_mapping', 'reportmapping'], 6),
-    financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 7)
+    particulars: _resolveColumn_(headers, ['particulars', 'particular'], 2),
+    subCategory: _resolveColumn_(headers, ['sub_category', 'subcategory'], 3),
+    category: _resolveColumn_(headers, ['category'], 4),
+    accountCodes: _resolveColumn_(headers, ['account_codes', 'account_code'], 5),
+    accountType: _resolveColumn_(headers, ['account_type', 'accounttype'], 6),
+    reportMapping: _resolveColumn_(headers, ['report_mapping', 'reportmapping'], 7),
+    financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 8)
   };
 }
 
@@ -837,15 +921,16 @@ function _getJournalColumns_(headers) {
     accountCode: _resolveColumn_(headers, ['account_code'], 5),
     payee: _resolveColumn_(headers, ['payee'], 6),
     refNo: _resolveColumn_(headers, ['ref_no'], 7),
-    subCategory: _resolveColumn_(headers, ['sub_category'], 8),
-    category: _resolveColumn_(headers, ['category'], 9),
-    description: _resolveColumn_(headers, ['description'], 10),
-    debit: _resolveColumn_(headers, ['debit'], 11),
-    credit: _resolveColumn_(headers, ['credit'], 12),
-    accountType: _resolveColumn_(headers, ['account_type'], 13),
-    reportMapping: _resolveColumn_(headers, ['report_mapping'], 14),
-    reconStatus: _resolveColumn_(headers, ['recon_status'], 15),
-    receiptUrl: _resolveColumn_(headers, ['receipt_url'], 16)
+    particulars: _resolveColumn_(headers, ['particulars', 'particular'], 8),
+    subCategory: _resolveColumn_(headers, ['sub_category'], 9),
+    category: _resolveColumn_(headers, ['category'], 10),
+    description: _resolveColumn_(headers, ['description'], 11),
+    debit: _resolveColumn_(headers, ['debit'], 12),
+    credit: _resolveColumn_(headers, ['credit'], 13),
+    accountType: _resolveColumn_(headers, ['account_type'], 14),
+    reportMapping: _resolveColumn_(headers, ['report_mapping'], 15),
+    reconStatus: _resolveColumn_(headers, ['recon_status'], 16),
+    receiptUrl: _resolveColumn_(headers, ['receipt_url'], 17)
   };
 }
 
@@ -946,6 +1031,21 @@ function _buildSubCategoryMeta_(data, cols) {
     const subCat = cols.subCategory ? String(row[cols.subCategory - 1]).trim() : '';
     if (!subCat) return;
     meta[subCat] = {
+      accountType: cols.accountType ? String(row[cols.accountType - 1]).trim() : '',
+      reportMapping: cols.reportMapping ? String(row[cols.reportMapping - 1]).trim() : ''
+    };
+  });
+  return meta;
+}
+
+function _buildParticularMeta_(data, cols) {
+  const meta = {};
+  data.forEach(function(row) {
+    const particulars = cols.particulars ? String(row[cols.particulars - 1]).trim() : '';
+    if (!particulars) return;
+    meta[particulars] = {
+      subCategory: cols.subCategory ? String(row[cols.subCategory - 1]).trim() : '',
+      category: cols.category ? String(row[cols.category - 1]).trim() : '',
       accountType: cols.accountType ? String(row[cols.accountType - 1]).trim() : '',
       reportMapping: cols.reportMapping ? String(row[cols.reportMapping - 1]).trim() : ''
     };

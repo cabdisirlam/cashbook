@@ -1341,6 +1341,15 @@
               </select>
             </div>
             <div class="form-group">
+              <label for="searchParticulars">Particulars</label>
+              <select id="searchParticulars">
+                <option value="">All Particulars</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:16px;">
+            <div class="form-group">
               <label for="searchPayee">Payee</label>
               <input type="text" id="searchPayee" placeholder="Vendor name">
             </div>
@@ -1396,49 +1405,56 @@
               <input type="text" id="editRefNo">
             </div>
             <div class="form-group">
-              <label for="editSubCategory">Sub-Category</label>
-              <input type="text" id="editSubCategory">
+              <label for="editParticulars">Particulars</label>
+              <input list="editParticularList" id="editParticulars">
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="editCategory">Category</label>
-              <input type="text" id="editCategory">
+              <label for="editSubCategory">Sub-Category</label>
+              <input type="text" id="editSubCategory" readonly>
             </div>
+            <div class="form-group">
+              <label for="editCategory">Category</label>
+              <input type="text" id="editCategory" readonly>
+            </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editDescription">Description</label>
               <input type="text" id="editDescription">
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label for="editDebit">Debit</label>
               <input type="number" id="editDebit" step="0.01">
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editCredit">Credit</label>
               <input type="number" id="editCredit" step="0.01">
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label for="editAccountType">Account Type</label>
               <input type="text" id="editAccountType">
             </div>
-            <div class="form-group">
-              <label for="editReportMapping">Report Mapping</label>
-              <input type="text" id="editReportMapping">
-            </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
+              <label for="editReportMapping">Report Mapping</label>
+              <input type="text" id="editReportMapping">
+            </div>
+            <div class="form-group">
               <label for="editReconStatus">Recon Status</label>
               <input type="text" id="editReconStatus">
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editReceiptUrl">Receipt URL</label>
               <input type="text" id="editReceiptUrl">
@@ -1446,6 +1462,7 @@
           </div>
 
           <datalist id="editFinancialYearList"></datalist>
+          <datalist id="editParticularList"></datalist>
 
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line);">
             <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
@@ -1456,6 +1473,7 @@
       `;
 
       bindSearchHandlers();
+      bindEditParticulars();
       loadSearchMeta();
       runSearch();
     }
@@ -1581,7 +1599,7 @@
               <div class="form-group">
                 <label>&nbsp;</label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                  <button class="btn btn-secondary" type="button" onclick="loadBudgetCatalog()">Load Sub-Categories</button>
+                  <button class="btn btn-secondary" type="button" onclick="loadBudgetCatalog()">Load Particulars</button>
                   <button class="btn btn-secondary" type="button" onclick="downloadBudgetTemplate()">Download CSV</button>
                   <button class="btn btn-secondary" type="button" onclick="downloadBudgetTemplateXlsx()">Download XLSX</button>
                 </div>
@@ -1644,17 +1662,17 @@
             </div>
 
             <div class="form-group" id="supplementarySection">
-              <label for="adjustSubCategory">Sub-Category</label>
+              <label for="adjustSubCategory">Particulars</label>
               <select id="adjustSubCategory"></select>
             </div>
 
             <div class="form-row" id="reallocationSection" style="display:none;">
               <div class="form-group">
-                <label for="reallocFromSubCategory">From</label>
+                <label for="reallocFromSubCategory">From Particulars</label>
                 <select id="reallocFromSubCategory"></select>
               </div>
               <div class="form-group">
-                <label for="reallocToSubCategory">To</label>
+                <label for="reallocToSubCategory">To Particulars</label>
                 <select id="reallocToSubCategory"></select>
               </div>
             </div>
@@ -1756,7 +1774,7 @@
     function loadBudgetCatalog() {
       const container = document.getElementById('bulkBudgetTable');
       if (!container) return;
-      container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading sub-categories...</p>';
+      container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading particulars...</p>';
       ensureBudgetCatalog(renderBudgetBulkTable);
     }
 
@@ -1813,7 +1831,7 @@
     function downloadBudgetTemplate() {
       ensureBudgetCatalog(function() {
         if (!budgetCatalog.length) {
-          showBudgetAlert('No sub-categories available for template.', 'error');
+          showBudgetAlert('No particulars available for template.', 'error');
           return;
         }
         const financialYear = document.getElementById('bulkFinancialYear').value.trim();
@@ -1827,10 +1845,11 @@
           return;
         }
 
-        const headers = ['Date', 'Financial_Year', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
+        const headers = ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
         const rows = budgetCatalog.map(item => ([
           budgetDate,
           financialYear,
+          item.particulars || '',
           item.subCategory || '',
           item.category || '',
           item.accountType || '',
@@ -1854,7 +1873,7 @@
     function downloadBudgetTemplateXlsx() {
       ensureBudgetCatalog(function() {
         if (!budgetCatalog.length) {
-          showBudgetAlert('No sub-categories available for template.', 'error');
+          showBudgetAlert('No particulars available for template.', 'error');
           return;
         }
         if (typeof XLSX === 'undefined') {
@@ -1872,10 +1891,11 @@
           return;
         }
 
-        const headers = ['Date', 'Financial_Year', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
+        const headers = ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
         const rows = budgetCatalog.map(item => ([
           budgetDate,
           financialYear,
+          item.particulars || '',
           item.subCategory || '',
           item.category || '',
           item.accountType || '',
@@ -2012,7 +2032,7 @@
         headerMap[header] = index;
       });
 
-      const requiredHeaders = ['Date', 'Financial_Year', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
+      const requiredHeaders = ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
       const missing = requiredHeaders.filter(header => headerMap[header] === undefined);
       if (missing.length) {
         showBudgetAlert('Missing headers: ' + missing.join(', '), 'error');
@@ -2020,7 +2040,7 @@
       }
 
       if (!budgetCatalog.length) {
-        showBudgetAlert('No sub-categories loaded. Please load sub-categories first.', 'error');
+        showBudgetAlert('No particulars loaded. Please load particulars first.', 'error');
         return;
       }
 
@@ -2028,7 +2048,7 @@
 
       const catalogIndex = new Map();
       budgetCatalog.forEach((item, index) => {
-        catalogIndex.set(String(item.subCategory || '').trim(), index);
+        catalogIndex.set(String(item.particulars || '').trim(), index);
       });
 
       const yearValues = new Set();
@@ -2039,12 +2059,12 @@
         const row = csvRows[i];
         if (!row || !row.length) continue;
 
-        const subCategory = String(row[headerMap.Sub_Category] || '').trim();
-        if (!subCategory) continue;
+        const particulars = String(row[headerMap.Particulars] || '').trim();
+        if (!particulars) continue;
 
-        const index = catalogIndex.get(subCategory);
+        const index = catalogIndex.get(particulars);
         if (index === undefined) {
-          invalidRows.push(subCategory);
+          invalidRows.push(particulars);
           continue;
         }
 
@@ -2052,7 +2072,7 @@
         if (amountRaw !== '') {
           const amount = Number(amountRaw);
           if (!Number.isFinite(amount)) {
-            invalidRows.push(subCategory);
+            invalidRows.push(particulars);
             continue;
           }
           const input = document.getElementById(`bulkAmount_${index}`);
@@ -2069,7 +2089,7 @@
 
       if (invalidRows.length) {
         const uniqueInvalid = Array.from(new Set(invalidRows));
-        showBudgetAlert('Some sub-categories are invalid or have bad amounts: ' + uniqueInvalid.join(', '), 'error');
+        showBudgetAlert('Some particulars are invalid or have bad amounts: ' + uniqueInvalid.join(', '), 'error');
         return;
       }
 
@@ -2128,12 +2148,12 @@
         .withSuccessHandler(function(rows) {
           budgetCatalog = rows || [];
           if (!budgetCatalog.length) {
-            showBudgetAlert('No sub-categories found. Add them in Master Data first.', 'error');
+            showBudgetAlert('No particulars found. Add them in Master Data first.', 'error');
           }
           if (callback) callback();
         })
         .withFailureHandler(function(error) {
-          showBudgetAlert(error.message || 'Failed to load sub-categories.', 'error');
+          showBudgetAlert(error.message || 'Failed to load particulars.', 'error');
         })
         .getBudgetSubCategoryCatalog();
     }
@@ -2142,12 +2162,13 @@
       const container = document.getElementById('bulkBudgetTable');
       if (!container) return;
       if (!budgetCatalog.length) {
-        container.innerHTML = '<p style="color:#6b7280;font-size:13px;">No sub-categories available.</p>';
+        container.innerHTML = '<p style="color:#6b7280;font-size:13px;">No particulars available.</p>';
         return;
       }
 
       const rows = budgetCatalog.map((item, index) => `
         <tr>
+          <td>${item.particulars || ''}</td>
           <td>${item.subCategory || ''}</td>
           <td>${item.category || ''}</td>
           <td>${item.accountType || ''}</td>
@@ -2161,6 +2182,7 @@
         <table class="table">
           <thead>
             <tr>
+              <th>Particulars</th>
               <th>Sub-Category</th>
               <th>Category</th>
               <th>Account Type</th>
@@ -2234,7 +2256,7 @@
       }
 
       if (!budgetCatalog.length) {
-        showBudgetAlert('No sub-categories available to save.', 'error');
+        showBudgetAlert('No particulars available to save.', 'error');
         return;
       }
 
@@ -2244,14 +2266,15 @@
         const value = input ? input.value.trim() : '';
         const amount = value === '' ? 0 : Number(value);
         if (!Number.isFinite(amount)) {
-          showBudgetAlert('Invalid amount for ' + budgetCatalog[i].subCategory + '.', 'error');
+          showBudgetAlert('Invalid amount for ' + budgetCatalog[i].particulars + '.', 'error');
           return;
         }
         if (amount < 0) {
-          showBudgetAlert('Original budget must be positive for ' + budgetCatalog[i].subCategory + '.', 'error');
+          showBudgetAlert('Original budget must be positive for ' + budgetCatalog[i].particulars + '.', 'error');
           return;
         }
         rows.push({
+          particulars: budgetCatalog[i].particulars,
           subCategory: budgetCatalog[i].subCategory,
           category: budgetCatalog[i].category,
           accountType: budgetCatalog[i].accountType,
@@ -2277,7 +2300,7 @@
     }
 
     function populateBudgetAdjustmentSelects() {
-      const options = budgetCatalog.map(item => item.subCategory);
+      const options = budgetCatalog.map(item => item.particulars);
       fillSelectOptions('adjustSubCategory', options);
       fillSelectOptions('reallocFromSubCategory', options);
       fillSelectOptions('reallocToSubCategory', options);
@@ -2331,25 +2354,25 @@
       };
 
       if (type === 'Supplementary') {
-        const subCategory = document.getElementById('adjustSubCategory').value;
-        if (!subCategory) {
-          showBudgetAlert('Sub-Category is required.', 'error');
+        const particulars = document.getElementById('adjustSubCategory').value;
+        if (!particulars) {
+          showBudgetAlert('Particulars is required.', 'error');
           return;
         }
-        payload.subCategory = subCategory;
+        payload.particulars = particulars;
       } else {
-        const fromSub = document.getElementById('reallocFromSubCategory').value;
-        const toSub = document.getElementById('reallocToSubCategory').value;
-        if (!fromSub || !toSub) {
-          showBudgetAlert('From and To sub-categories are required.', 'error');
+        const fromParticulars = document.getElementById('reallocFromSubCategory').value;
+        const toParticulars = document.getElementById('reallocToSubCategory').value;
+        if (!fromParticulars || !toParticulars) {
+          showBudgetAlert('From and To particulars are required.', 'error');
           return;
         }
-        if (fromSub === toSub) {
+        if (fromParticulars === toParticulars) {
           showBudgetAlert('From and To must be different.', 'error');
           return;
         }
-        payload.fromSubCategory = fromSub;
-        payload.toSubCategory = toSub;
+        payload.fromParticulars = fromParticulars;
+        payload.toParticulars = toParticulars;
       }
 
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
@@ -2403,20 +2426,37 @@
     }
 
     let searchTimer;
-    let searchMeta = { categories: [] };
+    let searchMeta = { categories: [], particulars: [], particularMeta: {} };
     let selectedRowId = null;
     let confirmAction = null;
     let budgetCatalog = [];
     let budgetYears = [];
 
     function bindSearchHandlers() {
-      ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchPayee']
+      ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchParticulars', 'searchPayee']
         .forEach(id => {
           const el = document.getElementById(id);
           if (!el) return;
           el.addEventListener('input', scheduleSearch);
           el.addEventListener('change', scheduleSearch);
         });
+    }
+
+    function bindEditParticulars() {
+      const particularsInput = document.getElementById('editParticulars');
+      if (!particularsInput) return;
+      particularsInput.addEventListener('change', function() {
+        const meta = searchMeta.particularMeta || {};
+        const details = meta[String(particularsInput.value || '').trim()] || {};
+        const subEl = document.getElementById('editSubCategory');
+        const catEl = document.getElementById('editCategory');
+        const accEl = document.getElementById('editAccountType');
+        const repEl = document.getElementById('editReportMapping');
+        if (subEl) subEl.value = details.subCategory || '';
+        if (catEl) catEl.value = details.category || '';
+        if (accEl) accEl.value = details.accountType || '';
+        if (repEl) repEl.value = details.reportMapping || '';
+      });
     }
 
     function scheduleSearch() {
@@ -2433,17 +2473,33 @@
         .withSuccessHandler(function(data) {
           const categories = (data && data.categories) ? data.categories : [];
           const years = (data && data.financialYears) ? data.financialYears : [];
+          const particulars = (data && data.particulars) ? data.particulars : [];
+          const particularMeta = (data && data.particularMeta) ? data.particularMeta : {};
           const select = document.getElementById('searchCategory');
-          if (!select) return;
-          select.innerHTML = '<option value="">All Categories</option>';
-          categories.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat;
-            option.textContent = cat;
-            select.appendChild(option);
-          });
+          const particularsSelect = document.getElementById('searchParticulars');
+          if (select) {
+            select.innerHTML = '<option value="">All Categories</option>';
+            categories.forEach(cat => {
+              const option = document.createElement('option');
+              option.value = cat;
+              option.textContent = cat;
+              select.appendChild(option);
+            });
+          }
+          if (particularsSelect) {
+            particularsSelect.innerHTML = '<option value="">All Particulars</option>';
+            particulars.forEach(item => {
+              const option = document.createElement('option');
+              option.value = item;
+              option.textContent = item;
+              particularsSelect.appendChild(option);
+            });
+          }
           searchMeta.categories = categories;
+          searchMeta.particulars = particulars;
+          searchMeta.particularMeta = particularMeta;
           fillDatalist('editFinancialYearList', years);
+          fillDatalist('editParticularList', particulars);
         })
         .getDropdownData();
     }
@@ -2532,6 +2588,7 @@
 
       const receiptRows = receipts.map(item => `
         <tr>
+          <td>${item.particulars || ''}</td>
           <td>${item.subCategory || ''}</td>
           <td>${item.category || ''}</td>
           <td>${formatAmount(item.originalBudget)}</td>
@@ -2545,6 +2602,7 @@
 
       const paymentRows = payments.map(item => `
         <tr>
+          <td>${item.particulars || ''}</td>
           <td>${item.subCategory || ''}</td>
           <td>${item.category || ''}</td>
           <td>${formatAmount(item.originalBudget)}</td>
@@ -2564,6 +2622,7 @@
         <tr>
           <td><strong>Total Receipts</strong></td>
           <td></td>
+          <td></td>
           <td><strong>${formatAmount(receiptTotals.originalBudget)}</strong></td>
           <td><strong>${formatAmount(receiptTotals.reallocation)}</strong></td>
           <td><strong>${formatAmount(receiptTotals.supplementary)}</strong></td>
@@ -2576,6 +2635,7 @@
       const paymentTotalsRow = `
         <tr>
           <td><strong>Total Payments</strong></td>
+          <td></td>
           <td></td>
           <td><strong>${formatAmount(paymentTotals.originalBudget)}</strong></td>
           <td><strong>${formatAmount(paymentTotals.reallocation)}</strong></td>
@@ -2590,6 +2650,7 @@
         <tr>
           <td><strong>Surplus / Deficit</strong></td>
           <td></td>
+          <td></td>
           <td><strong>${formatAmount(surplus.originalBudget)}</strong></td>
           <td><strong>${formatAmount(surplus.reallocation)}</strong></td>
           <td><strong>${formatAmount(surplus.supplementary)}</strong></td>
@@ -2603,6 +2664,7 @@
         <table class="table">
           <thead>
             <tr>
+              <th>Particulars</th>
               <th>Sub-Category</th>
               <th>Category</th>
               <th>Original</th>
@@ -2614,10 +2676,10 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td colspan="8"><strong>Receipts</strong></td></tr>
+            <tr><td colspan="9"><strong>Receipts</strong></td></tr>
             ${receiptRows}
             ${receiptTotalsRow}
-            <tr><td colspan="8"><strong>Payments</strong></td></tr>
+            <tr><td colspan="9"><strong>Payments</strong></td></tr>
             ${paymentRows}
             ${paymentTotalsRow}
             ${surplusRow}
@@ -2703,6 +2765,7 @@
         startDate: document.getElementById('searchStartDate').value,
         endDate: document.getElementById('searchEndDate').value,
         category: document.getElementById('searchCategory').value,
+        particulars: document.getElementById('searchParticulars').value,
         payee: document.getElementById('searchPayee').value.trim()
       };
 
@@ -2733,6 +2796,7 @@
           <td>${item.date || ''}</td>
           <td>${item.payee || ''}</td>
           <td>${item.category || ''}</td>
+          <td>${item.particulars || ''}</td>
           <td>${item.subCategory || ''}</td>
           <td>${item.debit || ''}</td>
           <td>${item.credit || ''}</td>
@@ -2751,6 +2815,7 @@
           <div class="result-row"><span class="result-label">Date</span><span>${item.date || ''}</span></div>
           <div class="result-row"><span class="result-label">Payee</span><span>${item.payee || ''}</span></div>
           <div class="result-row"><span class="result-label">Category</span><span>${item.category || ''}</span></div>
+          <div class="result-row"><span class="result-label">Particulars</span><span>${item.particulars || ''}</span></div>
           <div class="result-row"><span class="result-label">Sub-Category</span><span>${item.subCategory || ''}</span></div>
           <div class="result-row"><span class="result-label">Debit</span><span>${item.debit || ''}</span></div>
           <div class="result-row"><span class="result-label">Credit</span><span>${item.credit || ''}</span></div>
@@ -2769,6 +2834,7 @@
               <th>Date</th>
               <th>Payee</th>
               <th>Category</th>
+              <th>Particulars</th>
               <th>Sub-Category</th>
               <th>Debit</th>
               <th>Credit</th>
@@ -2886,6 +2952,7 @@
           document.getElementById('editAccountCode').value = row.accountCode || '';
           document.getElementById('editPayee').value = row.payee || '';
           document.getElementById('editRefNo').value = row.refNo || '';
+          document.getElementById('editParticulars').value = row.particulars || '';
           document.getElementById('editSubCategory').value = row.subCategory || '';
           document.getElementById('editCategory').value = row.category || '';
           document.getElementById('editDescription').value = row.description || '';
@@ -2926,6 +2993,7 @@
         accountCode: document.getElementById('editAccountCode').value.trim(),
         payee: document.getElementById('editPayee').value.trim(),
         refNo: document.getElementById('editRefNo').value.trim(),
+        particulars: document.getElementById('editParticulars').value.trim(),
         subCategory: document.getElementById('editSubCategory').value.trim(),
         category: document.getElementById('editCategory').value.trim(),
         description: document.getElementById('editDescription').value.trim(),
