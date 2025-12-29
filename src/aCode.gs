@@ -923,16 +923,26 @@ function getBudgetSubCategoryCatalog() {
     }
 
     const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) return [];
+    const lastCol = sheet.getLastColumn();
+    if (lastRow <= 1 || lastCol < 1) return [];
 
-    // Columns: Sub_Category (2), Category (3), Account_Type (5)
-    const data = sheet.getRange(2, 2, lastRow - 1, 4).getValues();
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+      .map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_'));
+    const subIndex = headers.indexOf('sub_category');
+    const categoryIndex = headers.indexOf('category');
+    const accountTypeIndex = headers.indexOf('account_type');
+    if (subIndex < 0 || categoryIndex < 0) {
+      Logger.log('MASTER_DATA headers missing Sub_Category or Category');
+      return [];
+    }
+
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
     const catalogMap = new Map();
 
     data.forEach(row => {
-      const subCategory = String(row[0] || '').trim();
-      const category = String(row[1] || '').trim();
-      const accountType = String(row[3] || '').trim();
+      const subCategory = String(row[subIndex] || '').trim();
+      const category = String(row[categoryIndex] || '').trim();
+      const accountType = accountTypeIndex >= 0 ? String(row[accountTypeIndex] || '').trim() : '';
       if (!subCategory) return;
       if (!catalogMap.has(subCategory)) {
         catalogMap.set(subCategory, {
