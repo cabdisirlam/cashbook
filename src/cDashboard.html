@@ -1387,6 +1387,16 @@
         return;
       }
 
+      if (label === 'Reconciliation') {
+        renderReconciliationContent();
+        return;
+      }
+
+      if (label === 'Import Statement') {
+        renderImportStatementContent();
+        return;
+      }
+
       if (label === 'Cash Flow') {
         renderCashFlowContent();
         return;
@@ -1548,6 +1558,22 @@
                 <label for="decimalsInput">Decimals</label>
                 <input type="text" id="decimalsInput" placeholder="0.00" required>
                 <p style="color:#94a3b8;font-size:12px;margin-top:6px;">Use 0.00 format.</p>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="bankNameInput">Bank Name</label>
+                <input type="text" id="bankNameInput">
+              </div>
+              <div class="form-group">
+                <label for="bankBranchInput">Bank Branch</label>
+                <input type="text" id="bankBranchInput">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="bankAccountNumberInput">Bank Account Number</label>
+                <input type="text" id="bankAccountNumberInput">
               </div>
             </div>
             <div class="form-actions">
@@ -1820,6 +1846,103 @@
       loadExportJournalFilters();
     }
 
+    function renderImportStatementContent() {
+      const contentArea = document.getElementById('contentArea');
+      bankImportAccounts = [];
+      contentArea.innerHTML = `
+        <div id="bankImportAlert"></div>
+        ${renderSectionHero('Import Statement', 'Download a template and upload bank statements for reconciliation.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Import Statement</h2>
+              <p style="color:#6b7280;font-size:13px;">Download a CSV template, fill it, and upload to DB_BANK.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderImportStatementContent()">Refresh</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="bankImportAccountCode">Bank Account</label>
+              <select id="bankImportAccountCode"></select>
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-secondary" type="button" onclick="downloadBankImportTemplate()">Download Template</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:8px;">
+            <div class="form-group">
+              <label for="bankImportUploadInput">Upload Bank Statement (CSV)</label>
+              <input type="file" id="bankImportUploadInput" accept=".csv">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" type="button" onclick="handleBankStatementUpload()">Upload Bank</button>
+            </div>
+          </div>
+
+          <div id="bankImportStatus" style="color:#6b7280;font-size:12px;margin-top:10px;"></div>
+        </div>
+      `;
+      loadBankImportAccounts();
+    }
+
+    function renderReconciliationContent() {
+      const contentArea = document.getElementById('contentArea');
+      reconAccounts = [];
+      reconYears = [];
+      reconPreviewData = null;
+      contentArea.innerHTML = `
+        <div id="reconAlert"></div>
+        ${renderSectionHero('Reconciliation', 'Compare bank statements and cashbook entries for quick matching.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Bank Reconciliation</h2>
+              <p style="color:#6b7280;font-size:13px;">Match by account, reference, and amount. Dates are optional.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderReconciliationContent()">Refresh</button>
+              <button class="btn btn-primary" onclick="runAutoReconcile()">Auto Reconcile</button>
+              <button class="btn btn-secondary" onclick="downloadBankReconciliation()">Export Bank Reconciliation</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="reconAccountCode">Bank Account</label>
+              <select id="reconAccountCode"></select>
+            </div>
+            <div class="form-group">
+              <label for="reconFinancialYear">Financial Year</label>
+              <select id="reconFinancialYear"></select>
+            </div>
+            <div class="form-group">
+              <label for="reconStartDate">Start Date</label>
+              <input type="date" id="reconStartDate">
+            </div>
+            <div class="form-group">
+              <label for="reconEndDate">End Date</label>
+              <input type="date" id="reconEndDate">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-secondary" type="button" onclick="loadReconciliationPreview()">Load</button>
+            </div>
+          </div>
+
+          <div id="reconStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="reconTables" style="display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));"></div>
+        </div>
+      `;
+
+      loadReconciliationFilters();
+    }
+
     function exportJournal() {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         return;
@@ -1882,6 +2005,383 @@
           if (status) status.textContent = error.message || 'Failed to load filters.';
         })
         .getDropdownData();
+    }
+
+    function loadBankImportAccounts() {
+      const status = document.getElementById('bankImportStatus');
+      if (bankImportAccounts.length) {
+        fillSelectOptions('bankImportAccountCode', bankImportAccounts);
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBankImportAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      if (status) status.textContent = 'Loading bank accounts...';
+      google.script.run
+        .withSuccessHandler(function(data) {
+          bankImportAccounts = (data && data.accounts) ? data.accounts : [];
+          fillSelectOptions('bankImportAccountCode', bankImportAccounts);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showBankImportAlert(error.message || 'Failed to load bank accounts.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function loadReconciliationFilters() {
+      const status = document.getElementById('reconStatus');
+      if (reconAccounts.length || reconYears.length) {
+        fillSelectOptionsWithDefault('reconAccountCode', reconAccounts, 'All banks');
+        fillSelectOptionsWithDefault('reconFinancialYear', reconYears, 'All years');
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showReconAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      if (status) status.textContent = 'Loading filters...';
+      google.script.run
+        .withSuccessHandler(function(data) {
+          reconAccounts = (data && data.accounts) ? data.accounts : [];
+          reconYears = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptionsWithDefault('reconAccountCode', reconAccounts, 'All banks');
+          fillSelectOptionsWithDefault('reconFinancialYear', reconYears, 'All years');
+          if (status) status.textContent = '';
+          loadReconciliationPreview();
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showReconAlert(error.message || 'Failed to load filters.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function getReconciliationCriteria() {
+      return {
+        accountCode: document.getElementById('reconAccountCode')?.value.trim() || '',
+        financialYear: document.getElementById('reconFinancialYear')?.value.trim() || '',
+        startDate: document.getElementById('reconStartDate')?.value || '',
+        endDate: document.getElementById('reconEndDate')?.value || ''
+      };
+    }
+
+    function loadReconciliationPreview() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showReconAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      const criteria = getReconciliationCriteria();
+      const status = document.getElementById('reconStatus');
+      if (status) status.textContent = 'Loading reconciliation preview...';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          reconPreviewData = result || null;
+          renderReconciliationTables(reconPreviewData);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showReconAlert(error.message || 'Failed to load reconciliation preview.', 'error');
+        })
+        .getReconciliationPreview(criteria);
+    }
+
+    function runAutoReconcile() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showReconAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      const criteria = getReconciliationCriteria();
+      const status = document.getElementById('reconStatus');
+      if (status) status.textContent = 'Reconciling...';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          reconPreviewData = result || null;
+          renderReconciliationTables(reconPreviewData);
+          if (status) status.textContent = '';
+          if (result && result.matchedCount != null) {
+            showReconAlert('Auto reconcile complete. Matched ' + result.matchedCount + ' rows.', 'success');
+          }
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showReconAlert(error.message || 'Auto reconcile failed.', 'error');
+        })
+        .autoReconcileBankStatements(criteria);
+    }
+
+    function downloadBankReconciliation() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showReconAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      const criteria = getReconciliationCriteria();
+      const status = document.getElementById('reconStatus');
+      if (status) status.textContent = 'Preparing export...';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (status) status.textContent = '';
+          if (!result || !result.base64) {
+            showReconAlert('No data available for export.', 'error');
+            return;
+          }
+          downloadBase64File(result.base64, result.filename || 'bank_reconciliation.xlsx', result.mimeType);
+          showReconAlert('Export ready. Download started.', 'success');
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showReconAlert(error.message || 'Failed to export bank reconciliation.', 'error');
+        })
+        .exportBankReconciliation(criteria);
+    }
+
+    function renderReconciliationTables(data) {
+      const container = document.getElementById('reconTables');
+      if (!container) return;
+      if (!data) {
+        container.innerHTML = '';
+        return;
+      }
+      const cashbookReceipts = data.cashbookReceiptsNotInBank || [];
+      const cashbookPayments = data.cashbookPaymentsNotInBank || [];
+      const bankReceipts = data.bankReceiptsNotInCashbook || [];
+      const bankPayments = data.bankPaymentsNotInCashbook || [];
+
+      container.innerHTML = [
+        renderReconMiniTable('Receipts in cashbook not in bank', cashbookReceipts),
+        renderReconMiniTable('Receipts in bank not in cashbook', bankReceipts),
+        renderReconMiniTable('Payments in cashbook not in bank', cashbookPayments),
+        renderReconMiniTable('Payments in bank not in cashbook', bankPayments)
+      ].join('');
+    }
+
+    function renderReconMiniTable(title, rows) {
+      if (!rows.length) {
+        return `
+          <div style="border:1px solid var(--line);border-radius:var(--radius);padding:12px;background:#fff;box-shadow:var(--shadow-sm);">
+            <div style="font-weight:600;margin-bottom:8px;">${title}</div>
+            <div style="color:#6b7280;font-size:12px;">No rows found.</div>
+          </div>
+        `;
+      }
+
+      const body = rows.map(row => `
+        <tr>
+          <td data-label="Date">${row.date || ''}</td>
+          <td data-label="Description">${row.description || ''}</td>
+          <td data-label="Ref">${row.ref || ''}</td>
+          <td data-label="Debit">${formatAmount(row.debit)}</td>
+          <td data-label="Credit">${formatAmount(row.credit)}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <div style="border:1px solid var(--line);border-radius:var(--radius);padding:12px;background:#fff;box-shadow:var(--shadow-sm);">
+          <div style="font-weight:600;margin-bottom:8px;">${title}</div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Ref</th>
+                <th>Debit</th>
+                <th>Credit</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function downloadBankImportTemplate() {
+      const accountCode = document.getElementById('bankImportAccountCode').value.trim();
+      if (!accountCode) {
+        showBankImportAlert('Select a bank account before downloading.', 'error');
+        return;
+      }
+
+      const headers = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref', 'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
+      const rows = [[accountCode, '', '', '', '', '', '', '', '']];
+      const csv = [headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'bank_statement_template.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showBankImportAlert('Template downloaded.', 'success');
+    }
+
+    function handleBankStatementUpload() {
+      const fileInput = document.getElementById('bankImportUploadInput');
+      if (!fileInput || !fileInput.files || !fileInput.files.length) {
+        showBankImportAlert('Select a CSV file to upload.', 'error');
+        return;
+      }
+
+      const accountCode = document.getElementById('bankImportAccountCode').value.trim();
+      if (!accountCode) {
+        showBankImportAlert('Select a bank account before uploading.', 'error');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.csv')) {
+        showBankImportAlert('Only CSV files are supported.', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const csvText = event.target.result || '';
+          const parsed = parseCsvToRows(csvText);
+          if (parsed.rows.length <= 1) {
+            showBankImportAlert('CSV file is empty.', 'error');
+            return;
+          }
+          applyBankStatementUpload(parsed.rows, accountCode);
+        } catch (error) {
+          showBankImportAlert(error.message || 'Failed to read file.', 'error');
+        }
+      };
+      reader.onerror = function() {
+        showBankImportAlert('Failed to read file.', 'error');
+      };
+      reader.readAsText(file);
+    }
+
+    function applyBankStatementUpload(csvRows, selectedAccountCode) {
+      const headerRow = csvRows[0].map(value => String(value || '').trim());
+      const headerMap = {};
+      headerRow.forEach((header, index) => {
+        headerMap[header] = index;
+      });
+
+      const requiredHeaders = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref', 'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
+      const missing = requiredHeaders.filter(header => headerMap[header] === undefined);
+      if (missing.length) {
+        showBankImportAlert('Missing headers: ' + missing.join(', '), 'error');
+        return;
+      }
+
+      const entries = [];
+      const invalidRows = [];
+
+      for (let i = 1; i < csvRows.length; i++) {
+        const row = csvRows[i];
+        if (!row || !row.length) continue;
+
+        const accountCodeValue = String(row[headerMap.Account_Code] || '').trim() || selectedAccountCode;
+        const txnDateRaw = row[headerMap.Txn_Date];
+        const valueDateRaw = row[headerMap.Value_Date];
+        const bankRef = String(row[headerMap.Bank_Ref] || '').trim();
+        const description = String(row[headerMap.Description] || '').trim();
+        const debitParsed = parseBankImportNumber(row[headerMap.Debit]);
+        const creditParsed = parseBankImportNumber(row[headerMap.Credit]);
+        const balanceParsed = parseBankImportNumber(row[headerMap.Balance]);
+        const matchStatus = String(row[headerMap.Match_Status] || '').trim();
+
+        const hasContent = [txnDateRaw, valueDateRaw, bankRef, description, debitParsed.value, creditParsed.value, balanceParsed.value, matchStatus]
+          .some(value => String(value || '').trim() !== '');
+        if (!hasContent) continue;
+
+        if (!accountCodeValue || accountCodeValue !== selectedAccountCode) {
+          invalidRows.push('Row ' + (i + 1) + ': account code mismatch.');
+          continue;
+        }
+        if (!description) {
+          invalidRows.push('Row ' + (i + 1) + ': description is required.');
+          continue;
+        }
+        const txnDate = normalizeBankImportDate(txnDateRaw);
+        if (!txnDate) {
+          invalidRows.push('Row ' + (i + 1) + ': invalid transaction date.');
+          continue;
+        }
+        if (!debitParsed.ok || !creditParsed.ok || !balanceParsed.ok) {
+          invalidRows.push('Row ' + (i + 1) + ': invalid number format.');
+          continue;
+        }
+        if (debitParsed.value === '' && creditParsed.value === '' && balanceParsed.value === '') {
+          invalidRows.push('Row ' + (i + 1) + ': debit, credit, or balance is required.');
+          continue;
+        }
+
+        entries.push({
+          accountCode: accountCodeValue,
+          txnDate: txnDate,
+          valueDate: normalizeBankImportDate(valueDateRaw),
+          bankRef: bankRef,
+          description: description,
+          debit: debitParsed.value,
+          credit: creditParsed.value,
+          balance: balanceParsed.value,
+          matchStatus: matchStatus
+        });
+      }
+
+      if (invalidRows.length) {
+        showBankImportAlert(invalidRows.slice(0, 6).join(' '), 'error');
+        return;
+      }
+
+      if (!entries.length) {
+        showBankImportAlert('No valid rows found to upload.', 'error');
+        return;
+      }
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBankImportAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      showBankImportAlert('Uploading bank statement...', 'info');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          const count = result && result.count ? result.count : 0;
+          showBankImportAlert('Bank statement uploaded (' + count + ' rows).', 'success');
+        })
+        .withFailureHandler(function(error) {
+          showBankImportAlert(error.message || 'Failed to upload bank statement.', 'error');
+        })
+        .saveBankStatementUpload({ accountCode: selectedAccountCode, rows: entries });
+    }
+
+    function normalizeBankImportDate(value) {
+      if (!value) return '';
+      if (value instanceof Date) {
+        return value.toISOString().split('T')[0];
+      }
+      if (typeof value === 'number') {
+        const epoch = new Date(Date.UTC(1899, 11, 30));
+        const date = new Date(epoch.getTime() + value * 24 * 60 * 60 * 1000);
+        if (!Number.isNaN(date.getTime())) {
+          return date.toISOString().split('T')[0];
+        }
+      }
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
+      return '';
+    }
+
+    function parseBankImportNumber(value) {
+      const text = String(value ?? '').trim();
+      if (!text) return { value: '', ok: true };
+      const normalized = text.replace(/,/g, '');
+      const number = Number(normalized);
+      if (!Number.isFinite(number)) return { value: '', ok: false };
+      return { value: number, ok: true };
     }
 
     function renderBudgetManagerContent() {
@@ -4429,6 +4929,58 @@
       }
     }
 
+    function showBankImportAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('bankImportAlert');
+      if (!container) {
+        alert(message);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function showReconAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('reconAlert');
+      if (!container) {
+        alert(message);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
     function clearBudgetAlert() {
       const container = document.getElementById('budgetAlert');
       if (container) {
@@ -4447,6 +4999,10 @@
     let currentUserRole = '';
     let exportAccounts = [];
     let exportYears = [];
+    let bankImportAccounts = [];
+    let reconAccounts = [];
+    let reconYears = [];
+    let reconPreviewData = null;
     let lastNotesResult = null;
     let lastPerformanceResult = null;
     let lastCashFlowResult = null;
@@ -4772,6 +5328,23 @@
       const amount = Number(value || 0);
       if (!Number.isFinite(amount)) return '';
       return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function downloadBase64File(base64, filename, mimeType) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: mimeType || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
 
     function runSearch() {
@@ -5167,6 +5740,9 @@
           document.getElementById('entityNameInput').value = settings.entityName || '';
           document.getElementById('currencyInput').value = settings.currency || 'KSH';
           document.getElementById('decimalsInput').value = settings.decimals || '0.00';
+          document.getElementById('bankNameInput').value = settings.bankName || '';
+          document.getElementById('bankBranchInput').value = settings.bankBranch || '';
+          document.getElementById('bankAccountNumberInput').value = settings.bankAccountNumber || '';
         })
         .withFailureHandler(function(error) {
           alert(error.message || 'Failed to load settings.');
@@ -5182,7 +5758,10 @@
         systemName: document.getElementById('systemNameInput').value.trim(),
         entityName: document.getElementById('entityNameInput').value.trim(),
         currency: document.getElementById('currencyInput').value.trim().toUpperCase(),
-        decimals: document.getElementById('decimalsInput').value.trim()
+        decimals: document.getElementById('decimalsInput').value.trim(),
+        bankName: document.getElementById('bankNameInput').value.trim(),
+        bankBranch: document.getElementById('bankBranchInput').value.trim(),
+        bankAccountNumber: document.getElementById('bankAccountNumberInput').value.trim()
       };
 
       if (!/^\d\.\d{2}$/.test(payload.decimals)) {

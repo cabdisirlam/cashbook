@@ -722,7 +722,10 @@ function getSystemSettings() {
     systemName: props.getProperty('systemName') || 'Financial System',
     entityName: props.getProperty('entityName') || 'Main Entity',
     currency: props.getProperty('currency') || 'KSH',
-    decimals: props.getProperty('decimals') || '0.00'
+    decimals: props.getProperty('decimals') || '0.00',
+    bankName: props.getProperty('bankName') || '',
+    bankBranch: props.getProperty('bankBranch') || '',
+    bankAccountNumber: props.getProperty('bankAccountNumber') || ''
   };
 }
 
@@ -734,6 +737,9 @@ function saveSystemSettings(settings) {
   const entityName = String(settings.entityName || '').trim();
   const currency = String(settings.currency || '').trim().toUpperCase();
   const decimals = String(settings.decimals || '').trim();
+  const bankName = String(settings.bankName || '').trim();
+  const bankBranch = String(settings.bankBranch || '').trim();
+  const bankAccountNumber = String(settings.bankAccountNumber || '').trim();
 
   if (!systemName) throw new Error('System name is required.');
   if (!entityName) throw new Error('Entity name is required.');
@@ -745,6 +751,9 @@ function saveSystemSettings(settings) {
   props.setProperty('entityName', entityName);
   props.setProperty('currency', currency);
   props.setProperty('decimals', decimals);
+  props.setProperty('bankName', bankName);
+  props.setProperty('bankBranch', bankBranch);
+  props.setProperty('bankAccountNumber', bankAccountNumber);
 
   return { success: true };
 }

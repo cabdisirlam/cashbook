@@ -495,6 +495,116 @@ function exportJournal(criteria) {
   };
 }
 
+function getReconciliationPreview(criteria) {
+  const data = _collectReconciliationData_(criteria);
+  const matchResult = _matchReconRows_(data.journalRows, data.bankRows);
+  return _buildReconciliationResponse_(data.journalRows, data.bankRows, matchResult);
+}
+
+function autoReconcileBankStatements(criteria) {
+  const data = _collectReconciliationData_(criteria);
+  const matchResult = _matchReconRows_(data.journalRows, data.bankRows);
+  if (matchResult.pairs.length) {
+    const journalSheet = data.journalSheet;
+    const bankSheet = data.bankSheet;
+    const journalReconCol = data.journalCols.reconStatus;
+    const bankMatchCol = data.bankCols.matchStatus;
+
+    matchResult.pairs.forEach(function(pair) {
+      if (journalReconCol) {
+        journalSheet.getRange(pair.journal.rowIndex, journalReconCol).setValue('Reconciled');
+      }
+      if (bankMatchCol) {
+        bankSheet.getRange(pair.bank.rowIndex, bankMatchCol).setValue('Reconciled');
+      }
+    });
+  }
+
+  const response = _buildReconciliationResponse_(data.journalRows, data.bankRows, matchResult);
+  response.matchedCount = matchResult.pairs.length;
+  return response;
+}
+
+function exportBankReconciliation(criteria) {
+  const data = _collectReconciliationData_(criteria);
+  const matchResult = _matchReconRows_(data.journalRows, data.bankRows);
+
+  const cashbookReceipts = [];
+  const cashbookPayments = [];
+  const bankReceipts = [];
+  const bankPayments = [];
+
+  data.journalRows.forEach(function(row, index) {
+    if (matchResult.matchedJournal.has(index)) return;
+    if (row.type === 'receipt') {
+      cashbookReceipts.push(row);
+    } else {
+      cashbookPayments.push(row);
+    }
+  });
+
+  data.bankRows.forEach(function(row, index) {
+    if (matchResult.matchedBank.has(index)) return;
+    if (row.type === 'receipt') {
+      bankReceipts.push(row);
+    } else {
+      bankPayments.push(row);
+    }
+  });
+
+  const totals = {
+    cashbookReceipts: _sumReconAmounts_(cashbookReceipts),
+    cashbookPayments: _sumReconAmounts_(cashbookPayments),
+    bankReceipts: _sumReconAmounts_(bankReceipts),
+    bankPayments: _sumReconAmounts_(bankPayments)
+  };
+
+  const settings = _getReconReportSettings_();
+  const bankBalance = _getLatestBankBalance_(data.bankSheet, data.bankCols, criteria);
+  const cashbookBalance = bankBalance
+    - totals.cashbookPayments
+    - totals.bankReceipts
+    + totals.bankPayments
+    + totals.cashbookReceipts;
+
+  const reportName = 'Bank Reconciliation';
+  const report = SpreadsheetApp.create(reportName);
+  const page1 = report.getActiveSheet();
+  page1.setName('Page 1');
+  const page2 = report.insertSheet('Page 2');
+
+  _writeReconPage1_(page1, {
+    settings: settings,
+    criteria: criteria,
+    totals: totals,
+    bankBalance: bankBalance,
+    cashbookBalance: cashbookBalance
+  });
+
+  _writeReconPage2_(page2, {
+    settings: settings,
+    criteria: criteria,
+    cashbookPayments: cashbookPayments,
+    bankReceipts: bankReceipts,
+    bankPayments: bankPayments,
+    cashbookReceipts: cashbookReceipts,
+    totals: totals
+  });
+
+  const file = DriveApp.getFileById(report.getId());
+  const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const blob = file.getAs(mimeType);
+  const base64 = Utilities.base64Encode(blob.getBytes());
+  const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+  file.setTrashed(true);
+
+  return {
+    base64: base64,
+    filename: 'bank_reconciliation_' + stamp + '.xlsx',
+    mimeType: mimeType
+  };
+}
+
 function getBudgetVsActual(financialYear) {
   const year = String(financialYear || '').trim();
   if (!year) throw new Error('Financial year is required.');
@@ -1434,6 +1544,59 @@ function getPositionReport(currentYear, comparativeYear) {
   };
 }
 
+function saveBankStatementUpload(payload) {
+  if (!payload) throw new Error('Missing payload.');
+  const accountCode = String(payload.accountCode || '').trim();
+  if (!accountCode) throw new Error('Bank account is required.');
+  const rows = payload.rows || [];
+  if (!rows.length) throw new Error('No bank rows provided.');
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = _initializeDbBankSheet(ss);
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  _requireBankHeaders_(headers);
+  const headerMap = _getBankHeaderMap_(headers);
+
+  const output = [];
+  rows.forEach(function(item, index) {
+    const rowIndex = index + 1;
+    const rowAccount = String(item.accountCode || '').trim() || accountCode;
+    if (!rowAccount) throw new Error('Account code missing on row ' + rowIndex + '.');
+    if (rowAccount !== accountCode) throw new Error('Account code mismatch on row ' + rowIndex + '.');
+
+    const description = String(item.description || '').trim();
+    if (!description) throw new Error('Description required on row ' + rowIndex + '.');
+
+    const txnDate = _parseBankDate_(item.txnDate, true, rowIndex);
+    const valueDate = _parseBankDate_(item.valueDate, false, rowIndex);
+    const debit = _parseBankNumber_(item.debit, rowIndex, 'Debit');
+    const credit = _parseBankNumber_(item.credit, rowIndex, 'Credit');
+    const balance = _parseBankNumber_(item.balance, rowIndex, 'Balance');
+    if (debit === '' && credit === '' && balance === '') {
+      throw new Error('Debit, credit, or balance is required on row ' + rowIndex + '.');
+    }
+
+    const row = new Array(lastCol).fill('');
+    _setIfPresent_(row, headerMap.accountCode, rowAccount);
+    _setIfPresent_(row, headerMap.txnDate, txnDate);
+    _setIfPresent_(row, headerMap.valueDate, valueDate);
+    _setIfPresent_(row, headerMap.bankRef, String(item.bankRef || '').trim());
+    _setIfPresent_(row, headerMap.description, description);
+    _setIfPresent_(row, headerMap.debit, debit);
+    _setIfPresent_(row, headerMap.credit, credit);
+    _setIfPresent_(row, headerMap.balance, balance);
+    _setIfPresent_(row, headerMap.matchStatus, String(item.matchStatus || '').trim());
+    output.push(row);
+  });
+
+  if (!output.length) throw new Error('No valid rows to upload.');
+
+  const startRow = sheet.getLastRow() + 1;
+  sheet.getRange(startRow, 1, output.length, lastCol).setValues(output);
+  return { count: output.length };
+}
+
 function addMasterItem(type, value, parent, accountType, reportMapping) {
   const trimmed = String(value || '').trim();
   if (!trimmed) throw new Error('Value is required.');
@@ -1538,6 +1701,603 @@ function _normalizeHeader_(value) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '_');
+}
+
+function _requireBankHeaders_(headers) {
+  const required = [
+    'account_code',
+    'txn_date',
+    'value_date',
+    'bank_ref',
+    'description',
+    'debit',
+    'credit',
+    'balance',
+    'match_status'
+  ];
+  const missing = required.filter(name => headers.indexOf(name) < 0);
+  if (missing.length) {
+    throw new Error('DB_BANK missing headers: ' + missing.join(', ') + '.');
+  }
+}
+
+function _getBankHeaderMap_(headers) {
+  return {
+    accountCode: _resolveColumn_(headers, ['account_code'], 1),
+    txnDate: _resolveColumn_(headers, ['txn_date', 'transaction_date'], 2),
+    valueDate: _resolveColumn_(headers, ['value_date'], 3),
+    bankRef: _resolveColumn_(headers, ['bank_ref', 'reference'], 4),
+    description: _resolveColumn_(headers, ['description'], 5),
+    debit: _resolveColumn_(headers, ['debit'], 6),
+    credit: _resolveColumn_(headers, ['credit'], 7),
+    balance: _resolveColumn_(headers, ['balance'], 8),
+    matchStatus: _resolveColumn_(headers, ['match_status'], 9)
+  };
+}
+
+function _parseBankDate_(value, required, rowIndex) {
+  if (value == null || value === '') {
+    if (required) throw new Error('Transaction date required on row ' + rowIndex + '.');
+    return '';
+  }
+
+  if (value instanceof Date) return value;
+
+  if (typeof value === 'number') {
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    const date = new Date(epoch.getTime() + value * 24 * 60 * 60 * 1000);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+
+  if (required) throw new Error('Invalid date on row ' + rowIndex + '.');
+  return '';
+}
+
+function _parseBankNumber_(value, rowIndex, label) {
+  if (value == null || value === '') return '';
+  if (typeof value === 'number') return value;
+  const cleaned = String(value).replace(/,/g, '').trim();
+  if (!cleaned) return '';
+  const parsed = Number(cleaned);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(label + ' invalid on row ' + rowIndex + '.');
+  }
+  return parsed;
+}
+
+function _getBankColumns_(headers) {
+  return {
+    accountCode: _resolveColumn_(headers, ['account_code'], 1),
+    txnDate: _resolveColumn_(headers, ['txn_date', 'transaction_date'], 2),
+    valueDate: _resolveColumn_(headers, ['value_date'], 3),
+    bankRef: _resolveColumn_(headers, ['bank_ref', 'reference'], 4),
+    description: _resolveColumn_(headers, ['description'], 5),
+    debit: _resolveColumn_(headers, ['debit'], 6),
+    credit: _resolveColumn_(headers, ['credit'], 7),
+    balance: _resolveColumn_(headers, ['balance'], 8),
+    matchStatus: _resolveColumn_(headers, ['match_status'], 9)
+  };
+}
+
+function _collectReconciliationData_(criteria) {
+  const ss = _getOrCreateSpreadsheet();
+  const journalSheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  const bankSheet = ss.getSheetByName(CONFIG.SHEETS.DB_BANK);
+  if (!journalSheet) throw new Error('DB_JOURNAL not found.');
+  if (!bankSheet) throw new Error('DB_BANK not found.');
+
+  const accountCodeFilter = String(criteria && criteria.accountCode || '').trim();
+  const financialYearFilter = String(criteria && criteria.financialYear || '').trim();
+  const startDate = _parseDate_(criteria && criteria.startDate);
+  const endDate = _parseDate_(criteria && criteria.endDate);
+
+  const journalLastRow = journalSheet.getLastRow();
+  const journalLastCol = journalSheet.getLastColumn();
+  const bankLastRow = bankSheet.getLastRow();
+  const bankLastCol = bankSheet.getLastColumn();
+
+  const journalHeaders = journalLastCol
+    ? journalSheet.getRange(1, 1, 1, journalLastCol).getValues()[0].map(_normalizeHeader_)
+    : [];
+  const bankHeaders = bankLastCol
+    ? bankSheet.getRange(1, 1, 1, bankLastCol).getValues()[0].map(_normalizeHeader_)
+    : [];
+
+  const journalCols = _getJournalColumns_(journalHeaders);
+  const bankCols = _getBankColumns_(bankHeaders);
+
+  const journalData = journalLastRow > 1
+    ? journalSheet.getRange(2, 1, journalLastRow - 1, journalLastCol).getValues()
+    : [];
+  const bankData = bankLastRow > 1
+    ? bankSheet.getRange(2, 1, bankLastRow - 1, bankLastCol).getValues()
+    : [];
+
+  const journalRows = [];
+  journalData.forEach(function(row, index) {
+    const rowIndex = index + 2;
+    const accountCode = journalCols.accountCode ? String(row[journalCols.accountCode - 1] || '').trim() : '';
+    if (accountCodeFilter && accountCode !== accountCodeFilter) return;
+    const financialYear = journalCols.financialYear ? String(row[journalCols.financialYear - 1] || '').trim() : '';
+    if (financialYearFilter && financialYear !== financialYearFilter) return;
+    const dateCell = journalCols.date ? row[journalCols.date - 1] : '';
+    if (!_isWithinRange_(dateCell, startDate, endDate)) return;
+
+    const reconStatus = journalCols.reconStatus ? row[journalCols.reconStatus - 1] : '';
+    if (_isReconciled_(reconStatus)) return;
+
+    const debit = journalCols.debit ? _parseNumber_(row[journalCols.debit - 1]) : 0;
+    const credit = journalCols.credit ? _parseNumber_(row[journalCols.credit - 1]) : 0;
+    const typeInfo = _getReconType_(debit, credit);
+    if (!typeInfo) return;
+
+    journalRows.push({
+      rowIndex: rowIndex,
+      accountCode: accountCode,
+      date: _formatDate_(dateCell),
+      ref: journalCols.refNo ? String(row[journalCols.refNo - 1] || '').trim() : '',
+      payee: journalCols.payee ? String(row[journalCols.payee - 1] || '').trim() : '',
+      description: journalCols.description ? String(row[journalCols.description - 1] || '').trim() : '',
+      debit: debit,
+      credit: credit,
+      type: typeInfo.type,
+      amount: typeInfo.amount
+    });
+  });
+
+  const bankRows = [];
+  bankData.forEach(function(row, index) {
+    const rowIndex = index + 2;
+    const accountCode = bankCols.accountCode ? String(row[bankCols.accountCode - 1] || '').trim() : '';
+    if (accountCodeFilter && accountCode !== accountCodeFilter) return;
+    const dateCell = bankCols.txnDate ? row[bankCols.txnDate - 1] : '';
+    if (!_isWithinRange_(dateCell, startDate, endDate)) return;
+
+    const matchStatus = bankCols.matchStatus ? row[bankCols.matchStatus - 1] : '';
+    if (_isReconciled_(matchStatus)) return;
+
+    const debit = bankCols.debit ? _parseNumber_(row[bankCols.debit - 1]) : 0;
+    const credit = bankCols.credit ? _parseNumber_(row[bankCols.credit - 1]) : 0;
+    const typeInfo = _getReconType_(debit, credit);
+    if (!typeInfo) return;
+
+    bankRows.push({
+      rowIndex: rowIndex,
+      accountCode: accountCode,
+      date: _formatDate_(dateCell),
+      ref: bankCols.bankRef ? String(row[bankCols.bankRef - 1] || '').trim() : '',
+      description: bankCols.description ? String(row[bankCols.description - 1] || '').trim() : '',
+      debit: debit,
+      credit: credit,
+      type: typeInfo.type,
+      amount: typeInfo.amount
+    });
+  });
+
+  return {
+    journalSheet: journalSheet,
+    bankSheet: bankSheet,
+    journalCols: journalCols,
+    bankCols: bankCols,
+    journalRows: journalRows,
+    bankRows: bankRows
+  };
+}
+
+function _matchReconRows_(journalRows, bankRows) {
+  const bankMap = {};
+  bankRows.forEach(function(row, index) {
+    const key = _buildReconKey_(row);
+    if (!key) return;
+    if (!bankMap[key]) bankMap[key] = [];
+    bankMap[key].push(index);
+  });
+
+  const matchedJournal = new Set();
+  const matchedBank = new Set();
+  const pairs = [];
+
+  journalRows.forEach(function(row, index) {
+    const key = _buildReconKey_(row);
+    if (!key) return;
+    const list = bankMap[key];
+    if (!list || !list.length) return;
+    const bankIndex = list.shift();
+    matchedJournal.add(index);
+    matchedBank.add(bankIndex);
+    pairs.push({ journal: row, bank: bankRows[bankIndex] });
+  });
+
+  return { matchedJournal: matchedJournal, matchedBank: matchedBank, pairs: pairs };
+}
+
+function _buildReconciliationResponse_(journalRows, bankRows, matchResult) {
+  const cashbookReceipts = [];
+  const cashbookPayments = [];
+  const bankReceipts = [];
+  const bankPayments = [];
+
+  journalRows.forEach(function(row, index) {
+    if (matchResult.matchedJournal.has(index)) return;
+    if (row.type === 'receipt') {
+      cashbookReceipts.push(_reconRowSummary_(row));
+    } else {
+      cashbookPayments.push(_reconRowSummary_(row));
+    }
+  });
+
+  bankRows.forEach(function(row, index) {
+    if (matchResult.matchedBank.has(index)) return;
+    if (row.type === 'receipt') {
+      bankReceipts.push(_reconRowSummary_(row));
+    } else {
+      bankPayments.push(_reconRowSummary_(row));
+    }
+  });
+
+  return {
+    cashbookReceiptsNotInBank: cashbookReceipts,
+    cashbookPaymentsNotInBank: cashbookPayments,
+    bankReceiptsNotInCashbook: bankReceipts,
+    bankPaymentsNotInCashbook: bankPayments
+  };
+}
+
+function _reconRowSummary_(row) {
+  return {
+    date: row.date || '',
+    description: row.description || '',
+    ref: row.ref || '',
+    debit: row.debit || 0,
+    credit: row.credit || 0
+  };
+}
+
+function _buildReconKey_(row) {
+  const ref = _normalizeRef_(row.ref);
+  if (!ref) return '';
+  const amount = _roundAmount_(row.amount);
+  if (!amount) return '';
+  const accountCode = String(row.accountCode || '').trim();
+  const type = String(row.type || '').trim();
+  return [accountCode, type, ref, amount.toFixed(2)].join('|');
+}
+
+function _normalizeRef_(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function _roundAmount_(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return 0;
+  return Math.round(number * 100) / 100;
+}
+
+function _getReconType_(debit, credit) {
+  const debitValue = Number(debit || 0);
+  const creditValue = Number(credit || 0);
+  if (creditValue > 0 && debitValue === 0) {
+    return { type: 'receipt', amount: creditValue };
+  }
+  if (debitValue > 0 && creditValue === 0) {
+    return { type: 'payment', amount: debitValue };
+  }
+  return null;
+}
+
+function _isReconciled_(value) {
+  return String(value || '').toLowerCase().indexOf('reconciled') >= 0;
+}
+
+function _isWithinRange_(value, startDate, endDate) {
+  if (!startDate && !endDate) return true;
+  if (!value) return true;
+  const dateValue = value instanceof Date ? value : _parseDate_(value);
+  if (!dateValue) return true;
+  if (startDate && dateValue < startDate) return false;
+  if (endDate && dateValue > endDate) return false;
+  return true;
+}
+
+function _sumReconAmounts_(rows) {
+  return (rows || []).reduce(function(total, row) {
+    const amount = Number(row && row.amount || 0);
+    return total + (Number.isFinite(amount) ? amount : 0);
+  }, 0);
+}
+
+function _getReconReportSettings_() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    entityName: props.getProperty('entityName') || '',
+    bankName: props.getProperty('bankName') || '',
+    bankBranch: props.getProperty('bankBranch') || '',
+    bankAccountNumber: props.getProperty('bankAccountNumber') || ''
+  };
+}
+
+function _getLatestBankBalance_(sheet, bankCols, criteria) {
+  if (!sheet || !bankCols || !bankCols.balance) return 0;
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return 0;
+
+  const accountCodeFilter = String(criteria && criteria.accountCode || '').trim();
+  const startDate = _parseDate_(criteria && criteria.startDate);
+  const endDate = _parseDate_(criteria && criteria.endDate);
+
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  let latestDate = null;
+  let latestRowIndex = -1;
+  let latestBalance = 0;
+
+  data.forEach(function(row, index) {
+    const accountCode = bankCols.accountCode ? String(row[bankCols.accountCode - 1] || '').trim() : '';
+    if (accountCodeFilter && accountCode !== accountCodeFilter) return;
+    const dateCell = bankCols.txnDate ? row[bankCols.txnDate - 1] : '';
+    if (!_isWithinRange_(dateCell, startDate, endDate)) return;
+
+    const balanceCell = row[bankCols.balance - 1];
+    if (balanceCell === '' || balanceCell == null) return;
+    const balanceValue = _parseNumber_(balanceCell);
+    const dateValue = dateCell instanceof Date ? dateCell : _parseDate_(dateCell);
+
+    if (dateValue) {
+      if (!latestDate || dateValue > latestDate || (dateValue.getTime() === latestDate.getTime() && index > latestRowIndex)) {
+        latestDate = dateValue;
+        latestRowIndex = index;
+        latestBalance = balanceValue;
+      }
+    } else if (!latestDate && index > latestRowIndex) {
+      latestRowIndex = index;
+      latestBalance = balanceValue;
+    }
+  });
+
+  return Number(latestBalance || 0);
+}
+
+function _writeReconPage1_(sheet, payload) {
+  const settings = payload.settings || {};
+  const criteria = payload.criteria || {};
+  const totals = payload.totals || {};
+  const bankBalance = Number(payload.bankBalance || 0);
+  const cashbookBalance = Number(payload.cashbookBalance || 0);
+
+  sheet.clear();
+  sheet.setHiddenGridlines(true);
+  sheet.setColumnWidth(1, 70);
+  sheet.setColumnWidth(2, 110);
+  sheet.setColumnWidth(3, 110);
+  sheet.setColumnWidth(4, 110);
+  sheet.setColumnWidth(5, 110);
+  sheet.setColumnWidth(6, 110);
+  sheet.setColumnWidth(7, 130);
+  sheet.setColumnWidth(8, 130);
+
+  sheet.getRange('A1').setValue('F.O. 30').setFontWeight('bold');
+  sheet.getRange('H1').setValue('Page 1 of 2').setHorizontalAlignment('right');
+  _mergeAndSet_(sheet, 'A2:H2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
+  _mergeAndSet_(sheet, 'A3:H3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
+
+  const fromDate = _formatDate_(criteria.startDate);
+  const toDate = _formatDate_(criteria.endDate);
+  _mergeAndSet_(
+    sheet,
+    'A4:D4',
+    'From Date : ' + (fromDate || '') + ' To : ' + (toDate || ''),
+    { merge: true }
+  );
+  _mergeAndSet_(
+    sheet,
+    'E4:H4',
+    settings.entityName || '',
+    { merge: true, align: 'right' }
+  );
+
+  const bankLine = [
+    'Bank : ' + (settings.bankName || ''),
+    'Branch : ' + (settings.bankBranch || ''),
+    'Account Number : ' + (settings.bankAccountNumber || '')
+  ].join(' , ');
+  _mergeAndSet_(sheet, 'A5:H5', bankLine, { merge: true });
+
+  _mergeAndSet_(sheet, 'A7:F7', 'Balance as per bank certificate', { merge: true, border: true, bold: true });
+  _mergeAndSet_(sheet, 'G7:H7', bankBalance, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  sheet.getRange('A8').setValue('Less --').setFontWeight('bold');
+  _mergeAndSet_(
+    sheet,
+    'B9:F9',
+    '1. Payments in Cash Book not yet recorded in Bank Statement (Unpresented Cheques)',
+    { merge: true, border: true }
+  );
+  _mergeAndSet_(sheet, 'G9:H9', totals.cashbookPayments || 0, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  _mergeAndSet_(
+    sheet,
+    'B10:F10',
+    '2. Receipts in Bank Statement not yet recorded in Cash Book',
+    { merge: true, border: true }
+  );
+  _mergeAndSet_(sheet, 'G10:H10', totals.bankReceipts || 0, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  sheet.getRange('A11').setValue('Add --').setFontWeight('bold');
+  _mergeAndSet_(
+    sheet,
+    'B12:F12',
+    '3. Payments in Bank Statement not yet recorded in Cash Book',
+    { merge: true, border: true }
+  );
+  _mergeAndSet_(sheet, 'G12:H12', totals.bankPayments || 0, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  _mergeAndSet_(
+    sheet,
+    'B13:F13',
+    '4. Receipts in Cash Book not yet recorded in Bank Statement',
+    { merge: true, border: true }
+  );
+  _mergeAndSet_(sheet, 'G13:H13', totals.cashbookReceipts || 0, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  _mergeAndSet_(sheet, 'A14:F14', 'Bank Balance as per Cash Book', { merge: true, border: true, bold: true });
+  _mergeAndSet_(sheet, 'G14:H14', cashbookBalance, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  _mergeAndSet_(
+    sheet,
+    'A17:H17',
+    'Reconciled by : ............................ Signature: ............................ Date: ............................',
+    { merge: true }
+  );
+  _mergeAndSet_(
+    sheet,
+    'A19:H19',
+    'Reviewed by : .............................. Signature: ............................ Date: ............................',
+    { merge: true }
+  );
+  _mergeAndSet_(
+    sheet,
+    'A21:H21',
+    'Approved by : .............................. Signature: ............................ Date: ............................',
+    { merge: true }
+  );
+}
+
+function _writeReconPage2_(sheet, payload) {
+  const settings = payload.settings || {};
+  const criteria = payload.criteria || {};
+
+  sheet.clear();
+  sheet.setHiddenGridlines(true);
+  sheet.setColumnWidth(1, 100);
+  sheet.setColumnWidth(2, 90);
+  sheet.setColumnWidth(3, 140);
+  sheet.setColumnWidth(4, 140);
+  sheet.setColumnWidth(5, 140);
+  sheet.setColumnWidth(6, 140);
+  sheet.setColumnWidth(7, 140);
+  sheet.setColumnWidth(8, 120);
+
+  sheet.getRange('A1').setValue('F.O. 30').setFontWeight('bold');
+  sheet.getRange('H1').setValue('Page 2 of 2').setHorizontalAlignment('right');
+  _mergeAndSet_(sheet, 'A2:H2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
+  _mergeAndSet_(sheet, 'A3:H3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
+
+  const fromDate = _formatDate_(criteria.startDate);
+  const toDate = _formatDate_(criteria.endDate);
+  _mergeAndSet_(
+    sheet,
+    'A4:D4',
+    'From Date : ' + (fromDate || '') + ' To : ' + (toDate || ''),
+    { merge: true }
+  );
+  _mergeAndSet_(
+    sheet,
+    'E4:H4',
+    settings.entityName || '',
+    { merge: true, align: 'right' }
+  );
+
+  const bankLine = [
+    'Bank : ' + (settings.bankName || ''),
+    'Branch : ' + (settings.bankBranch || ''),
+    'Account Number : ' + (settings.bankAccountNumber || '')
+  ].join(' , ');
+  _mergeAndSet_(sheet, 'A5:H5', bankLine, { merge: true });
+
+  let row = 7;
+  row = _writeReconSection_(
+    sheet,
+    row,
+    '1. PAYMENTS IN CASH BOOK NOT YET RECORDED IN BANK STATEMENT (UNPRESENTED CHEQUES)',
+    'Cheque',
+    payload.cashbookPayments || [],
+    payload.totals ? payload.totals.cashbookPayments : 0
+  );
+  row += 1;
+  row = _writeReconSection_(
+    sheet,
+    row,
+    '2. RECEIPTS IN BANK STATEMENT NOT YET RECORDED IN CASH BOOK',
+    'Receipts',
+    payload.bankReceipts || [],
+    payload.totals ? payload.totals.bankReceipts : 0
+  );
+  row += 1;
+  row = _writeReconSection_(
+    sheet,
+    row,
+    '3. PAYMENTS IN BANK STATEMENT NOT YET RECORDED IN CASH BOOK',
+    'Cheque',
+    payload.bankPayments || [],
+    payload.totals ? payload.totals.bankPayments : 0
+  );
+  row += 1;
+  _writeReconSection_(
+    sheet,
+    row,
+    '4. RECEIPTS IN CASH BOOK NOT YET RECORDED IN BANK STATEMENT',
+    'Receipts',
+    payload.cashbookReceipts || [],
+    payload.totals ? payload.totals.cashbookReceipts : 0
+  );
+}
+
+function _writeReconSection_(sheet, startRow, title, label, rows, totalAmount) {
+  const titleRange = sheet.getRange(startRow, 1, 1, 8);
+  titleRange.merge();
+  titleRange.setValue(title).setFontWeight('bold');
+  titleRange.setBorder(true, true, true, true, true, true);
+
+  const headerRow = startRow + 1;
+  sheet.getRange(headerRow, 1, 1, 2).merge().setValue(label).setFontWeight('bold');
+  sheet.getRange(headerRow, 3, 1, 5).merge().setValue('Payee').setFontWeight('bold');
+  sheet.getRange(headerRow, 8).setValue('Amount').setFontWeight('bold');
+  sheet.getRange(headerRow, 1, 1, 8).setBorder(true, true, true, true, true, true);
+
+  const subHeaderRow = startRow + 2;
+  sheet.getRange(subHeaderRow, 1).setValue('No').setFontWeight('bold');
+  sheet.getRange(subHeaderRow, 2).setValue('Date').setFontWeight('bold');
+  sheet.getRange(subHeaderRow, 3, 1, 5).merge().setValue('');
+  sheet.getRange(subHeaderRow, 8).setValue('');
+  sheet.getRange(subHeaderRow, 1, 1, 8).setBorder(true, true, true, true, true, true);
+
+  let rowIndex = startRow + 3;
+  (rows || []).forEach(function(row) {
+    const payee = row.payee || row.description || '';
+    sheet.getRange(rowIndex, 1).setValue(row.ref || '');
+    sheet.getRange(rowIndex, 2).setValue(row.date || '');
+    sheet.getRange(rowIndex, 3, 1, 5).merge().setValue(payee);
+    sheet.getRange(rowIndex, 8).setValue(Number(row.amount || 0));
+    sheet.getRange(rowIndex, 1, 1, 8).setBorder(true, true, true, true, true, true);
+    sheet.getRange(rowIndex, 8).setNumberFormat('#,##0.00');
+    rowIndex += 1;
+  });
+
+  const totalRow = rowIndex;
+  sheet.getRange(totalRow, 1, 1, 7).merge().setValue('Total :').setHorizontalAlignment('right').setFontWeight('bold');
+  sheet.getRange(totalRow, 8).setValue(Number(totalAmount || 0)).setFontWeight('bold').setNumberFormat('#,##0.00');
+  sheet.getRange(totalRow, 1, 1, 8).setBorder(true, true, true, true, true, true);
+
+  return totalRow + 1;
+}
+
+function _mergeAndSet_(sheet, rangeA1, value, options) {
+  const range = sheet.getRange(rangeA1);
+  if (options && options.merge) range.merge();
+  range.setValue(value);
+  if (options && options.bold) range.setFontWeight('bold');
+  if (options && options.align) range.setHorizontalAlignment(options.align);
+  if (options && options.border) range.setBorder(true, true, true, true, true, true);
+  return range;
 }
 
 function _getMasterColumns_(headers) {
