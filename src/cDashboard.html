@@ -2632,11 +2632,9 @@
           fillSelectOptions('performanceComparativeYear', years);
           if (years.length) {
             const currentSelect = document.getElementById('performanceCurrentYear');
-            const comparativeSelect = document.getElementById('performanceComparativeYear');
             if (currentSelect) currentSelect.value = years[years.length - 1];
-            if (comparativeSelect) {
-              comparativeSelect.value = years.length > 1 ? years[years.length - 2] : years[0];
-            }
+            setComparativeFromCurrent('performanceCurrentYear', 'performanceComparativeYear');
+            bindComparativeSync('performanceCurrentYear', 'performanceComparativeYear');
           }
         })
         .withFailureHandler(function(error) {
@@ -2657,11 +2655,9 @@
           fillSelectOptions('cashFlowComparativeYear', years);
           if (years.length) {
             const currentSelect = document.getElementById('cashFlowCurrentYear');
-            const comparativeSelect = document.getElementById('cashFlowComparativeYear');
             if (currentSelect) currentSelect.value = years[years.length - 1];
-            if (comparativeSelect) {
-              comparativeSelect.value = years.length > 1 ? years[years.length - 2] : years[0];
-            }
+            setComparativeFromCurrent('cashFlowCurrentYear', 'cashFlowComparativeYear');
+            bindComparativeSync('cashFlowCurrentYear', 'cashFlowComparativeYear');
           }
         })
         .withFailureHandler(function(error) {
@@ -2682,11 +2678,9 @@
           fillSelectOptions('positionComparativeYear', years);
           if (years.length) {
             const currentSelect = document.getElementById('positionCurrentYear');
-            const comparativeSelect = document.getElementById('positionComparativeYear');
             if (currentSelect) currentSelect.value = years[years.length - 1];
-            if (comparativeSelect) {
-              comparativeSelect.value = years.length > 1 ? years[years.length - 2] : years[0];
-            }
+            setComparativeFromCurrent('positionCurrentYear', 'positionComparativeYear');
+            bindComparativeSync('positionCurrentYear', 'positionComparativeYear');
           }
         })
         .withFailureHandler(function(error) {
@@ -3824,6 +3818,30 @@
       }
     }
 
+    function setComparativeFromCurrent(currentId, comparativeId) {
+      const currentSelect = document.getElementById(currentId);
+      const comparativeSelect = document.getElementById(comparativeId);
+      if (!currentSelect || !comparativeSelect) return;
+
+      const values = Array.from(currentSelect.options).map(option => option.value).filter(Boolean);
+      if (!values.length) return;
+      const currentValue = currentSelect.value;
+      const index = values.indexOf(currentValue);
+      if (index > 0) {
+        comparativeSelect.value = values[index - 1];
+      } else {
+        comparativeSelect.value = currentValue || values[0];
+      }
+    }
+
+    function bindComparativeSync(currentId, comparativeId) {
+      const currentSelect = document.getElementById(currentId);
+      if (!currentSelect) return;
+      currentSelect.onchange = function() {
+        setComparativeFromCurrent(currentId, comparativeId);
+      };
+    }
+
     function loadNotesYears() {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showNotesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
@@ -3836,11 +3854,9 @@
           fillSelectOptions('notesComparativeYear', years);
           if (years.length) {
             const currentSelect = document.getElementById('notesCurrentYear');
-            const comparativeSelect = document.getElementById('notesComparativeYear');
             if (currentSelect) currentSelect.value = years[years.length - 1];
-            if (comparativeSelect) {
-              comparativeSelect.value = years.length > 1 ? years[years.length - 2] : years[0];
-            }
+            setComparativeFromCurrent('notesCurrentYear', 'notesComparativeYear');
+            bindComparativeSync('notesCurrentYear', 'notesComparativeYear');
           }
         })
         .withFailureHandler(function(error) {
