@@ -2151,28 +2151,36 @@
       const bankPayments = data.bankPaymentsNotInCashbook || [];
 
       container.innerHTML = [
-        renderReconMiniTable('Receipts in cashbook not in bank', cashbookReceipts),
-        renderReconMiniTable('Receipts in bank not in cashbook', bankReceipts),
-        renderReconMiniTable('Payments in cashbook not in bank', cashbookPayments),
-        renderReconMiniTable('Payments in bank not in cashbook', bankPayments)
+        renderReconMiniTable('Receipts in cashbook not in bank', cashbookReceipts, 'cashbook'),
+        renderReconMiniTable('Receipts in bank not in cashbook', bankReceipts, 'bank'),
+        renderReconMiniTable('Payments in cashbook not in bank', cashbookPayments, 'cashbook'),
+        renderReconMiniTable('Payments in bank not in cashbook', bankPayments, 'bank')
       ].join('');
     }
 
-    function renderReconMiniTable(title, rows) {
+    function renderReconMiniTable(title, rows, source) {
+      const isBank = source === 'bank';
+      const refLabel = isBank ? 'Bank_Ref' : 'Ref_No';
+      const emptyMessage = isBank
+        ? 'No data. Upload bank statements.'
+        : 'No data.';
       if (!rows.length) {
         return `
           <div style="border:1px solid var(--line);border-radius:var(--radius);padding:12px;background:#fff;box-shadow:var(--shadow-sm);">
             <div style="font-weight:600;margin-bottom:8px;">${title}</div>
-            <div style="color:#6b7280;font-size:12px;">No rows found.</div>
+            <div style="color:#6b7280;font-size:12px;">${emptyMessage}</div>
           </div>
         `;
       }
 
       const body = rows.map(row => `
         <tr>
-          <td data-label="Date">${row.date || ''}</td>
+          <td data-label="Account_Code">${row.accountCode || ''}</td>
+          ${isBank
+            ? `<td data-label="Txn_Date">${row.txnDate || ''}</td><td data-label="Value_Date">${row.valueDate || ''}</td>`
+            : `<td data-label="Date">${row.date || ''}</td><td data-label="Date"></td>`}
+          <td data-label="${refLabel}">${row.ref || ''}</td>
           <td data-label="Description">${row.description || ''}</td>
-          <td data-label="Ref">${row.ref || ''}</td>
           <td data-label="Debit">${formatAmount(row.debit)}</td>
           <td data-label="Credit">${formatAmount(row.credit)}</td>
         </tr>
@@ -2181,18 +2189,22 @@
       return `
         <div style="border:1px solid var(--line);border-radius:var(--radius);padding:12px;background:#fff;box-shadow:var(--shadow-sm);">
           <div style="font-weight:600;margin-bottom:8px;">${title}</div>
-          <table class="table">
+          <div style="width:100%;overflow-x:auto;">
+            <table class="table" style="width:100%;table-layout:fixed;">
             <thead>
               <tr>
-                <th>Date</th>
+                <th>Account_Code</th>
+                <th>${isBank ? 'Txn_Date' : 'Date'}</th>
+                <th>${isBank ? 'Value_Date' : 'Date'}</th>
+                <th>${refLabel}</th>
                 <th>Description</th>
-                <th>Ref</th>
                 <th>Debit</th>
                 <th>Credit</th>
               </tr>
             </thead>
             <tbody>${body}</tbody>
-          </table>
+            </table>
+          </div>
         </div>
       `;
     }

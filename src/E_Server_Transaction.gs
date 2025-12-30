@@ -1867,7 +1867,8 @@ function _collectReconciliationData_(criteria) {
     bankRows.push({
       rowIndex: rowIndex,
       accountCode: accountCode,
-      date: _formatDate_(dateCell),
+      txnDate: _formatDate_(dateCell),
+      valueDate: bankCols.valueDate ? _formatDate_(row[bankCols.valueDate - 1]) : '',
       ref: bankCols.bankRef ? String(row[bankCols.bankRef - 1] || '').trim() : '',
       description: bankCols.description ? String(row[bankCols.description - 1] || '').trim() : '',
       debit: debit,
@@ -1948,7 +1949,10 @@ function _buildReconciliationResponse_(journalRows, bankRows, matchResult) {
 
 function _reconRowSummary_(row) {
   return {
+    accountCode: row.accountCode || '',
     date: row.date || '',
+    txnDate: row.txnDate || '',
+    valueDate: row.valueDate || '',
     description: row.description || '',
     ref: row.ref || '',
     debit: row.debit || 0,
