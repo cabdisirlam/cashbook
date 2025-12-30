@@ -2067,6 +2067,16 @@ function _sumReconAmounts_(rows) {
   }, 0);
 }
 
+function _sumReconDebitCredit_(rows) {
+  return (rows || []).reduce(function(totals, row) {
+    const debit = Number(row && row.debit || 0);
+    const credit = Number(row && row.credit || 0);
+    totals.debit += Number.isFinite(debit) ? debit : 0;
+    totals.credit += Number.isFinite(credit) ? credit : 0;
+    return totals;
+  }, { debit: 0, credit: 0 });
+}
+
 function _getReconReportSettings_() {
   const props = PropertiesService.getScriptProperties();
   return {
@@ -2137,8 +2147,8 @@ function _writeReconPage1_(sheet, payload) {
   sheet.setColumnWidth(8, 130);
 
   sheet.getRange('A1').setValue('F.O. 30').setFontWeight('bold');
-  _mergeAndSet_(sheet, 'A2:H2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
-  _mergeAndSet_(sheet, 'A3:H3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
+  _mergeAndSet_(sheet, 'A2:G2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
+  _mergeAndSet_(sheet, 'A3:G3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
 
   const fromDate = _formatDate_(criteria.startDate);
   const toDate = _formatDate_(criteria.endDate);
@@ -2234,16 +2244,16 @@ function _writeReconPage2_(sheet, payload) {
 
   sheet.clear();
   sheet.setHiddenGridlines(true);
-  sheet.setColumnWidth(1, 100);
-  sheet.setColumnWidth(2, 90);
-  sheet.setColumnWidth(3, 140);
-  sheet.setColumnWidth(4, 140);
-  sheet.setColumnWidth(5, 140);
-  sheet.setColumnWidth(6, 140);
-  sheet.setColumnWidth(7, 140);
-  sheet.setColumnWidth(8, 120);
+  sheet.setColumnWidth(1, 120);
+  sheet.setColumnWidth(2, 110);
+  sheet.setColumnWidth(3, 100);
+  sheet.setColumnWidth(4, 120);
+  sheet.setColumnWidth(5, 240);
+  sheet.setColumnWidth(6, 110);
+  sheet.setColumnWidth(7, 110);
 
   sheet.getRange('A1').setValue('F.O. 30').setFontWeight('bold');
+  sheet.getRange('G1').setValue('Page 2 of 2').setHorizontalAlignment('right');
   _mergeAndSet_(sheet, 'A2:H2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
   _mergeAndSet_(sheet, 'A3:H3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
 
@@ -2257,7 +2267,7 @@ function _writeReconPage2_(sheet, payload) {
   );
   _mergeAndSet_(
     sheet,
-    'E4:H4',
+    'E4:G4',
     settings.entityName || '',
     { merge: true, align: 'right' }
   );
@@ -2267,90 +2277,86 @@ function _writeReconPage2_(sheet, payload) {
     'Branch : ' + (settings.bankBranch || ''),
     'Account Number : ' + (settings.bankAccountNumber || '')
   ].join(' , ');
-  _mergeAndSet_(sheet, 'A5:H5', bankLine, { merge: true });
+  _mergeAndSet_(sheet, 'A5:G5', bankLine, { merge: true });
 
   let row = 7;
   row = _writeReconSection_(
     sheet,
     row,
     '1. PAYMENTS IN CASH BOOK NOT YET RECORDED IN BANK STATEMENT (UNPRESENTED CHEQUES)',
-    'Cheque',
-    payload.cashbookPayments || [],
-    payload.totals ? payload.totals.cashbookPayments : 0
+    'Ref_No',
+    payload.cashbookPayments || []
   );
   row += 1;
   row = _writeReconSection_(
     sheet,
     row,
     '2. RECEIPTS IN BANK STATEMENT NOT YET RECORDED IN CASH BOOK',
-    'Receipts',
-    payload.bankReceipts || [],
-    payload.totals ? payload.totals.bankReceipts : 0
+    'Bank_Ref',
+    payload.bankReceipts || []
   );
   row += 1;
   row = _writeReconSection_(
     sheet,
     row,
     '3. PAYMENTS IN BANK STATEMENT NOT YET RECORDED IN CASH BOOK',
-    'Cheque',
-    payload.bankPayments || [],
-    payload.totals ? payload.totals.bankPayments : 0
+    'Bank_Ref',
+    payload.bankPayments || []
   );
   row += 1;
   _writeReconSection_(
     sheet,
     row,
     '4. RECEIPTS IN CASH BOOK NOT YET RECORDED IN BANK STATEMENT',
-    'Receipts',
-    payload.cashbookReceipts || [],
-    payload.totals ? payload.totals.cashbookReceipts : 0
+    'Ref_No',
+    payload.cashbookReceipts || []
   );
 }
 
-function _writeReconSection_(sheet, startRow, title, label, rows, totalAmount) {
-  const titleRange = sheet.getRange(startRow, 1, 1, 8);
+function _writeReconSection_(sheet, startRow, title, refLabel, rows) {
+  const titleRange = sheet.getRange(startRow, 1, 1, 7);
   titleRange.merge();
   titleRange.setValue(title).setFontWeight('bold');
   titleRange.setBorder(true, true, true, true, true, true);
 
   const headerRow = startRow + 1;
-  sheet.getRange(headerRow, 1, 1, 2).merge().setValue(label).setFontWeight('bold');
-  sheet.getRange(headerRow, 3, 1, 5).merge().setValue('Payee').setFontWeight('bold');
-  sheet.getRange(headerRow, 8).setValue('Amount').setFontWeight('bold');
-  sheet.getRange(headerRow, 1, 1, 8).setBorder(true, true, true, true, true, true);
+  sheet.getRange(headerRow, 1).setValue('Account_Code').setFontWeight('bold');
+  sheet.getRange(headerRow, 2).setValue('Financial_Year').setFontWeight('bold');
+  sheet.getRange(headerRow, 3).setValue('Date').setFontWeight('bold');
+  sheet.getRange(headerRow, 4).setValue(refLabel).setFontWeight('bold');
+  sheet.getRange(headerRow, 5).setValue('Description').setFontWeight('bold');
+  sheet.getRange(headerRow, 6).setValue('Debit').setFontWeight('bold');
+  sheet.getRange(headerRow, 7).setValue('Credit').setFontWeight('bold');
+  sheet.getRange(headerRow, 1, 1, 7).setBorder(true, true, true, true, true, true);
 
-  const subHeaderRow = startRow + 2;
-  sheet.getRange(subHeaderRow, 1).setValue('No').setFontWeight('bold');
-  sheet.getRange(subHeaderRow, 2).setValue('Date').setFontWeight('bold');
-  sheet.getRange(subHeaderRow, 3, 1, 5).merge().setValue('');
-  sheet.getRange(subHeaderRow, 8).setValue('');
-  sheet.getRange(subHeaderRow, 1, 1, 8).setBorder(true, true, true, true, true, true);
-
-  let rowIndex = startRow + 3;
+  let rowIndex = startRow + 2;
   if (!rows || !rows.length) {
-    sheet.getRange(rowIndex, 1).setValue('');
-    sheet.getRange(rowIndex, 2).setValue('');
-    sheet.getRange(rowIndex, 3, 1, 5).merge().setValue('');
-    sheet.getRange(rowIndex, 8).setValue('');
-    sheet.getRange(rowIndex, 1, 1, 8).setBorder(true, true, true, true, true, true);
+    sheet.getRange(rowIndex, 1, 1, 5).merge().setValue('No unreconciled data').setHorizontalAlignment('left');
+    sheet.getRange(rowIndex, 6).setValue(0).setNumberFormat('#,##0.00');
+    sheet.getRange(rowIndex, 7).setValue(0).setNumberFormat('#,##0.00');
+    sheet.getRange(rowIndex, 1, 1, 7).setBorder(true, true, true, true, true, true);
     rowIndex += 1;
   } else {
     rows.forEach(function(row) {
-      const payee = row.payee || row.description || '';
-      sheet.getRange(rowIndex, 1).setValue(row.ref || '');
-      sheet.getRange(rowIndex, 2).setValue(row.date || row.txnDate || '');
-      sheet.getRange(rowIndex, 3, 1, 5).merge().setValue(payee);
-      sheet.getRange(rowIndex, 8).setValue(Number(row.amount || 0));
-      sheet.getRange(rowIndex, 1, 1, 8).setBorder(true, true, true, true, true, true);
-      sheet.getRange(rowIndex, 8).setNumberFormat('#,##0.00');
+      sheet.getRange(rowIndex, 1).setValue(row.accountCode || '');
+      sheet.getRange(rowIndex, 2).setValue(row.financialYear || '');
+      sheet.getRange(rowIndex, 3).setValue(row.date || row.txnDate || '');
+      sheet.getRange(rowIndex, 4).setValue(row.ref || '');
+      sheet.getRange(rowIndex, 5).setValue(row.description || '');
+      sheet.getRange(rowIndex, 6).setValue(Number(row.debit || 0));
+      sheet.getRange(rowIndex, 7).setValue(Number(row.credit || 0));
+      sheet.getRange(rowIndex, 1, 1, 7).setBorder(true, true, true, true, true, true);
+      sheet.getRange(rowIndex, 6, 1, 2).setNumberFormat('#,##0.00');
       rowIndex += 1;
     });
   }
 
   const totalRow = rowIndex;
-  sheet.getRange(totalRow, 1, 1, 7).merge().setValue('Total :').setHorizontalAlignment('right').setFontWeight('bold');
-  sheet.getRange(totalRow, 8).setValue(Number(totalAmount || 0)).setFontWeight('bold').setNumberFormat('#,##0.00');
-  sheet.getRange(totalRow, 1, 1, 8).setBorder(true, true, true, true, true, true);
+  const totals = _sumReconDebitCredit_(rows);
+  sheet.getRange(totalRow, 1, 1, 5).merge().setValue('Total :').setHorizontalAlignment('right').setFontWeight('bold');
+  sheet.getRange(totalRow, 6).setValue(Number(totals.debit || 0)).setFontWeight('bold').setNumberFormat('#,##0.00');
+  sheet.getRange(totalRow, 7).setValue(Number(totals.credit || 0)).setFontWeight('bold').setNumberFormat('#,##0.00');
+  sheet.getRange(totalRow, 1, 1, 7).setBorder(true, true, true, true, true, true);
 
   return totalRow + 1;
 }
