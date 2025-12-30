@@ -578,6 +578,13 @@
     row.querySelector('.particular-input').addEventListener('change', function() {
       const particulars = this.value.trim();
       const meta = paymentState.particularMeta[particulars] || {};
+      if (isIncomeMappedParticular(meta) && transactionMode === 'Payment') {
+        this.value = '';
+        row.querySelector('.subcat-input').value = '';
+        row.querySelector('.category-input').value = '';
+        setStatus('Payments cannot use particulars mapped as operating income.');
+        return;
+      }
       row.querySelector('.subcat-input').value = meta.subCategory || '';
       row.querySelector('.category-input').value = meta.category || '';
     });
@@ -770,6 +777,7 @@
     };
 
     const rows = [];
+    let hasInvalid = false;
     document.querySelectorAll('#splitBody tr').forEach(function(row) {
       const particulars = row.querySelector('.particular-input').value.trim();
       const subCategory = row.querySelector('.subcat-input').value.trim();
@@ -778,6 +786,13 @@
       const amount = parseFloat(row.querySelector('.amount-input').value);
 
       if (!particulars && !subCategory && !category && !description && isNaN(amount)) return;
+
+      const meta = paymentState.particularMeta[particulars] || {};
+      if (isIncomeMappedParticular(meta) && transactionMode === 'Payment') {
+        setStatus('Payments cannot use particulars mapped as operating income.');
+        hasInvalid = true;
+        return;
+      }
 
       rows.push({
         particulars: particulars,
@@ -790,6 +805,10 @@
 
     if (!header.date || !header.financialYear || !header.accountCode) {
       setStatus('Date, Financial Year, and Bank Account are required.');
+      return;
+    }
+
+    if (hasInvalid) {
       return;
     }
 
@@ -828,6 +847,15 @@
 
   function setStatus(message) {
     document.getElementById('statusText').textContent = message || '';
+  }
+
+  function isIncomeMappedParticular(meta) {
+    const accountType = String(meta.accountType || '').toLowerCase();
+    const reportMapping = String(meta.reportMapping || '').toLowerCase();
+    if (accountType.includes('income')) return true;
+    if (reportMapping.includes('operating income')) return true;
+    if (reportMapping === 'income' || reportMapping.includes('income')) return true;
+    return false;
   }
 </script>
 <div class="submodal" id="addAccountModal">
