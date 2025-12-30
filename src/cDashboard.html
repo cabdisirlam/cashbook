@@ -1017,14 +1017,36 @@
       }
 
       .form-group label {
-        font-size: 12px;
-        margin-bottom: 4px;
+        font-size: 10px;
+        margin-bottom: 3px;
       }
 
       .form-group input,
       .form-group select {
-        padding: 8px 10px;
+        padding: 7px 8px;
+        font-size: 11px;
+      }
+
+      .modal-card h3 {
         font-size: 13px;
+      }
+
+      .table {
+        font-size: 9px;
+      }
+
+      .table th,
+      .table td {
+        padding: 6px 7px;
+      }
+
+      .table th {
+        font-size: 8px;
+      }
+
+      .table input {
+        padding: 5px 6px;
+        font-size: 10px;
       }
     }
 
@@ -2596,7 +2618,7 @@
           <td>${item.category || ''}</td>
           <td>${item.accountType || ''}</td>
           <td>
-            <input type="number" id="bulkAmount_${index}" step="0.01" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;">
+            <input type="number" id="bulkAmount_${index}" step="0.01" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:12px;box-sizing:border-box;">
           </td>
         </tr>
       `).join('');
