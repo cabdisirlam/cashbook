@@ -507,7 +507,7 @@
       border-right: none;
     }
 
-    /* Mobile: Card layout */
+    /* Mobile: Card layout with horizontal rows */
     @media (max-width: 768px) {
       .table thead {
         display: none;
@@ -523,37 +523,34 @@
         display: block;
         width: 100%;
         margin-bottom: 12px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
-        padding: 12px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        border: 1px solid #bae6fd;
-      }
-
-      .table tr:hover {
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-        border-color: #7dd3fc;
-        transform: translateY(-2px);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        border: 1px solid #cbd5e1;
+        overflow: hidden;
       }
 
       .table td {
-        display: block;
-        width: 100%;
-        padding: 6px 0;
-        border: none;
-        text-align: left;
-        font-size: 11px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 12px;
+        gap: 12px;
+      }
+
+      .table td:last-child {
+        border-bottom: none;
       }
 
       .table td:before {
         content: attr(data-label);
         font-weight: 700;
-        font-size: 9px;
-        color: #3b82f6;
-        text-transform: uppercase;
-        display: block;
-        margin-bottom: 4px;
-        letter-spacing: 0.05em;
+        font-size: 11px;
+        color: #2563eb;
+        min-width: 100px;
+        flex-shrink: 0;
       }
 
       .table td:empty {
