@@ -185,18 +185,17 @@
     }
 
     .topbar {
-      background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
-      padding: 18px 28px;
-      border-bottom: 2px solid #bae6fd;
+      background: linear-gradient(180deg, #003d82 0%, #00316b 100%);
+      padding: 12px 24px;
+      border-bottom: 1px solid #001f3f;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 20px;
-      box-shadow: 0 4px 16px -8px rgba(59, 130, 246, 0.15);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
       position: sticky;
       top: 0;
       z-index: 90;
-      backdrop-filter: blur(12px);
     }
 
     .topbar-left {
@@ -206,26 +205,24 @@
     }
 
     .icon-btn {
-      border: 1px solid #bae6fd;
-      background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
-      color: #0c4a6e;
-      border-radius: 10px;
-      padding: 10px 16px;
-      font-size: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      transition: var(--transition);
-      box-shadow: 0 2px 8px -1px rgba(59, 130, 246, 0.15);
+      transition: all 0.2s ease;
     }
 
     .icon-btn:hover {
-      background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
-      border-color: #7dd3fc;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px -2px rgba(59, 130, 246, 0.25);
+      background: rgba(255, 255, 255, 0.25);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: translateY(-1px);
     }
 
     .icon-btn:active {
@@ -238,13 +235,10 @@
     }
 
     .page-title {
-      font-size: 22px;
-      font-weight: 800;
-      background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      letter-spacing: -0.03em;
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.01em;
     }
 
     .user-area {
@@ -255,17 +249,19 @@
 
     .user-info {
       text-align: right;
-      font-size: 14px;
+      font-size: 13px;
+      color: #ffffff;
     }
 
     .user-name {
       font-weight: 700;
       letter-spacing: -0.01em;
+      color: #ffffff;
     }
 
     .user-role {
-      color: var(--muted);
-      font-size: 12px;
+      color: #cbd5e1;
+      font-size: 11px;
       font-weight: 500;
     }
 
@@ -468,33 +464,47 @@
     }
 
     .table thead {
-      background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+      background: linear-gradient(180deg, #003d82 0%, #00316b 100%);
     }
 
     .table th {
-      padding: 10px 12px;
+      padding: 6px 8px;
       text-align: left;
       font-weight: 700;
       font-size: 11px;
-      color: #1e40af;
+      color: #ffffff;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border-bottom: 2px solid #93c5fd;
+      letter-spacing: 0.03em;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid #001f3f;
+    }
+
+    .table th:last-child {
+      border-right: none;
     }
 
     .table tbody tr {
-      border-bottom: 1px solid #e0f2fe;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      border-bottom: 1px solid #e2e8f0;
+      transition: background 0.15s ease;
+    }
+
+    .table tbody tr:nth-child(even) {
+      background: #f8fafc;
     }
 
     .table tbody tr:hover {
-      background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+      background: #e0f2fe;
     }
 
     .table td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #e0f2fe;
+      padding: 6px 8px;
+      border-right: 1px solid #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
       font-size: 12px;
+    }
+
+    .table td:last-child {
+      border-right: none;
     }
 
     /* Mobile: Card layout */

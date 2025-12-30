@@ -259,32 +259,46 @@
   }
 
   .split-table thead {
-    background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+    background: linear-gradient(180deg, #003d82 0%, #00316b 100%);
   }
 
   .split-table th {
-    padding: 10px 12px;
+    padding: 6px 8px;
     text-align: left;
     font-weight: 700;
     font-size: 11px;
-    color: #1e40af;
+    color: #ffffff;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-bottom: 2px solid #93c5fd;
+    letter-spacing: 0.03em;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid #001f3f;
+  }
+
+  .split-table th:last-child {
+    border-right: none;
   }
 
   .split-table tbody tr {
-    border-bottom: 1px solid #e0f2fe;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border-bottom: 1px solid #e2e8f0;
+    transition: background 0.15s ease;
+  }
+
+  .split-table tbody tr:nth-child(even) {
+    background: #f8fafc;
   }
 
   .split-table tbody tr:hover {
-    background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+    background: #e0f2fe;
   }
 
   .split-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #e0f2fe;
+    padding: 6px 8px;
+    border-right: 1px solid #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .split-table td:last-child {
+    border-right: none;
   }
 
   .split-table td .input-field {
