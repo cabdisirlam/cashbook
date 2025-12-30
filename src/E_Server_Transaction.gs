@@ -1903,8 +1903,6 @@ function _collectReconciliationData_(criteria) {
     if (!_isWithinRange_(dateCell, startDate, endDate)) return;
     const financialYear = bankCols.financialYear ? String(row[bankCols.financialYear - 1] || '').trim() : '';
     if (financialYearFilter && financialYear !== financialYearFilter) return;
-    const financialYear = bankCols.financialYear ? String(row[bankCols.financialYear - 1] || '').trim() : '';
-    if (financialYearFilter && financialYear !== financialYearFilter) return;
 
     const matchStatus = bankCols.matchStatus ? row[bankCols.matchStatus - 1] : '';
     if (_isReconciled_(matchStatus)) return;
