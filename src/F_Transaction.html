@@ -217,15 +217,19 @@
     font-size: 12px;
     font-family: inherit;
     transition: all 0.15s ease;
-    background: #ffffff;
+    background: #fef9c3;
     font-weight: 400;
   }
 
   .input-field:focus {
     outline: none;
     border-color: #60a5fa;
-    background: #eff6ff;
+    background: #ffffff;
     box-shadow: 0 0 0 1px #60a5fa;
+  }
+
+  .input-field:valid:not(:focus) {
+    background: #ffffff;
   }
 
   .input-field:hover:not([readonly]) {
@@ -462,15 +466,41 @@
   @media (max-width: 780px) {
     .modal-content {
       width: 95%;
-      margin: 12px;
       max-height: 95vh;
-      border-radius: 16px;
+      border-width: 1px;
+    }
+
+    .modal-content h2 {
+      font-size: 12px;
+      padding: 6px 10px;
+    }
+
+    .modal-content > div:not(.form-header) {
+      padding: 10px;
     }
 
     .submodal-card {
       width: 95%;
-      padding: 20px;
-      margin: 12px;
+      border-width: 1px;
+    }
+
+    .submodal-card > div {
+      padding: 10px;
+    }
+
+    .submodal-header {
+      font-size: 12px;
+      padding: 6px 10px;
+    }
+
+    .form-label {
+      font-size: 10px;
+      margin-bottom: 2px;
+    }
+
+    .input-field {
+      padding: 3px 5px;
+      font-size: 11px;
     }
 
     .form-header {

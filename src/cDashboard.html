@@ -702,7 +702,7 @@
       font-size: 12px;
       font-family: inherit;
       transition: all 0.15s ease;
-      background: #ffffff;
+      background: #fef9c3;
       font-weight: 400;
     }
 
@@ -710,8 +710,13 @@
     .form-group select:focus {
       outline: none;
       border-color: #60a5fa;
-      background: #eff6ff;
+      background: #ffffff;
       box-shadow: 0 0 0 1px #60a5fa;
+    }
+
+    .form-group input:valid:not(:focus),
+    .form-group select:valid:not(:focus) {
+      background: #ffffff;
     }
 
     .form-group input:hover,
@@ -1064,28 +1069,33 @@
 
       .modal-card,
       .confirm-modal-card {
-        padding: 16px;
-        margin: 12px;
         width: 95%;
         max-height: 90vh;
+        border-width: 1px;
       }
 
       .modal-card h3 {
-        font-size: 16px;
+        font-size: 12px;
+        padding: 6px 10px;
+      }
+
+      .modal-card > div,
+      .confirm-modal-card > div {
+        padding: 10px;
       }
 
       .form-group {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
       }
 
       .form-group label {
         font-size: 10px;
-        margin-bottom: 3px;
+        margin-bottom: 2px;
       }
 
       .form-group input,
       .form-group select {
-        padding: 7px 8px;
+        padding: 3px 5px;
         font-size: 11px;
       }
 
@@ -5237,26 +5247,14 @@
 
       const tableRows = rows.map(row => `
         <tr>
-          <td>${row.date || ''}</td>
-          <td>${row.payee || ''}</td>
-          <td>${row.particulars || ''}</td>
-          <td>${row.subCategory || ''}</td>
-          <td>${row.category || ''}</td>
-          <td>${row.amount || ''}</td>
-          <td>${row.refNo || ''}</td>
+          <td data-label="Date">${row.date || ''}</td>
+          <td data-label="Payee">${row.payee || ''}</td>
+          <td data-label="Particulars">${row.particulars || ''}</td>
+          <td data-label="Sub-Category">${row.subCategory || ''}</td>
+          <td data-label="Category">${row.category || ''}</td>
+          <td data-label="Amount">${row.amount || ''}</td>
+          <td data-label="Ref No">${row.refNo || ''}</td>
         </tr>
-      `).join('');
-
-      const cards = rows.map(row => `
-        <div class="result-card">
-          <div class="result-row"><span class="result-label">Date</span><span>${row.date || ''}</span></div>
-          <div class="result-row"><span class="result-label">Payee</span><span>${row.payee || ''}</span></div>
-          <div class="result-row"><span class="result-label">Particulars</span><span>${row.particulars || ''}</span></div>
-          <div class="result-row"><span class="result-label">Sub-Category</span><span>${row.subCategory || ''}</span></div>
-          <div class="result-row"><span class="result-label">Category</span><span>${row.category || ''}</span></div>
-          <div class="result-row"><span class="result-label">Amount</span><span>${row.amount || ''}</span></div>
-          <div class="result-row"><span class="result-label">Ref No</span><span>${row.refNo || ''}</span></div>
-        </div>
       `).join('');
 
       container.innerHTML = `
@@ -5274,7 +5272,6 @@
           </thead>
           <tbody>${tableRows}</tbody>
         </table>
-        <div class="mobile-results">${cards}</div>
       `;
     }
 
