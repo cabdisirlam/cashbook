@@ -2170,29 +2170,38 @@
       const cashbookPayments = data.cashbookPaymentsNotInBank || [];
       const bankReceipts = data.bankReceiptsNotInCashbook || [];
       const bankPayments = data.bankPaymentsNotInCashbook || [];
+      const summary = data.summary || { totalCashbook: 0, totalBank: 0, matched: 0 };
+
+      const hasRows = cashbookReceipts.length || cashbookPayments.length || bankReceipts.length || bankPayments.length;
+      const summaryNote = (!hasRows && (summary.totalCashbook || summary.totalBank))
+        ? `<div style="color:#16a34a;font-size:12px;">All items reconciled.</div>`
+        : '';
 
       container.innerHTML = [
-        renderReconMiniTable('Receipts in cashbook not in bank', cashbookReceipts, 'cashbook'),
-        renderReconMiniTable('Receipts in bank not in cashbook', bankReceipts, 'bank'),
-        renderReconMiniTable('Payments in cashbook not in bank', cashbookPayments, 'cashbook'),
-        renderReconMiniTable('Payments in bank not in cashbook', bankPayments, 'bank')
+        summaryNote,
+        renderReconMiniTable('Receipts in cashbook not in bank', cashbookReceipts, 'cashbook', summary),
+        renderReconMiniTable('Receipts in bank not in cashbook', bankReceipts, 'bank', summary),
+        renderReconMiniTable('Payments in cashbook not in bank', cashbookPayments, 'cashbook', summary),
+        renderReconMiniTable('Payments in bank not in cashbook', bankPayments, 'bank', summary)
       ].join('');
     }
 
-    function renderReconMiniTable(title, rows, source) {
+    function renderReconMiniTable(title, rows, source, summary) {
       const isBank = source === 'bank';
       const refLabel = isBank ? 'Bank_Ref' : 'Ref_No';
-      const emptyMessage = isBank
-        ? 'No data. Upload bank statements.'
-        : 'No data.';
-      if (!rows.length) {
-        return `
-          <div style="border:1px solid var(--line);border-radius:var(--radius);padding:12px;background:#fff;box-shadow:var(--shadow-sm);">
-            <div style="font-weight:600;margin-bottom:8px;">${title}</div>
-            <div style="color:#6b7280;font-size:12px;">${emptyMessage}</div>
-          </div>
-        `;
+      let emptyMessage = 'No data.';
+      if (isBank) {
+        emptyMessage = summary && summary.totalBank
+          ? 'All items reconciled.'
+          : 'No data. Upload bank statements.';
+      } else {
+        emptyMessage = summary && summary.totalCashbook
+          ? 'All items reconciled.'
+          : 'No data.';
       }
+      const note = !rows.length
+        ? `<div style="color:#6b7280;font-size:12px;margin-bottom:8px;">${emptyMessage}</div>`
+        : '';
 
       const body = rows.map(row => `
         <tr>
@@ -2204,11 +2213,22 @@
           <td data-label="Debit">${formatAmount(row.debit)}</td>
           <td data-label="Credit">${formatAmount(row.credit)}</td>
         </tr>
-      `).join('');
+      `).join('') || `
+        <tr>
+          <td data-label="Account_Code">&nbsp;</td>
+          <td data-label="Financial_Year">&nbsp;</td>
+          <td data-label="Date">&nbsp;</td>
+          <td data-label="${refLabel}">&nbsp;</td>
+          <td data-label="Description">&nbsp;</td>
+          <td data-label="Debit">&nbsp;</td>
+          <td data-label="Credit">&nbsp;</td>
+        </tr>
+      `;
 
       return `
         <div style="border:1px solid var(--line);border-radius:var(--radius);padding:12px;background:#fff;box-shadow:var(--shadow-sm);">
           <div style="font-weight:600;margin-bottom:8px;">${title}</div>
+          ${note}
           <div style="width:100%;overflow-x:auto;">
             <table class="table" style="width:100%;table-layout:fixed;">
             <thead>

@@ -499,7 +499,7 @@ function exportJournal(criteria) {
 function getReconciliationPreview(criteria) {
   const data = _collectReconciliationData_(criteria);
   const matchResult = _matchReconRows_(data.journalRows, data.bankRows);
-  return _buildReconciliationResponse_(data.journalRows, data.bankRows, matchResult);
+  return _buildReconciliationResponse_(data.journalRows, data.bankRows, matchResult, true);
 }
 
 function autoReconcileBankStatements(criteria) {
@@ -1964,14 +1964,15 @@ function _matchReconRows_(journalRows, bankRows) {
   return { matchedJournal: matchedJournal, matchedBank: matchedBank, pairs: pairs };
 }
 
-function _buildReconciliationResponse_(journalRows, bankRows, matchResult) {
+function _buildReconciliationResponse_(journalRows, bankRows, matchResult, ignoreMatches) {
+  const ignore = !!ignoreMatches;
   const cashbookReceipts = [];
   const cashbookPayments = [];
   const bankReceipts = [];
   const bankPayments = [];
 
   journalRows.forEach(function(row, index) {
-    if (matchResult.matchedJournal.has(index)) return;
+    if (!ignore && matchResult.matchedJournal.has(index)) return;
     if (row.type === 'receipt') {
       cashbookReceipts.push(_reconRowSummary_(row));
     } else {
@@ -1980,7 +1981,7 @@ function _buildReconciliationResponse_(journalRows, bankRows, matchResult) {
   });
 
   bankRows.forEach(function(row, index) {
-    if (matchResult.matchedBank.has(index)) return;
+    if (!ignore && matchResult.matchedBank.has(index)) return;
     if (row.type === 'receipt') {
       bankReceipts.push(_reconRowSummary_(row));
     } else {
@@ -2136,7 +2137,6 @@ function _writeReconPage1_(sheet, payload) {
   sheet.setColumnWidth(8, 130);
 
   sheet.getRange('A1').setValue('F.O. 30').setFontWeight('bold');
-  sheet.getRange('H1').setValue('Page 1 of 2').setHorizontalAlignment('right');
   _mergeAndSet_(sheet, 'A2:H2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
   _mergeAndSet_(sheet, 'A3:H3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
 
@@ -2244,7 +2244,6 @@ function _writeReconPage2_(sheet, payload) {
   sheet.setColumnWidth(8, 120);
 
   sheet.getRange('A1').setValue('F.O. 30').setFontWeight('bold');
-  sheet.getRange('H1').setValue('Page 2 of 2').setHorizontalAlignment('right');
   _mergeAndSet_(sheet, 'A2:H2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
   _mergeAndSet_(sheet, 'A3:H3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
 
@@ -2328,16 +2327,25 @@ function _writeReconSection_(sheet, startRow, title, label, rows, totalAmount) {
   sheet.getRange(subHeaderRow, 1, 1, 8).setBorder(true, true, true, true, true, true);
 
   let rowIndex = startRow + 3;
-  (rows || []).forEach(function(row) {
-    const payee = row.payee || row.description || '';
-    sheet.getRange(rowIndex, 1).setValue(row.ref || '');
-    sheet.getRange(rowIndex, 2).setValue(row.date || '');
-    sheet.getRange(rowIndex, 3, 1, 5).merge().setValue(payee);
-    sheet.getRange(rowIndex, 8).setValue(Number(row.amount || 0));
+  if (!rows || !rows.length) {
+    sheet.getRange(rowIndex, 1).setValue('');
+    sheet.getRange(rowIndex, 2).setValue('');
+    sheet.getRange(rowIndex, 3, 1, 5).merge().setValue('');
+    sheet.getRange(rowIndex, 8).setValue('');
     sheet.getRange(rowIndex, 1, 1, 8).setBorder(true, true, true, true, true, true);
-    sheet.getRange(rowIndex, 8).setNumberFormat('#,##0.00');
     rowIndex += 1;
-  });
+  } else {
+    rows.forEach(function(row) {
+      const payee = row.payee || row.description || '';
+      sheet.getRange(rowIndex, 1).setValue(row.ref || '');
+      sheet.getRange(rowIndex, 2).setValue(row.date || row.txnDate || '');
+      sheet.getRange(rowIndex, 3, 1, 5).merge().setValue(payee);
+      sheet.getRange(rowIndex, 8).setValue(Number(row.amount || 0));
+      sheet.getRange(rowIndex, 1, 1, 8).setBorder(true, true, true, true, true, true);
+      sheet.getRange(rowIndex, 8).setNumberFormat('#,##0.00');
+      rowIndex += 1;
+    });
+  }
 
   const totalRow = rowIndex;
   sheet.getRange(totalRow, 1, 1, 7).merge().setValue('Total :').setHorizontalAlignment('right').setFontWeight('bold');
