@@ -127,7 +127,7 @@ function cleanupSheetHeaders() {
   // Clean up DB_BANK headers
   sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BANK);
   if (sheet) {
-    const headers = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref',
+    const headers = ['Account_Code', 'Financial_Year', 'Txn_Date', 'Value_Date', 'Bank_Ref',
                      'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
@@ -322,7 +322,7 @@ function _initializeDbBankSheet(ss) {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BANK);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_BANK);
-    const headers = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref',
+    const headers = ['Account_Code', 'Financial_Year', 'Txn_Date', 'Value_Date', 'Bank_Ref',
                      'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);

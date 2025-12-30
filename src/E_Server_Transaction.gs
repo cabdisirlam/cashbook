@@ -235,6 +235,7 @@ function searchJournal(criteria) {
   const payeeFilter = String(criteria && criteria.payee || '').trim().toLowerCase();
   const startDate = _parseDate_(criteria && criteria.startDate);
   const endDate = _parseDate_(criteria && criteria.endDate);
+  const financialYearFilter = String(criteria && criteria.financialYear || '').trim();
   const hasFilters = Boolean(query || refOrId || categoryFilter || particularsFilter || payeeFilter || startDate || endDate);
 
   const results = [];
@@ -591,12 +592,19 @@ function exportBankReconciliation(criteria) {
     totals: totals
   });
 
-  const file = DriveApp.getFileById(report.getId());
   const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  const blob = file.getAs(mimeType);
-  const base64 = Utilities.base64Encode(blob.getBytes());
+  const exportUrl = 'https://www.googleapis.com/drive/v3/files/' + report.getId()
+    + '/export?mimeType=' + encodeURIComponent(mimeType);
+  const response = UrlFetchApp.fetch(exportUrl, {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) {
+    throw new Error('Failed to export XLSX. Check Drive permissions.');
+  }
+  const base64 = Utilities.base64Encode(response.getContent());
   const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
-  file.setTrashed(true);
+  DriveApp.getFileById(report.getId()).setTrashed(true);
 
   return {
     base64: base64,
@@ -1548,6 +1556,8 @@ function saveBankStatementUpload(payload) {
   if (!payload) throw new Error('Missing payload.');
   const accountCode = String(payload.accountCode || '').trim();
   if (!accountCode) throw new Error('Bank account is required.');
+  const financialYear = String(payload.financialYear || '').trim();
+  if (!financialYear) throw new Error('Financial year is required.');
   const rows = payload.rows || [];
   if (!rows.length) throw new Error('No bank rows provided.');
 
@@ -1562,8 +1572,11 @@ function saveBankStatementUpload(payload) {
   rows.forEach(function(item, index) {
     const rowIndex = index + 1;
     const rowAccount = String(item.accountCode || '').trim() || accountCode;
+    const rowYear = String(item.financialYear || '').trim() || financialYear;
     if (!rowAccount) throw new Error('Account code missing on row ' + rowIndex + '.');
     if (rowAccount !== accountCode) throw new Error('Account code mismatch on row ' + rowIndex + '.');
+    if (!rowYear) throw new Error('Financial year missing on row ' + rowIndex + '.');
+    if (rowYear !== financialYear) throw new Error('Financial year mismatch on row ' + rowIndex + '.');
 
     const description = String(item.description || '').trim();
     if (!description) throw new Error('Description required on row ' + rowIndex + '.');
@@ -1579,6 +1592,7 @@ function saveBankStatementUpload(payload) {
 
     const row = new Array(lastCol).fill('');
     _setIfPresent_(row, headerMap.accountCode, rowAccount);
+    _setIfPresent_(row, headerMap.financialYear, rowYear);
     _setIfPresent_(row, headerMap.txnDate, txnDate);
     _setIfPresent_(row, headerMap.valueDate, valueDate);
     _setIfPresent_(row, headerMap.bankRef, String(item.bankRef || '').trim());
@@ -1706,6 +1720,7 @@ function _normalizeHeader_(value) {
 function _requireBankHeaders_(headers) {
   const required = [
     'account_code',
+    'financial_year',
     'txn_date',
     'value_date',
     'bank_ref',
@@ -1724,14 +1739,15 @@ function _requireBankHeaders_(headers) {
 function _getBankHeaderMap_(headers) {
   return {
     accountCode: _resolveColumn_(headers, ['account_code'], 1),
-    txnDate: _resolveColumn_(headers, ['txn_date', 'transaction_date'], 2),
-    valueDate: _resolveColumn_(headers, ['value_date'], 3),
-    bankRef: _resolveColumn_(headers, ['bank_ref', 'reference'], 4),
-    description: _resolveColumn_(headers, ['description'], 5),
-    debit: _resolveColumn_(headers, ['debit'], 6),
-    credit: _resolveColumn_(headers, ['credit'], 7),
-    balance: _resolveColumn_(headers, ['balance'], 8),
-    matchStatus: _resolveColumn_(headers, ['match_status'], 9)
+    financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 2),
+    txnDate: _resolveColumn_(headers, ['txn_date', 'transaction_date'], 3),
+    valueDate: _resolveColumn_(headers, ['value_date'], 4),
+    bankRef: _resolveColumn_(headers, ['bank_ref', 'reference'], 5),
+    description: _resolveColumn_(headers, ['description'], 6),
+    debit: _resolveColumn_(headers, ['debit'], 7),
+    credit: _resolveColumn_(headers, ['credit'], 8),
+    balance: _resolveColumn_(headers, ['balance'], 9),
+    matchStatus: _resolveColumn_(headers, ['match_status'], 10)
   };
 }
 
@@ -1771,14 +1787,15 @@ function _parseBankNumber_(value, rowIndex, label) {
 function _getBankColumns_(headers) {
   return {
     accountCode: _resolveColumn_(headers, ['account_code'], 1),
-    txnDate: _resolveColumn_(headers, ['txn_date', 'transaction_date'], 2),
-    valueDate: _resolveColumn_(headers, ['value_date'], 3),
-    bankRef: _resolveColumn_(headers, ['bank_ref', 'reference'], 4),
-    description: _resolveColumn_(headers, ['description'], 5),
-    debit: _resolveColumn_(headers, ['debit'], 6),
-    credit: _resolveColumn_(headers, ['credit'], 7),
-    balance: _resolveColumn_(headers, ['balance'], 8),
-    matchStatus: _resolveColumn_(headers, ['match_status'], 9)
+    financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 2),
+    txnDate: _resolveColumn_(headers, ['txn_date', 'transaction_date'], 3),
+    valueDate: _resolveColumn_(headers, ['value_date'], 4),
+    bankRef: _resolveColumn_(headers, ['bank_ref', 'reference'], 5),
+    description: _resolveColumn_(headers, ['description'], 6),
+    debit: _resolveColumn_(headers, ['debit'], 7),
+    credit: _resolveColumn_(headers, ['credit'], 8),
+    balance: _resolveColumn_(headers, ['balance'], 9),
+    matchStatus: _resolveColumn_(headers, ['match_status'], 10)
   };
 }
 
@@ -1841,6 +1858,7 @@ function _collectReconciliationData_(criteria) {
       rowIndex: rowIndex,
       accountCode: accountCode,
       date: _formatDate_(dateCell),
+      financialYear: financialYear,
       ref: journalCols.refNo ? String(row[journalCols.refNo - 1] || '').trim() : '',
       payee: journalCols.payee ? String(row[journalCols.payee - 1] || '').trim() : '',
       description: journalCols.description ? String(row[journalCols.description - 1] || '').trim() : '',
@@ -1858,6 +1876,10 @@ function _collectReconciliationData_(criteria) {
     if (accountCodeFilter && accountCode !== accountCodeFilter) return;
     const dateCell = bankCols.txnDate ? row[bankCols.txnDate - 1] : '';
     if (!_isWithinRange_(dateCell, startDate, endDate)) return;
+    const financialYear = bankCols.financialYear ? String(row[bankCols.financialYear - 1] || '').trim() : '';
+    if (financialYearFilter && financialYear !== financialYearFilter) return;
+    const financialYear = bankCols.financialYear ? String(row[bankCols.financialYear - 1] || '').trim() : '';
+    if (financialYearFilter && financialYear !== financialYearFilter) return;
 
     const matchStatus = bankCols.matchStatus ? row[bankCols.matchStatus - 1] : '';
     if (_isReconciled_(matchStatus)) return;
@@ -1872,6 +1894,7 @@ function _collectReconciliationData_(criteria) {
       accountCode: accountCode,
       txnDate: _formatDate_(dateCell),
       valueDate: bankCols.valueDate ? _formatDate_(row[bankCols.valueDate - 1]) : '',
+      financialYear: financialYear,
       ref: bankCols.bankRef ? String(row[bankCols.bankRef - 1] || '').trim() : '',
       description: bankCols.description ? String(row[bankCols.description - 1] || '').trim() : '',
       debit: debit,
@@ -1954,6 +1977,7 @@ function _reconRowSummary_(row) {
   return {
     accountCode: row.accountCode || '',
     date: row.date || row.txnDate || '',
+    financialYear: row.financialYear || '',
     description: row.description || '',
     ref: row.ref || '',
     debit: row.debit || 0,

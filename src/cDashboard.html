@@ -1869,6 +1869,10 @@
               <select id="bankImportAccountCode"></select>
             </div>
             <div class="form-group">
+              <label for="bankImportFinancialYear">Financial Year</label>
+              <select id="bankImportFinancialYear"></select>
+            </div>
+            <div class="form-group">
               <label>&nbsp;</label>
               <button class="btn btn-secondary" type="button" onclick="downloadBankImportTemplate()">Download Template</button>
             </div>
@@ -2009,8 +2013,9 @@
 
     function loadBankImportAccounts() {
       const status = document.getElementById('bankImportStatus');
-      if (bankImportAccounts.length) {
+      if (bankImportAccounts.length || bankImportYears.length) {
         fillSelectOptions('bankImportAccountCode', bankImportAccounts);
+        fillSelectOptions('bankImportFinancialYear', bankImportYears);
         return;
       }
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
@@ -2021,7 +2026,9 @@
       google.script.run
         .withSuccessHandler(function(data) {
           bankImportAccounts = (data && data.accounts) ? data.accounts : [];
+          bankImportYears = (data && data.financialYears) ? data.financialYears : [];
           fillSelectOptions('bankImportAccountCode', bankImportAccounts);
+          fillSelectOptions('bankImportFinancialYear', bankImportYears);
           if (status) status.textContent = '';
         })
         .withFailureHandler(function(error) {
@@ -2176,6 +2183,7 @@
       const body = rows.map(row => `
         <tr>
           <td data-label="Account_Code">${row.accountCode || ''}</td>
+          <td data-label="Financial_Year">${row.financialYear || ''}</td>
           <td data-label="Date">${row.date || ''}</td>
           <td data-label="${refLabel}">${row.ref || ''}</td>
           <td data-label="Description">${row.description || ''}</td>
@@ -2192,6 +2200,7 @@
             <thead>
               <tr>
                 <th>Account_Code</th>
+                <th>Financial_Year</th>
                 <th>Date</th>
                 <th>${refLabel}</th>
                 <th>Description</th>
@@ -2212,9 +2221,14 @@
         showBankImportAlert('Select a bank account before downloading.', 'error');
         return;
       }
+      const financialYear = document.getElementById('bankImportFinancialYear').value.trim();
+      if (!financialYear) {
+        showBankImportAlert('Select a financial year before downloading.', 'error');
+        return;
+      }
 
-      const headers = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref', 'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
-      const rows = [[accountCode, '', '', '', '', '', '', '', '']];
+      const headers = ['Account_Code', 'Financial_Year', 'Txn_Date', 'Value_Date', 'Bank_Ref', 'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
+      const rows = [[accountCode, financialYear, '', '', '', '', '', '', '', '']];
       const csv = [headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -2240,6 +2254,11 @@
         showBankImportAlert('Select a bank account before uploading.', 'error');
         return;
       }
+      const financialYear = document.getElementById('bankImportFinancialYear').value.trim();
+      if (!financialYear) {
+        showBankImportAlert('Select a financial year before uploading.', 'error');
+        return;
+      }
 
       const file = fileInput.files[0];
       const fileName = file.name.toLowerCase();
@@ -2257,7 +2276,7 @@
             showBankImportAlert('CSV file is empty.', 'error');
             return;
           }
-          applyBankStatementUpload(parsed.rows, accountCode);
+          applyBankStatementUpload(parsed.rows, accountCode, financialYear);
         } catch (error) {
           showBankImportAlert(error.message || 'Failed to read file.', 'error');
         }
@@ -2268,14 +2287,14 @@
       reader.readAsText(file);
     }
 
-    function applyBankStatementUpload(csvRows, selectedAccountCode) {
+    function applyBankStatementUpload(csvRows, selectedAccountCode, selectedFinancialYear) {
       const headerRow = csvRows[0].map(value => String(value || '').trim());
       const headerMap = {};
       headerRow.forEach((header, index) => {
         headerMap[header] = index;
       });
 
-      const requiredHeaders = ['Account_Code', 'Txn_Date', 'Value_Date', 'Bank_Ref', 'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
+      const requiredHeaders = ['Account_Code', 'Financial_Year', 'Txn_Date', 'Value_Date', 'Bank_Ref', 'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
       const missing = requiredHeaders.filter(header => headerMap[header] === undefined);
       if (missing.length) {
         showBankImportAlert('Missing headers: ' + missing.join(', '), 'error');
@@ -2290,6 +2309,7 @@
         if (!row || !row.length) continue;
 
         const accountCodeValue = String(row[headerMap.Account_Code] || '').trim() || selectedAccountCode;
+        const yearValue = String(row[headerMap.Financial_Year] || '').trim() || selectedFinancialYear;
         const txnDateRaw = row[headerMap.Txn_Date];
         const valueDateRaw = row[headerMap.Value_Date];
         const bankRef = String(row[headerMap.Bank_Ref] || '').trim();
@@ -2305,6 +2325,10 @@
 
         if (!accountCodeValue || accountCodeValue !== selectedAccountCode) {
           invalidRows.push('Row ' + (i + 1) + ': account code mismatch.');
+          continue;
+        }
+        if (!yearValue || yearValue !== selectedFinancialYear) {
+          invalidRows.push('Row ' + (i + 1) + ': financial year mismatch.');
           continue;
         }
         if (!description) {
@@ -2327,6 +2351,7 @@
 
         entries.push({
           accountCode: accountCodeValue,
+          financialYear: yearValue,
           txnDate: txnDate,
           valueDate: normalizeBankImportDate(valueDateRaw),
           bankRef: bankRef,
@@ -2362,7 +2387,7 @@
         .withFailureHandler(function(error) {
           showBankImportAlert(error.message || 'Failed to upload bank statement.', 'error');
         })
-        .saveBankStatementUpload({ accountCode: selectedAccountCode, rows: entries });
+        .saveBankStatementUpload({ accountCode: selectedAccountCode, financialYear: selectedFinancialYear, rows: entries });
     }
 
     function normalizeBankImportDate(value) {
@@ -5009,6 +5034,7 @@
     let exportAccounts = [];
     let exportYears = [];
     let bankImportAccounts = [];
+    let bankImportYears = [];
     let reconAccounts = [];
     let reconYears = [];
     let reconPreviewData = null;
