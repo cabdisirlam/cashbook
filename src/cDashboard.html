@@ -74,13 +74,13 @@
 
     .sidebar {
       width: 240px;
-      background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 50%, #312e81 100%);
-      border-right: 2px solid #3730a3;
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border-right: 1px solid #334155;
       display: flex;
       flex-direction: column;
       position: fixed;
       height: 100vh;
-      box-shadow: 4px 0 24px -4px rgba(0, 0, 0, 0.3);
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
       z-index: 100;
     }
 
@@ -88,14 +88,13 @@
       padding: 14px 16px;
       font-weight: 700;
       font-size: 15px;
-      color: #ffffff;
+      color: #f1f5f9;
       letter-spacing: -0.02em;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid #334155;
       display: flex;
       align-items: center;
       gap: 10px;
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.2) 100%);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      background: #0f172a;
     }
 
     .sidebar-header::before {
@@ -121,14 +120,13 @@
       font-weight: 700;
       letter-spacing: 0.8px;
       text-transform: uppercase;
-      color: #93c5fd;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      color: #64748b;
     }
 
     .menu-item {
       margin: 0 10px 2px;
       padding: 8px 12px;
-      color: #e0f2fe;
+      color: #cbd5e1;
       cursor: pointer;
       transition: var(--transition);
       display: flex;
@@ -136,50 +134,46 @@
       gap: 10px;
       font-size: 13px;
       font-weight: 500;
-      border-radius: 8px;
+      border-radius: 6px;
       position: relative;
     }
 
     .menu-item:hover {
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.4) 0%, rgba(37, 99, 235, 0.3) 100%);
-      color: #ffffff;
-      transform: translateX(4px);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      background: rgba(51, 65, 85, 0.6);
+      color: #f1f5f9;
+      transform: translateX(2px);
     }
 
     .menu-item.active {
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      color: #ffffff;
+      background: rgba(37, 99, 235, 0.15);
+      color: #3b82f6;
       font-weight: 600;
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+      border-left: 3px solid #3b82f6;
     }
 
     .menu-item.active::before {
       content: "";
       position: absolute;
-      left: 0;
+      left: -10px;
       top: 50%;
       transform: translateY(-50%);
-      width: 4px;
+      width: 3px;
       height: 70%;
-      background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-      border-radius: 0 4px 4px 0;
-      box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+      background: #3b82f6;
+      border-radius: 0 2px 2px 0;
     }
 
     .menu-item-icon {
       font-size: 14px;
       width: 16px;
       text-align: center;
-      color: #93c5fd;
+      color: #94a3b8;
       transition: var(--transition);
     }
 
     .menu-item:hover .menu-item-icon,
     .menu-item.active .menu-item-icon {
-      color: #ffffff;
-      transform: scale(1.15);
-      filter: drop-shadow(0 2px 4px rgba(255, 255, 255, 0.3));
+      color: #3b82f6;
     }
 
     .main {
@@ -1126,84 +1120,7 @@
     <div class="sidebar">
       <div class="sidebar-header">Financial System</div>
       <div class="menu-container">
-        <div class="menu-section">
-          <div class="menu-item active" data-label="Dashboard" onclick="navigateTo(this, 'Dashboard')">
-            <span class="menu-item-icon">-</span>
-            <span>Dashboard</span>
-          </div>
-        </div>
-
-        <div class="menu-section">
-          <div class="menu-section-title">Transactions</div>
-          <div class="menu-item" data-role="admin,inputter" data-label="New Payment" onclick="navigateTo(this, 'New Payment')">
-            <span class="menu-item-icon">+</span>
-            <span>New Payment</span>
-          </div>
-          <div class="menu-item" data-role="admin,inputter" data-label="New Receipt" onclick="navigateTo(this, 'New Receipt')">
-            <span class="menu-item-icon">+</span>
-            <span>New Receipt</span>
-          </div>
-          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Search / Edit" onclick="navigateTo(this, 'Search / Edit')">
-            <span class="menu-item-icon">-</span>
-            <span>Search / Edit</span>
-          </div>
-          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Add/Edit Budget" onclick="navigateTo(this, 'Add/Edit Budget')">
-            <span class="menu-item-icon">-</span>
-            <span>Add/Edit Budget</span>
-          </div>
-        </div>
-
-        <div class="menu-section">
-          <div class="menu-section-title">Banking</div>
-          <div class="menu-item" data-role="admin,inputter" data-label="Import Statement" onclick="navigateTo(this, 'Import Statement')">
-            <span class="menu-item-icon">-</span>
-            <span>Import Statement</span>
-          </div>
-          <div class="menu-item" data-role="admin,inputter" data-label="Reconciliation" onclick="navigateTo(this, 'Reconciliation')">
-            <span class="menu-item-icon">-</span>
-            <span>Reconciliation</span>
-          </div>
-        </div>
-
-        <div class="menu-section">
-          <div class="menu-section-title">Reports</div>
-          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Performance" onclick="navigateTo(this, 'Performance')">
-            <span class="menu-item-icon">-</span>
-            <span>Performance</span>
-          </div>
-          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Cash Flow" onclick="navigateTo(this, 'Cash Flow')">
-            <span class="menu-item-icon">-</span>
-            <span>Cash Flow</span>
-          </div>
-          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Position" onclick="navigateTo(this, 'Position')">
-            <span class="menu-item-icon">-</span>
-            <span>Position</span>
-          </div>
-          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Notes" onclick="navigateTo(this, 'Notes')">
-            <span class="menu-item-icon">-</span>
-            <span>Notes</span>
-          </div>
-          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Budget vs Actual" onclick="navigateTo(this, 'Budget vs Actual')">
-            <span class="menu-item-icon">-</span>
-            <span>Budget vs Actual</span>
-          </div>
-          <div class="menu-item" data-role="admin,inputter,viewer" data-label="Cash Book" onclick="navigateTo(this, 'Cash Book')">
-            <span class="menu-item-icon">-</span>
-            <span>Cash Book</span>
-          </div>
-        </div>
-
-        <div class="menu-section">
-          <div class="menu-section-title">Admin</div>
-          <div class="menu-item" data-role="admin" data-label="Users" onclick="navigateTo(this, 'Users')">
-            <span class="menu-item-icon">*</span>
-            <span>Users</span>
-          </div>
-          <div class="menu-item" data-role="admin" data-label="Settings" onclick="navigateTo(this, 'Settings')">
-            <span class="menu-item-icon">*</span>
-            <span>Settings</span>
-          </div>
-        </div>
+        <?!= include('dMenu'); ?>
       </div>
     </div>
 
