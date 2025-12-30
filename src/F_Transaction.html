@@ -253,50 +253,60 @@
 
   .split-table {
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
     font-size: 11px;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.08);
   }
 
   .split-table thead {
-    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-    font-weight: 600;
-    text-align: left;
+    display: none !important;
   }
 
-  .split-table th,
-  .split-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #f1f5f9;
-    vertical-align: middle;
+  .split-table,
+  .split-table tbody {
+    display: block !important;
+    width: 100%;
   }
 
-  .split-table th {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: #64748b;
-  }
-
-  .split-table tbody tr {
+  .split-table tr {
+    display: block !important;
+    width: 100%;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+    padding: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    border: 1px solid #bae6fd;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .split-table tbody tr:hover {
-    background: #f8fafc;
+  .split-table tr:hover {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    border-color: #7dd3fc;
+    transform: translateY(-2px);
   }
 
-  .split-table tbody tr:last-child td {
-    border-bottom: none;
+  .split-table td {
+    display: block !important;
+    width: 100%;
+    padding: 6px 0;
+    border: none;
+    text-align: left;
+  }
+
+  .split-table td:before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 9px;
+    color: #3b82f6;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
   }
 
   .split-table td .input-field {
     padding: 8px 10px;
     font-size: 12px;
+    width: 100%;
   }
 
   .table-actions {
@@ -443,45 +453,7 @@
       min-height: 44px;
     }
 
-    .split-table thead {
-      display: none !important;
-    }
-
-    .split-table,
-    .split-table tbody {
-      display: block !important;
-      width: 100%;
-    }
-
-    .split-table tr {
-      display: block !important;
-      width: 100%;
-      border-bottom: 2px solid #e2e8f0;
-      margin-bottom: 10px;
-      border-radius: 8px;
-      background: #fafbfc;
-      padding: 10px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-
-    .split-table td {
-      display: block !important;
-      width: 100%;
-      padding: 6px 0;
-      border: none;
-      text-align: left;
-    }
-
-    .split-table td:before {
-      content: attr(data-label);
-      font-weight: 600;
-      font-size: 10px;
-      color: #64748b;
-      text-transform: uppercase;
-      display: block;
-      margin-bottom: 4px;
-      letter-spacing: 0.03em;
-    }
+    /* Mobile-specific table styles removed - using card layout globally */
   }
 </style>
 

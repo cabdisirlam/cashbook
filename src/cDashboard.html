@@ -457,46 +457,60 @@
 
     .table {
       width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
       font-size: 11px;
-      background: #ffffff;
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      border: 1px solid #e2e8f0;
       margin-top: 6px;
     }
 
-    .table th,
-    .table td {
-      padding: 8px 10px;
-      border-bottom: 1px solid #f1f5f9;
-      text-align: left;
-      vertical-align: middle;
+    .table thead {
+      display: none !important;
     }
 
-    .table th {
-      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-      font-weight: 700;
-      color: var(--ink);
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border-bottom: 1px solid #e2e8f0;
+    .table,
+    .table tbody {
+      display: block !important;
+      width: 100%;
     }
 
-    .table tbody tr {
+    .table tr {
+      display: block !important;
+      width: 100%;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+      padding: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      border: 1px solid #bae6fd;
       transition: var(--transition);
     }
 
-    .table tbody tr:hover {
-      background: #fafbfc;
-      transform: scale(1.001);
+    .table tr:hover {
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+      border-color: #7dd3fc;
+      transform: translateY(-2px);
     }
 
-    .table tbody tr:last-child td {
-      border-bottom: none;
+    .table td {
+      display: block !important;
+      width: 100%;
+      padding: 6px 0;
+      border: none;
+      text-align: left;
+      font-size: 11px;
+    }
+
+    .table td:before {
+      content: attr(data-label);
+      font-weight: 700;
+      font-size: 9px;
+      color: #3b82f6;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    .table td:empty {
+      display: none;
     }
 
     .badge {
@@ -951,24 +965,7 @@
         grid-template-columns: 1fr;
       }
 
-      .table {
-        display: block;
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        margin-top: 12px;
-      }
-
-      .table thead,
-      .table tbody {
-        display: table;
-        width: 100%;
-      }
-
-      .table th,
-      .table td {
-        white-space: nowrap;
-      }
+      /* Table styles moved to global card layout */
 
       .mobile-results {
         display: block;
