@@ -251,62 +251,100 @@
     transform: translateY(-1px);
   }
 
+  /* Desktop: Normal table layout */
   .split-table {
     width: 100%;
-    font-size: 11px;
+    font-size: 12px;
+    border-collapse: collapse;
   }
 
   .split-table thead {
-    display: none !important;
+    background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
   }
 
-  .split-table,
-  .split-table tbody {
-    display: block !important;
-    width: 100%;
+  .split-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 11px;
+    color: #1e40af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #93c5fd;
   }
 
-  .split-table tr {
-    display: block !important;
-    width: 100%;
-    margin-bottom: 12px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
-    padding: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-    border: 1px solid #bae6fd;
+  .split-table tbody tr {
+    border-bottom: 1px solid #e0f2fe;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .split-table tr:hover {
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-    border-color: #7dd3fc;
-    transform: translateY(-2px);
+  .split-table tbody tr:hover {
+    background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
   }
 
   .split-table td {
-    display: block !important;
-    width: 100%;
-    padding: 6px 0;
-    border: none;
-    text-align: left;
-  }
-
-  .split-table td:before {
-    content: attr(data-label);
-    font-weight: 700;
-    font-size: 9px;
-    color: #3b82f6;
-    text-transform: uppercase;
-    display: block;
-    margin-bottom: 4px;
-    letter-spacing: 0.05em;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e0f2fe;
   }
 
   .split-table td .input-field {
     padding: 8px 10px;
     font-size: 12px;
     width: 100%;
+  }
+
+  /* Mobile: Card layout */
+  @media (max-width: 768px) {
+    .split-table thead {
+      display: none;
+    }
+
+    .split-table,
+    .split-table tbody {
+      display: block;
+      width: 100%;
+    }
+
+    .split-table tr {
+      display: block;
+      width: 100%;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+      padding: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      border: 1px solid #bae6fd;
+    }
+
+    .split-table tr:hover {
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+      border-color: #7dd3fc;
+      transform: translateY(-2px);
+    }
+
+    .split-table td {
+      display: block;
+      width: 100%;
+      padding: 6px 0;
+      border: none;
+      text-align: left;
+    }
+
+    .split-table td:before {
+      content: attr(data-label);
+      font-weight: 700;
+      font-size: 9px;
+      color: #3b82f6;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    .split-table td .input-field {
+      padding: 8px 10px;
+      font-size: 11px;
+    }
   }
 
   .table-actions {
