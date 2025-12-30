@@ -1111,6 +1111,46 @@ function getOriginalBudgetYears() {
 }
 
 /**
+ * Get original budget amounts for a financial year.
+ */
+function getOriginalBudgetByYear(financialYear) {
+  const year = String(financialYear || '').trim();
+  if (!year) return { amounts: {} };
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
+  if (!sheet) return { amounts: {} };
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return { amounts: {} };
+
+  const headerMap = _getBudgetHeaderMap(sheet);
+  _ensureBudgetHeaders(headerMap);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const amounts = {};
+  let firstDate = '';
+
+  data.forEach(row => {
+    const rowYear = String(row[headerMap.Financial_Year] || '').trim();
+    if (rowYear !== year) return;
+    const originalValue = row[headerMap.Original_Budget];
+    if (originalValue === '' || originalValue == null) return;
+    const particulars = String(row[headerMap.Particulars] || '').trim();
+    if (!particulars) return;
+    amounts[particulars] = Number(originalValue);
+    if (!firstDate) {
+      const dateValue = row[headerMap.Date];
+      if (dateValue instanceof Date) {
+        firstDate = Utilities.formatDate(dateValue, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      }
+    }
+  });
+
+  return { year: year, date: firstDate, amounts: amounts };
+}
+
+/**
  * Save original budget via bulk loader. Blocks if original budget exists for year.
  */
 function saveOriginalBudget(payload) {

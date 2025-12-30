@@ -1911,6 +1911,18 @@
       if (dateInput && !dateInput.value) {
         dateInput.value = new Date().toISOString().split('T')[0];
       }
+      const yearSelect = document.getElementById('bulkFinancialYear');
+      if (yearSelect && !yearSelect.dataset.bound) {
+        yearSelect.dataset.bound = '1';
+        yearSelect.addEventListener('change', function() {
+          const yearValue = yearSelect.value.trim();
+          if (yearValue) {
+            loadBudgetOriginalData(yearValue);
+          } else {
+            applyBudgetOriginalToTable('');
+          }
+        });
+      }
       loadBudgetCatalog();
       loadBudgetYears();
     }
@@ -2019,6 +2031,55 @@
           showBudgetAlert(error.message || 'Failed to load original budget years.', 'error');
         })
         .getOriginalBudgetYears();
+    }
+
+    function loadBudgetOriginalData(financialYear, callback) {
+      const yearValue = String(financialYear || '').trim();
+      if (!yearValue) {
+        applyBudgetOriginalToTable('');
+        if (callback) callback();
+        return;
+      }
+      if (budgetOriginalData[yearValue]) {
+        applyBudgetOriginalToTable(yearValue);
+        if (callback) callback();
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBudgetAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(payload) {
+          budgetOriginalData[yearValue] = payload || { amounts: {} };
+          applyBudgetOriginalToTable(yearValue);
+          if (callback) callback();
+        })
+        .withFailureHandler(function(error) {
+          showBudgetAlert(error.message || 'Failed to load original budget.', 'error');
+        })
+        .getOriginalBudgetByYear(yearValue);
+    }
+
+    function applyBudgetOriginalToTable(financialYear) {
+      const yearValue = String(financialYear || '').trim();
+      const payload = yearValue ? (budgetOriginalData[yearValue] || {}) : {};
+      const amounts = payload.amounts || {};
+      const dateValue = payload.date || '';
+      const dateInput = document.getElementById('bulkBudgetDate');
+      if (dateInput && dateValue) {
+        dateInput.value = dateValue;
+      }
+      budgetCatalog.forEach((item, index) => {
+        const input = document.getElementById(`bulkAmount_${index}`);
+        if (!input) return;
+        if (!yearValue) {
+          input.value = '';
+          return;
+        }
+        const amount = amounts[String(item.particulars || '').trim()];
+        input.value = amount == null ? '' : amount;
+      });
     }
 
     function applyBudgetYearRestrictions() {
@@ -2421,6 +2482,13 @@
           <tbody>${rows}</tbody>
         </table>
       `;
+
+      const yearValue = document.getElementById('bulkFinancialYear')?.value.trim() || '';
+      if (yearValue) {
+        loadBudgetOriginalData(yearValue);
+      } else {
+        applyBudgetOriginalToTable('');
+      }
     }
 
     function renderBudgetVsActualContent() {
@@ -4217,6 +4285,7 @@
     let budgetCatalog = [];
     let budgetYears = [];
     let budgetOriginalYears = [];
+    let budgetOriginalData = {};
     let currentUserRole = '';
     let exportAccounts = [];
     let exportYears = [];
