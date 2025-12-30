@@ -4864,38 +4864,21 @@
 
       const rows = results.map(item => `
         <tr>
-          <td>${item.date || ''}</td>
-          <td>${item.payee || ''}</td>
-          <td>${item.category || ''}</td>
-          <td>${item.particulars || ''}</td>
-          <td>${item.subCategory || ''}</td>
-          <td>${item.debit || ''}</td>
-          <td>${item.credit || ''}</td>
-          <td>${item.refNo || ''}</td>
-          <td>
+          <td data-label="Date">${item.date || ''}</td>
+          <td data-label="Payee">${item.payee || ''}</td>
+          <td data-label="Category">${item.category || ''}</td>
+          <td data-label="Particulars">${item.particulars || ''}</td>
+          <td data-label="Sub-Category">${item.subCategory || ''}</td>
+          <td data-label="Debit">${item.debit || ''}</td>
+          <td data-label="Credit">${item.credit || ''}</td>
+          <td data-label="Ref No">${item.refNo || ''}</td>
+          <td data-label="Action">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="btn btn-secondary edit-transaction-btn" data-row-id="${item.rowId}">Edit</button>
               <button class="btn btn-danger delete-transaction-btn" data-row-id="${item.rowId}">Delete</button>
             </div>
           </td>
         </tr>
-      `).join('');
-
-      const cards = results.map(item => `
-        <div class="result-card">
-          <div class="result-row"><span class="result-label">Date</span><span>${item.date || ''}</span></div>
-          <div class="result-row"><span class="result-label">Payee</span><span>${item.payee || ''}</span></div>
-          <div class="result-row"><span class="result-label">Category</span><span>${item.category || ''}</span></div>
-          <div class="result-row"><span class="result-label">Particulars</span><span>${item.particulars || ''}</span></div>
-          <div class="result-row"><span class="result-label">Sub-Category</span><span>${item.subCategory || ''}</span></div>
-          <div class="result-row"><span class="result-label">Debit</span><span>${item.debit || ''}</span></div>
-          <div class="result-row"><span class="result-label">Credit</span><span>${item.credit || ''}</span></div>
-          <div class="result-row"><span class="result-label">Ref No</span><span>${item.refNo || ''}</span></div>
-          <div class="result-actions">
-            <button class="btn btn-secondary edit-transaction-btn" data-row-id="${item.rowId}">Edit</button>
-            <button class="btn btn-danger delete-transaction-btn" data-row-id="${item.rowId}">Delete</button>
-          </div>
-        </div>
       `).join('');
 
       container.innerHTML = `
@@ -4915,7 +4898,6 @@
           </thead>
           <tbody>${rows}</tbody>
         </table>
-        <div class="mobile-results">${cards}</div>
       `;
 
       bindResultActions();
