@@ -2087,7 +2087,14 @@
         .withSuccessHandler(function(result) {
           reconPreviewData = result || null;
           renderReconciliationTables(reconPreviewData);
-          if (status) status.textContent = '';
+          if (status) {
+            const summary = result && result.summary ? result.summary : null;
+            if (summary) {
+              status.textContent = `Cashbook: ${summary.totalCashbook || 0} | Bank: ${summary.totalBank || 0} | Matched: ${summary.matched || 0}`;
+            } else {
+              status.textContent = '';
+            }
+          }
         })
         .withFailureHandler(function(error) {
           if (status) status.textContent = '';
@@ -2108,7 +2115,14 @@
         .withSuccessHandler(function(result) {
           reconPreviewData = result || null;
           renderReconciliationTables(reconPreviewData);
-          if (status) status.textContent = '';
+          if (status) {
+            const summary = result && result.summary ? result.summary : null;
+            if (summary) {
+              status.textContent = `Cashbook: ${summary.totalCashbook || 0} | Bank: ${summary.totalBank || 0} | Matched: ${summary.matched || 0}`;
+            } else {
+              status.textContent = '';
+            }
+          }
           if (result && result.matchedCount != null) {
             showReconAlert('Auto reconcile complete. Matched ' + result.matchedCount + ' rows.', 'success');
           }

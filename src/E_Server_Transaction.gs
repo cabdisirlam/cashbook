@@ -1992,7 +1992,12 @@ function _buildReconciliationResponse_(journalRows, bankRows, matchResult) {
     cashbookReceiptsNotInBank: cashbookReceipts,
     cashbookPaymentsNotInBank: cashbookPayments,
     bankReceiptsNotInCashbook: bankReceipts,
-    bankPaymentsNotInCashbook: bankPayments
+    bankPaymentsNotInCashbook: bankPayments,
+    summary: {
+      totalCashbook: journalRows.length,
+      totalBank: bankRows.length,
+      matched: matchResult.pairs.length
+    }
   };
 }
 
