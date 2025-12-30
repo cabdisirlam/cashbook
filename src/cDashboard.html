@@ -1233,6 +1233,16 @@
         return;
       }
 
+      if (label === 'Cash Flow') {
+        renderCashFlowContent();
+        return;
+      }
+
+      if (label === 'Position') {
+        renderPositionContent();
+        return;
+      }
+
       if (label === 'Add/Edit Budget') {
         renderBudgetManagerContent();
         return;
@@ -1240,6 +1250,11 @@
 
       if (label === 'Budget vs Actual') {
         renderBudgetVsActualContent();
+        return;
+      }
+
+      if (label === 'Performance') {
+        renderPerformanceContent();
         return;
       }
 
@@ -2441,22 +2456,1535 @@
       loadBudgetReportYears();
     }
 
+    function renderPerformanceContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="performanceAlert"></div>
+        ${renderSectionHero('Performance', 'Statement of financial performance drawn from notes.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Statement of Financial Performance</h2>
+              <p style="color:#6b7280;font-size:13px;">Select current and comparative financial years, then run the report.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderPerformanceContent()">Refresh</button>
+              <button class="btn btn-secondary" onclick="downloadPerformanceCsv()">Download CSV</button>
+              <button class="btn btn-secondary" onclick="downloadPerformanceXlsx()">Download XLSX</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="performanceCurrentYear">Current Financial Year</label>
+              <select id="performanceCurrentYear"></select>
+            </div>
+            <div class="form-group">
+              <label for="performanceComparativeYear">Comparative Financial Year</label>
+              <select id="performanceComparativeYear"></select>
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="refreshPerformanceReport()">Run</button>
+            </div>
+          </div>
+
+          <div id="performanceStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="performanceReport"></div>
+        </div>
+      `;
+
+      loadPerformanceYears();
+    }
+
+    function renderCashFlowContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="cashFlowAlert"></div>
+        ${renderSectionHero('Cash Flow', 'Statement of cash flows drawn from notes.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Statement of Cash Flows</h2>
+              <p style="color:#6b7280;font-size:13px;">Select current and comparative financial years, then run the report.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderCashFlowContent()">Refresh</button>
+              <button class="btn btn-secondary" onclick="downloadCashFlowCsv()">Download CSV</button>
+              <button class="btn btn-secondary" onclick="downloadCashFlowXlsx()">Download XLSX</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="cashFlowCurrentYear">Current Financial Year</label>
+              <select id="cashFlowCurrentYear"></select>
+            </div>
+            <div class="form-group">
+              <label for="cashFlowComparativeYear">Comparative Financial Year</label>
+              <select id="cashFlowComparativeYear"></select>
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="refreshCashFlowReport()">Run</button>
+            </div>
+          </div>
+
+          <div id="cashFlowStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="cashFlowReport"></div>
+        </div>
+      `;
+
+      loadCashFlowYears();
+    }
+
+    function renderPositionContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="positionAlert"></div>
+        ${renderSectionHero('Position', 'Statement of financial position drawn from notes.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Statement of Financial Position</h2>
+              <p style="color:#6b7280;font-size:13px;">Select current and comparative financial years, then run the report.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderPositionContent()">Refresh</button>
+              <button class="btn btn-secondary" onclick="downloadPositionCsv()">Download CSV</button>
+              <button class="btn btn-secondary" onclick="downloadPositionXlsx()">Download XLSX</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="positionCurrentYear">Current Financial Year</label>
+              <select id="positionCurrentYear"></select>
+            </div>
+            <div class="form-group">
+              <label for="positionComparativeYear">Comparative Financial Year</label>
+              <select id="positionComparativeYear"></select>
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="refreshPositionReport()">Run</button>
+            </div>
+          </div>
+
+          <div id="positionStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="positionReport"></div>
+        </div>
+      `;
+
+      loadPositionYears();
+    }
+
     function renderNotesContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
-        ${renderSectionHero('Notes', 'Capture working notes and audit follow-ups.')}
+        <div id="notesAlert"></div>
+        ${renderSectionHero('Notes', 'Review note disclosures by category with year comparisons.')}
         <div class="card">
           <div class="panel-header">
             <div>
               <h2 style="margin-bottom:4px;">Notes</h2>
-              <p style="color:#6b7280;font-size:13px;">Notes workspace will be added here.</p>
+              <p style="color:#6b7280;font-size:13px;">Select current and comparative financial years, then run the report.</p>
             </div>
             <div>
               <button class="btn btn-secondary" onclick="renderNotesContent()">Refresh</button>
+              <button class="btn btn-secondary" onclick="downloadNotesCsv()">Download CSV</button>
+              <button class="btn btn-secondary" onclick="downloadNotesXlsx()">Download XLSX</button>
             </div>
           </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="notesCurrentYear">Current Financial Year</label>
+              <select id="notesCurrentYear"></select>
+            </div>
+            <div class="form-group">
+              <label for="notesComparativeYear">Comparative Financial Year</label>
+              <select id="notesComparativeYear"></select>
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="refreshNotesReport()">Run</button>
+            </div>
+          </div>
+
+          <div id="notesStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="notesReport"></div>
         </div>
       `;
+
+      loadNotesYears();
+    }
+
+    function loadPerformanceYears() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showPerformanceAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const years = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptions('performanceCurrentYear', years);
+          fillSelectOptions('performanceComparativeYear', years);
+          if (years.length) {
+            const currentSelect = document.getElementById('performanceCurrentYear');
+            const comparativeSelect = document.getElementById('performanceComparativeYear');
+            if (currentSelect) currentSelect.value = years[years.length - 1];
+            if (comparativeSelect) {
+              comparativeSelect.value = years.length > 1 ? years[years.length - 2] : years[0];
+            }
+          }
+        })
+        .withFailureHandler(function(error) {
+          showPerformanceAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function loadCashFlowYears() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showCashFlowAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const years = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptions('cashFlowCurrentYear', years);
+          fillSelectOptions('cashFlowComparativeYear', years);
+          if (years.length) {
+            const currentSelect = document.getElementById('cashFlowCurrentYear');
+            const comparativeSelect = document.getElementById('cashFlowComparativeYear');
+            if (currentSelect) currentSelect.value = years[years.length - 1];
+            if (comparativeSelect) {
+              comparativeSelect.value = years.length > 1 ? years[years.length - 2] : years[0];
+            }
+          }
+        })
+        .withFailureHandler(function(error) {
+          showCashFlowAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function loadPositionYears() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showPositionAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const years = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptions('positionCurrentYear', years);
+          fillSelectOptions('positionComparativeYear', years);
+          if (years.length) {
+            const currentSelect = document.getElementById('positionCurrentYear');
+            const comparativeSelect = document.getElementById('positionComparativeYear');
+            if (currentSelect) currentSelect.value = years[years.length - 1];
+            if (comparativeSelect) {
+              comparativeSelect.value = years.length > 1 ? years[years.length - 2] : years[0];
+            }
+          }
+        })
+        .withFailureHandler(function(error) {
+          showPositionAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function refreshPerformanceReport() {
+      const currentYear = document.getElementById('performanceCurrentYear').value.trim();
+      const comparativeYear = document.getElementById('performanceComparativeYear').value.trim();
+      if (!currentYear) {
+        showPerformanceAlert('Select a current financial year.', 'error');
+        return;
+      }
+      if (!comparativeYear) {
+        showPerformanceAlert('Select a comparative financial year.', 'error');
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showPerformanceAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      const status = document.getElementById('performanceStatus');
+      if (status) status.textContent = 'Loading statement...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          lastPerformanceResult = result || {};
+          renderPerformanceReport(lastPerformanceResult);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showPerformanceAlert(error.message || 'Failed to load statement.', 'error');
+        })
+        .getPerformanceReport(currentYear, comparativeYear);
+
+      fireNotesCache(currentYear, comparativeYear);
+    }
+
+    function refreshCashFlowReport() {
+      const currentYear = document.getElementById('cashFlowCurrentYear').value.trim();
+      const comparativeYear = document.getElementById('cashFlowComparativeYear').value.trim();
+      if (!currentYear) {
+        showCashFlowAlert('Select a current financial year.', 'error');
+        return;
+      }
+      if (!comparativeYear) {
+        showCashFlowAlert('Select a comparative financial year.', 'error');
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showCashFlowAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      const status = document.getElementById('cashFlowStatus');
+      if (status) status.textContent = 'Loading statement...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          lastCashFlowResult = result || {};
+          renderCashFlowReport(lastCashFlowResult);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showCashFlowAlert(error.message || 'Failed to load statement.', 'error');
+        })
+        .getCashFlowReport(currentYear, comparativeYear);
+
+      fireNotesCache(currentYear, comparativeYear);
+    }
+
+    function refreshPositionReport() {
+      const currentYear = document.getElementById('positionCurrentYear').value.trim();
+      const comparativeYear = document.getElementById('positionComparativeYear').value.trim();
+      if (!currentYear) {
+        showPositionAlert('Select a current financial year.', 'error');
+        return;
+      }
+      if (!comparativeYear) {
+        showPositionAlert('Select a comparative financial year.', 'error');
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showPositionAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      const status = document.getElementById('positionStatus');
+      if (status) status.textContent = 'Loading statement...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          lastPositionResult = result || {};
+          renderPositionReport(lastPositionResult);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showPositionAlert(error.message || 'Failed to load statement.', 'error');
+        })
+        .getPositionReport(currentYear, comparativeYear);
+
+      fireNotesCache(currentYear, comparativeYear);
+    }
+
+    function renderPerformanceReport(result) {
+      const container = document.getElementById('performanceReport');
+      if (!container) return;
+
+      const revenueRows = (result.revenue && result.revenue.rows) ? result.revenue.rows : [];
+      const expenseRows = (result.expenses && result.expenses.rows) ? result.expenses.rows : [];
+      const otherRows = (result.other && result.other.rows) ? result.other.rows : [];
+
+      if (!revenueRows.length && !expenseRows.length && !otherRows.length) {
+        container.innerHTML = '<div class="card"><p>No performance data found for the selected years.</p></div>';
+        return;
+      }
+
+      const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
+      const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
+      const titleYear = result.currentYear || '';
+
+      let rows = '';
+
+      if (revenueRows.length) {
+        rows += `
+          <tr>
+            <td style="font-weight:700;">Revenue</td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        `;
+        revenueRows.forEach(row => {
+          rows += `
+            <tr>
+              <td>${row.description || ''}</td>
+              <td>${row.note || ''}</td>
+              <td>${formatPerformanceAmount(row.currentAmount)}</td>
+              <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+            </tr>
+          `;
+        });
+        rows += `
+          <tr>
+            <td><strong>Total Revenue</strong></td>
+            <td></td>
+            <td><strong>${formatPerformanceAmount(result.revenue.totalCurrent)}</strong></td>
+            <td><strong>${formatPerformanceAmount(result.revenue.totalComparative)}</strong></td>
+          </tr>
+        `;
+      }
+
+      if (expenseRows.length) {
+        rows += `
+          <tr>
+            <td style="font-weight:700;">Expenses</td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        `;
+        expenseRows.forEach(row => {
+          rows += `
+            <tr>
+              <td>${row.description || ''}</td>
+              <td>${row.note || ''}</td>
+              <td>${formatPerformanceAmount(row.currentAmount)}</td>
+              <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+            </tr>
+          `;
+        });
+        rows += `
+          <tr>
+            <td><strong>Total Expenses</strong></td>
+            <td></td>
+            <td><strong>${formatPerformanceAmount(result.expenses.totalCurrent)}</strong></td>
+            <td><strong>${formatPerformanceAmount(result.expenses.totalComparative)}</strong></td>
+          </tr>
+        `;
+      }
+
+      if (otherRows.length) {
+        rows += `
+          <tr>
+            <td style="font-weight:700;">Other gains/(losses)</td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        `;
+        otherRows.forEach(row => {
+          rows += `
+            <tr>
+              <td>${row.description || ''}</td>
+              <td>${row.note || ''}</td>
+              <td>${formatPerformanceAmount(row.currentAmount)}</td>
+              <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+            </tr>
+          `;
+        });
+      }
+
+      rows += `
+        <tr>
+          <td><strong>Surplus/Deficit</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.surplus ? result.surplus.current : 0)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.surplus ? result.surplus.comparative : 0)}</strong></td>
+        </tr>
+      `;
+
+      container.innerHTML = `
+        <div style="font-weight:700;margin-bottom:8px;">Statement of Financial Performance for the year ended ${titleYear}</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th rowspan="2" style="width:46%;">Description</th>
+              <th rowspan="2" style="width:10%;">Notes</th>
+              <th>${currentLabel}</th>
+              <th>${comparativeLabel}</th>
+            </tr>
+            <tr>
+              <th>Kshs</th>
+              <th>Kshs</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderCashFlowReport(result) {
+      const container = document.getElementById('cashFlowReport');
+      if (!container) return;
+
+      const operatingReceipts = (result.operating && result.operating.receipts) ? result.operating.receipts : [];
+      const operatingPayments = (result.operating && result.operating.payments) ? result.operating.payments : [];
+      const investingRows = (result.investing && result.investing.rows) ? result.investing.rows : [];
+      const financingRows = (result.financing && result.financing.rows) ? result.financing.rows : [];
+
+      if (!operatingReceipts.length && !operatingPayments.length && !investingRows.length && !financingRows.length) {
+        container.innerHTML = '<div class="card"><p>No cash flow data found for the selected years.</p></div>';
+        return;
+      }
+
+      const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
+      const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
+      const titleYear = result.currentYear || '';
+
+      let rows = '';
+
+      rows += `
+        <tr>
+          <td style="font-weight:700;">Cash flows from operating activities</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Receipts</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      `;
+
+      operatingReceipts.forEach(row => {
+        rows += `
+          <tr>
+            <td>${row.description || ''}</td>
+            <td>${row.note || ''}</td>
+            <td>${formatPerformanceAmount(row.currentAmount)}</td>
+            <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+          </tr>
+        `;
+      });
+
+      rows += `
+        <tr>
+          <td><strong>Total receipts</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.operating.totalReceipts)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.operating.totalReceiptsComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Payments</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      `;
+
+      operatingPayments.forEach(row => {
+        rows += `
+          <tr>
+            <td>${row.description || ''}</td>
+            <td>${row.note || ''}</td>
+            <td>${formatPerformanceAmount(row.currentAmount)}</td>
+            <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+          </tr>
+        `;
+      });
+
+      rows += `
+        <tr>
+          <td><strong>Total payments</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.operating.totalPayments)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.operating.totalPaymentsComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td><strong>Net cash flows from/(used in) operating activities</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.operating.netCurrent)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.operating.netComparative)}</strong></td>
+        </tr>
+      `;
+
+      if (investingRows.length) {
+        rows += `
+          <tr>
+            <td style="font-weight:700;">Cash flows from investing activities</td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        `;
+        investingRows.forEach(row => {
+          rows += `
+            <tr>
+              <td>${row.description || ''}</td>
+              <td>${row.note || ''}</td>
+              <td>${formatPerformanceAmount(row.currentAmount)}</td>
+              <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+            </tr>
+          `;
+        });
+        rows += `
+          <tr>
+            <td><strong>Net cash flows from/(used in) investing activities</strong></td>
+            <td></td>
+            <td><strong>${formatPerformanceAmount(result.investing.netCurrent)}</strong></td>
+            <td><strong>${formatPerformanceAmount(result.investing.netComparative)}</strong></td>
+          </tr>
+        `;
+      }
+
+      if (financingRows.length) {
+        rows += `
+          <tr>
+            <td style="font-weight:700;">Cash flows from financing activities</td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        `;
+        financingRows.forEach(row => {
+          rows += `
+            <tr>
+              <td>${row.description || ''}</td>
+              <td>${row.note || ''}</td>
+              <td>${formatPerformanceAmount(row.currentAmount)}</td>
+              <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+            </tr>
+          `;
+        });
+        rows += `
+          <tr>
+            <td><strong>Net cash flows from financing activities</strong></td>
+            <td></td>
+            <td><strong>${formatPerformanceAmount(result.financing.netCurrent)}</strong></td>
+            <td><strong>${formatPerformanceAmount(result.financing.netComparative)}</strong></td>
+          </tr>
+        `;
+      }
+
+      rows += `
+        <tr>
+          <td><strong>Net increase/(decrease) in cash & cash equivalents</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.netIncreaseCurrent)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.netIncreaseComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td>Cash and cash equivalents at 1 July</td>
+          <td>${result.cashNote || ''}</td>
+          <td>${formatPerformanceAmount(result.cashOpeningCurrent)}</td>
+          <td>${formatPerformanceAmount(result.cashOpeningComparative)}</td>
+        </tr>
+        <tr>
+          <td><strong>Cash and cash equivalents at year end</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.cashClosingCurrent)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.cashClosingComparative)}</strong></td>
+        </tr>
+      `;
+
+      container.innerHTML = `
+        <div style="font-weight:700;margin-bottom:8px;">Statement of Cash Flows for the year ended ${titleYear}</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th rowspan="2" style="width:46%;">Description</th>
+              <th rowspan="2" style="width:10%;">Notes</th>
+              <th>${currentLabel}</th>
+              <th>${comparativeLabel}</th>
+            </tr>
+            <tr>
+              <th>Kshs</th>
+              <th>Kshs</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderPositionReport(result) {
+      const container = document.getElementById('positionReport');
+      if (!container) return;
+
+      const assetsCurrent = (result.assets && result.assets.current) ? result.assets.current : [];
+      const assetsNonCurrent = (result.assets && result.assets.nonCurrent) ? result.assets.nonCurrent : [];
+      const liabilitiesCurrent = (result.liabilities && result.liabilities.current) ? result.liabilities.current : [];
+      const liabilitiesNonCurrent = (result.liabilities && result.liabilities.nonCurrent) ? result.liabilities.nonCurrent : [];
+      const equityRows = (result.equity && result.equity.rows) ? result.equity.rows : [];
+
+      if (!assetsCurrent.length && !assetsNonCurrent.length && !liabilitiesCurrent.length && !liabilitiesNonCurrent.length && !equityRows.length) {
+        container.innerHTML = '<div class="card"><p>No position data found for the selected years.</p></div>';
+        return;
+      }
+
+      const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
+      const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
+      const titleYear = result.currentYear || '';
+
+      let rows = '';
+
+      rows += `
+        <tr>
+          <td style="font-weight:700;">Assets</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Current Assets</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      `;
+
+      assetsCurrent.forEach(row => {
+        rows += `
+          <tr>
+            <td>${row.description || ''}</td>
+            <td>${row.note || ''}</td>
+            <td>${formatPerformanceAmount(row.currentAmount)}</td>
+            <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+          </tr>
+        `;
+      });
+
+      rows += `
+        <tr>
+          <td><strong>Total Current Assets</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.assets.totalCurrent)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.assets.totalCurrentComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Non-Current Assets</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      `;
+
+      assetsNonCurrent.forEach(row => {
+        rows += `
+          <tr>
+            <td>${row.description || ''}</td>
+            <td>${row.note || ''}</td>
+            <td>${formatPerformanceAmount(row.currentAmount)}</td>
+            <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+          </tr>
+        `;
+      });
+
+      rows += `
+        <tr>
+          <td><strong>Total Non-Current Assets</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.assets.totalNonCurrent)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.assets.totalNonCurrentComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td><strong>Total Assets (A)</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.assets.total)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.assets.totalComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Liabilities</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Current Liabilities</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      `;
+
+      liabilitiesCurrent.forEach(row => {
+        rows += `
+          <tr>
+            <td>${row.description || ''}</td>
+            <td>${row.note || ''}</td>
+            <td>${formatPerformanceAmount(row.currentAmount)}</td>
+            <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+          </tr>
+        `;
+      });
+
+      rows += `
+        <tr>
+          <td><strong>Total Current Liabilities</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.liabilities.totalCurrent)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.liabilities.totalCurrentComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Non-Current Liabilities</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      `;
+
+      liabilitiesNonCurrent.forEach(row => {
+        rows += `
+          <tr>
+            <td>${row.description || ''}</td>
+            <td>${row.note || ''}</td>
+            <td>${formatPerformanceAmount(row.currentAmount)}</td>
+            <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+          </tr>
+        `;
+      });
+
+      rows += `
+        <tr>
+          <td><strong>Total Non-Current Liabilities</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.liabilities.totalNonCurrent)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.liabilities.totalNonCurrentComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td><strong>Total Liabilities (B)</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.liabilities.total)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.liabilities.totalComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td><strong>Net Assets (A-B)</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.netAssets.current)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.netAssets.comparative)}</strong></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Net Assets</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      `;
+
+      equityRows.forEach(row => {
+        rows += `
+          <tr>
+            <td>${row.description || ''}</td>
+            <td>${row.note || ''}</td>
+            <td>${formatPerformanceAmount(row.currentAmount)}</td>
+            <td>${formatPerformanceAmount(row.comparativeAmount)}</td>
+          </tr>
+        `;
+      });
+
+      rows += `
+        <tr>
+          <td><strong>Total Net Assets</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.equity.total)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.equity.totalComparative)}</strong></td>
+        </tr>
+      `;
+
+      container.innerHTML = `
+        <div style="font-weight:700;margin-bottom:8px;">Statement of Financial Position as at ${titleYear}</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th rowspan="2" style="width:46%;">Description</th>
+              <th rowspan="2" style="width:10%;">Notes</th>
+              <th>${currentLabel}</th>
+              <th>${comparativeLabel}</th>
+            </tr>
+            <tr>
+              <th>Kshs</th>
+              <th>Kshs</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function formatPerformanceAmount(value) {
+      const amount = Number(value || 0);
+      if (!Number.isFinite(amount)) return '';
+      const formatted = Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return amount < 0 ? '(' + formatted + ')' : formatted;
+    }
+
+    function downloadRowsAsCsv(rows, filename) {
+      if (!rows || !rows.length) return;
+      const csv = rows.map(row => row.map(escapeCsv).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'report.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadRowsAsXlsx(rows, filename, sheetName) {
+      if (typeof XLSX === 'undefined') {
+        return false;
+      }
+      const worksheet = XLSX.utils.aoa_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName || 'Report');
+      XLSX.writeFile(workbook, filename || 'report.xlsx');
+      return true;
+    }
+
+    function buildNotesDownloadRows(result) {
+      const rows = [];
+      const categories = (result && result.categories) ? result.categories : [];
+      const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
+      const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
+
+      categories.forEach((category, index) => {
+        const noteNumber = index + 1;
+        rows.push([`${noteNumber}. ${category.category || ''}`, '', '']);
+        rows.push(['Description', currentLabel, comparativeLabel]);
+        (category.subCategories || []).forEach(sub => {
+          rows.push([sub.subCategory || '', '', '']);
+          (sub.items || []).forEach(item => {
+            rows.push([
+              item.particulars || '',
+              formatPerformanceAmount(item.currentAmount),
+              formatPerformanceAmount(item.comparativeAmount)
+            ]);
+          });
+        });
+        rows.push([
+          'Total',
+          formatPerformanceAmount(category.totalCurrent),
+          formatPerformanceAmount(category.totalComparative)
+        ]);
+        rows.push(['', '', '']);
+      });
+
+      return rows;
+    }
+
+    function buildPerformanceDownloadRows(result) {
+      const rows = [];
+      const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
+      const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
+      const titleYear = result.currentYear || '';
+      rows.push([`Statement of Financial Performance for the year ended ${titleYear}`]);
+      rows.push(['Description', 'Notes', currentLabel, comparativeLabel]);
+
+      const revenueRows = (result.revenue && result.revenue.rows) ? result.revenue.rows : [];
+      const expenseRows = (result.expenses && result.expenses.rows) ? result.expenses.rows : [];
+      const otherRows = (result.other && result.other.rows) ? result.other.rows : [];
+
+      if (revenueRows.length) {
+        rows.push(['Revenue', '', '', '']);
+        revenueRows.forEach(row => {
+          rows.push([
+            row.description || '',
+            row.note || '',
+            formatPerformanceAmount(row.currentAmount),
+            formatPerformanceAmount(row.comparativeAmount)
+          ]);
+        });
+        rows.push([
+          'Total Revenue',
+          '',
+          formatPerformanceAmount(result.revenue.totalCurrent),
+          formatPerformanceAmount(result.revenue.totalComparative)
+        ]);
+      }
+
+      if (expenseRows.length) {
+        rows.push(['Expenses', '', '', '']);
+        expenseRows.forEach(row => {
+          rows.push([
+            row.description || '',
+            row.note || '',
+            formatPerformanceAmount(row.currentAmount),
+            formatPerformanceAmount(row.comparativeAmount)
+          ]);
+        });
+        rows.push([
+          'Total Expenses',
+          '',
+          formatPerformanceAmount(result.expenses.totalCurrent),
+          formatPerformanceAmount(result.expenses.totalComparative)
+        ]);
+      }
+
+      if (otherRows.length) {
+        rows.push(['Other gains/(losses)', '', '', '']);
+        otherRows.forEach(row => {
+          rows.push([
+            row.description || '',
+            row.note || '',
+            formatPerformanceAmount(row.currentAmount),
+            formatPerformanceAmount(row.comparativeAmount)
+          ]);
+        });
+      }
+
+      rows.push([
+        'Surplus/Deficit',
+        '',
+        formatPerformanceAmount(result.surplus ? result.surplus.current : 0),
+        formatPerformanceAmount(result.surplus ? result.surplus.comparative : 0)
+      ]);
+
+      return rows;
+    }
+
+    function buildCashFlowDownloadRows(result) {
+      const rows = [];
+      const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
+      const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
+      const titleYear = result.currentYear || '';
+      rows.push([`Statement of Cash Flows for the year ended ${titleYear}`]);
+      rows.push(['Description', 'Notes', currentLabel, comparativeLabel]);
+
+      rows.push(['Cash flows from operating activities', '', '', '']);
+      rows.push(['Receipts', '', '', '']);
+      (result.operating && result.operating.receipts || []).forEach(row => {
+        rows.push([
+          row.description || '',
+          row.note || '',
+          formatPerformanceAmount(row.currentAmount),
+          formatPerformanceAmount(row.comparativeAmount)
+        ]);
+      });
+      rows.push([
+        'Total receipts',
+        '',
+        formatPerformanceAmount(result.operating ? result.operating.totalReceipts : 0),
+        formatPerformanceAmount(result.operating ? result.operating.totalReceiptsComparative : 0)
+      ]);
+      rows.push(['Payments', '', '', '']);
+      (result.operating && result.operating.payments || []).forEach(row => {
+        rows.push([
+          row.description || '',
+          row.note || '',
+          formatPerformanceAmount(row.currentAmount),
+          formatPerformanceAmount(row.comparativeAmount)
+        ]);
+      });
+      rows.push([
+        'Total payments',
+        '',
+        formatPerformanceAmount(result.operating ? result.operating.totalPayments : 0),
+        formatPerformanceAmount(result.operating ? result.operating.totalPaymentsComparative : 0)
+      ]);
+      rows.push([
+        'Net cash flows from/(used in) operating activities',
+        '',
+        formatPerformanceAmount(result.operating ? result.operating.netCurrent : 0),
+        formatPerformanceAmount(result.operating ? result.operating.netComparative : 0)
+      ]);
+
+      if (result.investing && result.investing.rows && result.investing.rows.length) {
+        rows.push(['Cash flows from investing activities', '', '', '']);
+        result.investing.rows.forEach(row => {
+          rows.push([
+            row.description || '',
+            row.note || '',
+            formatPerformanceAmount(row.currentAmount),
+            formatPerformanceAmount(row.comparativeAmount)
+          ]);
+        });
+        rows.push([
+          'Net cash flows from/(used in) investing activities',
+          '',
+          formatPerformanceAmount(result.investing.netCurrent),
+          formatPerformanceAmount(result.investing.netComparative)
+        ]);
+      }
+
+      if (result.financing && result.financing.rows && result.financing.rows.length) {
+        rows.push(['Cash flows from financing activities', '', '', '']);
+        result.financing.rows.forEach(row => {
+          rows.push([
+            row.description || '',
+            row.note || '',
+            formatPerformanceAmount(row.currentAmount),
+            formatPerformanceAmount(row.comparativeAmount)
+          ]);
+        });
+        rows.push([
+          'Net cash flows from financing activities',
+          '',
+          formatPerformanceAmount(result.financing.netCurrent),
+          formatPerformanceAmount(result.financing.netComparative)
+        ]);
+      }
+
+      rows.push([
+        'Net increase/(decrease) in cash & cash equivalents',
+        '',
+        formatPerformanceAmount(result.netIncreaseCurrent),
+        formatPerformanceAmount(result.netIncreaseComparative)
+      ]);
+      rows.push([
+        'Cash and cash equivalents at 1 July',
+        result.cashNote || '',
+        formatPerformanceAmount(result.cashOpeningCurrent),
+        formatPerformanceAmount(result.cashOpeningComparative)
+      ]);
+      rows.push([
+        'Cash and cash equivalents at year end',
+        '',
+        formatPerformanceAmount(result.cashClosingCurrent),
+        formatPerformanceAmount(result.cashClosingComparative)
+      ]);
+
+      return rows;
+    }
+
+    function buildPositionDownloadRows(result) {
+      const rows = [];
+      const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
+      const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
+      const titleYear = result.currentYear || '';
+      rows.push([`Statement of Financial Position as at ${titleYear}`]);
+      rows.push(['Description', 'Notes', currentLabel, comparativeLabel]);
+
+      rows.push(['Assets', '', '', '']);
+      rows.push(['Current Assets', '', '', '']);
+      (result.assets && result.assets.current || []).forEach(row => {
+        rows.push([
+          row.description || '',
+          row.note || '',
+          formatPerformanceAmount(row.currentAmount),
+          formatPerformanceAmount(row.comparativeAmount)
+        ]);
+      });
+      rows.push([
+        'Total Current Assets',
+        '',
+        formatPerformanceAmount(result.assets ? result.assets.totalCurrent : 0),
+        formatPerformanceAmount(result.assets ? result.assets.totalCurrentComparative : 0)
+      ]);
+      rows.push(['Non-Current Assets', '', '', '']);
+      (result.assets && result.assets.nonCurrent || []).forEach(row => {
+        rows.push([
+          row.description || '',
+          row.note || '',
+          formatPerformanceAmount(row.currentAmount),
+          formatPerformanceAmount(row.comparativeAmount)
+        ]);
+      });
+      rows.push([
+        'Total Non-Current Assets',
+        '',
+        formatPerformanceAmount(result.assets ? result.assets.totalNonCurrent : 0),
+        formatPerformanceAmount(result.assets ? result.assets.totalNonCurrentComparative : 0)
+      ]);
+      rows.push([
+        'Total Assets (A)',
+        '',
+        formatPerformanceAmount(result.assets ? result.assets.total : 0),
+        formatPerformanceAmount(result.assets ? result.assets.totalComparative : 0)
+      ]);
+
+      rows.push(['Liabilities', '', '', '']);
+      rows.push(['Current Liabilities', '', '', '']);
+      (result.liabilities && result.liabilities.current || []).forEach(row => {
+        rows.push([
+          row.description || '',
+          row.note || '',
+          formatPerformanceAmount(row.currentAmount),
+          formatPerformanceAmount(row.comparativeAmount)
+        ]);
+      });
+      rows.push([
+        'Total Current Liabilities',
+        '',
+        formatPerformanceAmount(result.liabilities ? result.liabilities.totalCurrent : 0),
+        formatPerformanceAmount(result.liabilities ? result.liabilities.totalCurrentComparative : 0)
+      ]);
+      rows.push(['Non-Current Liabilities', '', '', '']);
+      (result.liabilities && result.liabilities.nonCurrent || []).forEach(row => {
+        rows.push([
+          row.description || '',
+          row.note || '',
+          formatPerformanceAmount(row.currentAmount),
+          formatPerformanceAmount(row.comparativeAmount)
+        ]);
+      });
+      rows.push([
+        'Total Non-Current Liabilities',
+        '',
+        formatPerformanceAmount(result.liabilities ? result.liabilities.totalNonCurrent : 0),
+        formatPerformanceAmount(result.liabilities ? result.liabilities.totalNonCurrentComparative : 0)
+      ]);
+      rows.push([
+        'Total Liabilities (B)',
+        '',
+        formatPerformanceAmount(result.liabilities ? result.liabilities.total : 0),
+        formatPerformanceAmount(result.liabilities ? result.liabilities.totalComparative : 0)
+      ]);
+      rows.push([
+        'Net Assets (A-B)',
+        '',
+        formatPerformanceAmount(result.netAssets ? result.netAssets.current : 0),
+        formatPerformanceAmount(result.netAssets ? result.netAssets.comparative : 0)
+      ]);
+
+      rows.push(['Net Assets', '', '', '']);
+      (result.equity && result.equity.rows || []).forEach(row => {
+        rows.push([
+          row.description || '',
+          row.note || '',
+          formatPerformanceAmount(row.currentAmount),
+          formatPerformanceAmount(row.comparativeAmount)
+        ]);
+      });
+      rows.push([
+        'Total Net Assets',
+        '',
+        formatPerformanceAmount(result.equity ? result.equity.total : 0),
+        formatPerformanceAmount(result.equity ? result.equity.totalComparative : 0)
+      ]);
+
+      return rows;
+    }
+
+    function downloadNotesCsv() {
+      if (!lastNotesResult) {
+        showNotesAlert('Run the notes report first.', 'error');
+        return;
+      }
+      const rows = buildNotesDownloadRows(lastNotesResult);
+      downloadRowsAsCsv(rows, 'notes_report.csv');
+    }
+
+    function downloadNotesXlsx() {
+      if (!lastNotesResult) {
+        showNotesAlert('Run the notes report first.', 'error');
+        return;
+      }
+      const rows = buildNotesDownloadRows(lastNotesResult);
+      if (!downloadRowsAsXlsx(rows, 'notes_report.xlsx', 'Notes')) {
+        showNotesAlert('XLSX library not available. Use CSV download instead.', 'error');
+      }
+    }
+
+    function downloadPerformanceCsv() {
+      if (!lastPerformanceResult) {
+        showPerformanceAlert('Run the statement first.', 'error');
+        return;
+      }
+      const rows = buildPerformanceDownloadRows(lastPerformanceResult);
+      downloadRowsAsCsv(rows, 'performance_report.csv');
+    }
+
+    function downloadPerformanceXlsx() {
+      if (!lastPerformanceResult) {
+        showPerformanceAlert('Run the statement first.', 'error');
+        return;
+      }
+      const rows = buildPerformanceDownloadRows(lastPerformanceResult);
+      if (!downloadRowsAsXlsx(rows, 'performance_report.xlsx', 'Performance')) {
+        showPerformanceAlert('XLSX library not available. Use CSV download instead.', 'error');
+      }
+    }
+
+    function downloadCashFlowCsv() {
+      if (!lastCashFlowResult) {
+        showCashFlowAlert('Run the statement first.', 'error');
+        return;
+      }
+      const rows = buildCashFlowDownloadRows(lastCashFlowResult);
+      downloadRowsAsCsv(rows, 'cash_flow_report.csv');
+    }
+
+    function downloadCashFlowXlsx() {
+      if (!lastCashFlowResult) {
+        showCashFlowAlert('Run the statement first.', 'error');
+        return;
+      }
+      const rows = buildCashFlowDownloadRows(lastCashFlowResult);
+      if (!downloadRowsAsXlsx(rows, 'cash_flow_report.xlsx', 'Cash Flow')) {
+        showCashFlowAlert('XLSX library not available. Use CSV download instead.', 'error');
+      }
+    }
+
+    function downloadPositionCsv() {
+      if (!lastPositionResult) {
+        showPositionAlert('Run the statement first.', 'error');
+        return;
+      }
+      const rows = buildPositionDownloadRows(lastPositionResult);
+      downloadRowsAsCsv(rows, 'position_report.csv');
+    }
+
+    function downloadPositionXlsx() {
+      if (!lastPositionResult) {
+        showPositionAlert('Run the statement first.', 'error');
+        return;
+      }
+      const rows = buildPositionDownloadRows(lastPositionResult);
+      if (!downloadRowsAsXlsx(rows, 'position_report.xlsx', 'Position')) {
+        showPositionAlert('XLSX library not available. Use CSV download instead.', 'error');
+      }
+    }
+
+    function showPerformanceAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('performanceAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function showCashFlowAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('cashFlowAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function showPositionAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('positionAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function loadNotesYears() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showNotesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const years = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptions('notesCurrentYear', years);
+          fillSelectOptions('notesComparativeYear', years);
+          if (years.length) {
+            const currentSelect = document.getElementById('notesCurrentYear');
+            const comparativeSelect = document.getElementById('notesComparativeYear');
+            if (currentSelect) currentSelect.value = years[years.length - 1];
+            if (comparativeSelect) {
+              comparativeSelect.value = years.length > 1 ? years[years.length - 2] : years[0];
+            }
+          }
+        })
+        .withFailureHandler(function(error) {
+          showNotesAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function refreshNotesReport() {
+      const currentYear = document.getElementById('notesCurrentYear').value.trim();
+      const comparativeYear = document.getElementById('notesComparativeYear').value.trim();
+      if (!currentYear) {
+        showNotesAlert('Select a current financial year.', 'error');
+        return;
+      }
+      if (!comparativeYear) {
+        showNotesAlert('Select a comparative financial year.', 'error');
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showNotesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      const status = document.getElementById('notesStatus');
+      if (status) status.textContent = 'Loading notes...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          lastNotesResult = result || { categories: [], currentYear: currentYear, comparativeYear: comparativeYear };
+          renderNotesReport(lastNotesResult);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showNotesAlert(error.message || 'Failed to load notes.', 'error');
+        })
+        .getNotesReport(currentYear, comparativeYear);
+    }
+
+    function fireNotesCache(currentYear, comparativeYear) {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          lastNotesResult = result || { categories: [], currentYear: currentYear, comparativeYear: comparativeYear };
+          const notesContainer = document.getElementById('notesReport');
+          if (notesContainer) {
+            renderNotesReport(lastNotesResult);
+          }
+        })
+        .getNotesReport(currentYear, comparativeYear);
+    }
+
+    function renderNotesReport(result) {
+      const container = document.getElementById('notesReport');
+      if (!container) return;
+
+      const categories = (result && result.categories) ? result.categories : [];
+      if (!categories.length) {
+        container.innerHTML = '<div class="card"><p>No notes found for the selected years.</p></div>';
+        return;
+      }
+
+      const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
+      const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
+
+      const notesHtml = categories.map(function(category, index) {
+        const noteNumber = index + 1;
+        const subRows = (category.subCategories || []).map(function(subCategory) {
+          const items = (subCategory.items || []).map(function(item) {
+            return `
+              <tr>
+                <td>${item.particulars || ''}</td>
+                <td>${formatAmount(item.currentAmount)}</td>
+                <td>${formatAmount(item.comparativeAmount)}</td>
+              </tr>
+            `;
+          }).join('');
+
+          return `
+            <tr>
+              <td colspan="3" style="font-weight:600;background:#f9fafb;">${subCategory.subCategory || ''}</td>
+            </tr>
+            ${items}
+          `;
+        }).join('');
+
+        return `
+          <div class="card" style="margin-bottom:16px;">
+            <div style="font-weight:700;margin-bottom:8px;">${noteNumber}. ${category.category || ''}</div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th rowspan="2" style="width:50%;">Description</th>
+                  <th>${currentLabel}</th>
+                  <th>${comparativeLabel}</th>
+                </tr>
+                <tr>
+                  <th>Kshs</th>
+                  <th>Kshs</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${subRows}
+                <tr>
+                  <td><strong>Total</strong></td>
+                  <td><strong>${formatAmount(category.totalCurrent)}</strong></td>
+                  <td><strong>${formatAmount(category.totalComparative)}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = notesHtml;
+    }
+
+    function showNotesAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('notesAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
     }
 
     function saveOriginalBudget() {
@@ -2676,6 +4204,10 @@
     let currentUserRole = '';
     let exportAccounts = [];
     let exportYears = [];
+    let lastNotesResult = null;
+    let lastPerformanceResult = null;
+    let lastCashFlowResult = null;
+    let lastPositionResult = null;
 
     function bindSearchHandlers() {
       ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchParticulars', 'searchPayee']

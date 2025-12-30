@@ -909,23 +909,23 @@ function getAccountType(category) {
 /**
  * Get sub-category, category, and account type for a particulars entry.
  * @param {string} particulars - The particulars to look up
- * @returns {Object} { subCategory, category, accountType }
+ * @returns {Object} { subCategory, category, accountType, reportMapping }
  */
 function getDetailsForParticulars(particulars) {
   try {
-    if (!particulars) return { subCategory: '', category: '', accountType: '' };
+    if (!particulars) return { subCategory: '', category: '', accountType: '', reportMapping: '' };
 
     const ss = _getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
 
     if (!sheet) {
       Logger.log('MASTER_DATA sheet not found');
-      return { subCategory: '', category: '', accountType: '' };
+      return { subCategory: '', category: '', accountType: '', reportMapping: '' };
     }
 
     const lastRow = sheet.getLastRow();
     const lastCol = sheet.getLastColumn();
-    if (lastRow <= 1 || lastCol < 1) return { subCategory: '', category: '', accountType: '' };
+    if (lastRow <= 1 || lastCol < 1) return { subCategory: '', category: '', accountType: '', reportMapping: '' };
 
     const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
       .map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_'));
@@ -933,24 +933,26 @@ function getDetailsForParticulars(particulars) {
     const subIndex = headers.indexOf('sub_category');
     const categoryIndex = headers.indexOf('category');
     const accountTypeIndex = headers.indexOf('account_type');
+    const reportIndex = headers.indexOf('report_mapping');
     if (particularsIndex < 0 || subIndex < 0 || categoryIndex < 0) {
-      return { subCategory: '', category: '', accountType: '' };
+      return { subCategory: '', category: '', accountType: '', reportMapping: '' };
     }
 
     const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
     const matchingRow = data.find(row => String(row[particularsIndex] || '').trim() === particulars);
     if (!matchingRow) {
-      return { subCategory: '', category: '', accountType: '' };
+      return { subCategory: '', category: '', accountType: '', reportMapping: '' };
     }
 
     return {
       subCategory: String(matchingRow[subIndex] || '').trim(),
       category: String(matchingRow[categoryIndex] || '').trim(),
-      accountType: accountTypeIndex >= 0 ? String(matchingRow[accountTypeIndex] || '').trim() : ''
+      accountType: accountTypeIndex >= 0 ? String(matchingRow[accountTypeIndex] || '').trim() : '',
+      reportMapping: reportIndex >= 0 ? String(matchingRow[reportIndex] || '').trim() : ''
     };
   } catch (error) {
     Logger.log('Error in getDetailsForParticulars: ' + error.toString());
-    return { subCategory: '', category: '', accountType: '' };
+    return { subCategory: '', category: '', accountType: '', reportMapping: '' };
   }
 }
 
