@@ -480,6 +480,7 @@
     particularMeta: {}
   };
   let transactionMode = 'Payment';
+  let allParticulars = [];
   let isSaving = false;
 
   function openPaymentModal() {
@@ -488,6 +489,7 @@
     document.getElementById('paymentModal').style.display = 'flex';
     setDefaultDate();
     loadDropdowns();
+    applyParticularFilter();
     if (!document.getElementById('splitBody').children.length) {
       addLine();
     }
@@ -499,6 +501,7 @@
     document.getElementById('paymentModal').style.display = 'flex';
     setDefaultDate();
     loadDropdowns();
+    applyParticularFilter();
     if (!document.getElementById('splitBody').children.length) {
       addLine();
     }
@@ -531,13 +534,14 @@
         paymentState.accounts = payload.accounts || [];
         paymentState.payees = payload.payees || [];
         paymentState.particulars = payload.particulars || [];
+        allParticulars = paymentState.particulars.slice();
         paymentState.subCats = payload.subCats || [];
         paymentState.subToCatMap = payload.subToCatMap || {};
         paymentState.particularMeta = payload.particularMeta || {};
 
         fillList('accountList', paymentState.accounts);
         fillList('payeeList', paymentState.payees);
-        fillList('particularList', paymentState.particulars);
+        applyParticularFilter();
         fillList('subCatList', paymentState.subCats);
         fillList('categoryList', payload.categories || []);
         fillList('financialYearList', payload.financialYears || []);
@@ -557,6 +561,20 @@
       option.value = item;
       list.appendChild(option);
     });
+  }
+
+  function applyParticularFilter() {
+    const filtered = (allParticulars || []).filter(function(particulars) {
+      const meta = paymentState.particularMeta[particulars] || {};
+      if (transactionMode === 'Receipt') {
+        return isOperatingIncomeParticular(meta);
+      }
+      if (transactionMode === 'Payment') {
+        return !isIncomeMappedParticular(meta);
+      }
+      return true;
+    });
+    fillList('particularList', filtered);
   }
 
   function addLine() {
@@ -583,6 +601,13 @@
         row.querySelector('.subcat-input').value = '';
         row.querySelector('.category-input').value = '';
         setStatus('Payments cannot use particulars mapped as operating income.');
+        return;
+      }
+      if (!isOperatingIncomeParticular(meta) && transactionMode === 'Receipt') {
+        this.value = '';
+        row.querySelector('.subcat-input').value = '';
+        row.querySelector('.category-input').value = '';
+        setStatus('Receipts can only use particulars mapped as operating income.');
         return;
       }
       row.querySelector('.subcat-input').value = meta.subCategory || '';
@@ -793,6 +818,11 @@
         hasInvalid = true;
         return;
       }
+      if (!isOperatingIncomeParticular(meta) && transactionMode === 'Receipt') {
+        setStatus('Receipts can only use particulars mapped as operating income.');
+        hasInvalid = true;
+        return;
+      }
 
       rows.push({
         particulars: particulars,
@@ -856,6 +886,11 @@
     if (reportMapping.includes('operating income')) return true;
     if (reportMapping === 'income' || reportMapping.includes('income')) return true;
     return false;
+  }
+
+  function isOperatingIncomeParticular(meta) {
+    const reportMapping = String(meta.reportMapping || '').toLowerCase();
+    return reportMapping.includes('operating income');
   }
 </script>
 <div class="submodal" id="addAccountModal">
