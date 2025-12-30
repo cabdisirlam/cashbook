@@ -1834,6 +1834,9 @@ function _collectReconciliationData_(criteria) {
     const typeInfo = _getReconType_(debit, credit);
     if (!typeInfo) return;
 
+    const particulars = journalCols.particulars ? String(row[journalCols.particulars - 1] || '').trim() : '';
+    if (String(particulars).toLowerCase() === 'accumulated fund') return;
+
     journalRows.push({
       rowIndex: rowIndex,
       accountCode: accountCode,
@@ -1950,9 +1953,7 @@ function _buildReconciliationResponse_(journalRows, bankRows, matchResult) {
 function _reconRowSummary_(row) {
   return {
     accountCode: row.accountCode || '',
-    date: row.date || '',
-    txnDate: row.txnDate || '',
-    valueDate: row.valueDate || '',
+    date: row.date || row.txnDate || '',
     description: row.description || '',
     ref: row.ref || '',
     debit: row.debit || 0,
@@ -1993,7 +1994,7 @@ function _getReconType_(debit, credit) {
 }
 
 function _isReconciled_(value) {
-  return String(value || '').toLowerCase().indexOf('reconciled') >= 0;
+  return String(value || '').trim().toLowerCase() === 'reconciled';
 }
 
 function _isWithinRange_(value, startDate, endDate) {

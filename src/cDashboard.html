@@ -1936,7 +1936,7 @@
           </div>
 
           <div id="reconStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
-          <div id="reconTables" style="display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));"></div>
+          <div id="reconTables" style="display:flex;flex-direction:column;gap:16px;"></div>
         </div>
       `;
 
@@ -2176,9 +2176,7 @@
       const body = rows.map(row => `
         <tr>
           <td data-label="Account_Code">${row.accountCode || ''}</td>
-          ${isBank
-            ? `<td data-label="Txn_Date">${row.txnDate || ''}</td><td data-label="Value_Date">${row.valueDate || ''}</td>`
-            : `<td data-label="Date">${row.date || ''}</td><td data-label="Date"></td>`}
+          <td data-label="Date">${row.date || ''}</td>
           <td data-label="${refLabel}">${row.ref || ''}</td>
           <td data-label="Description">${row.description || ''}</td>
           <td data-label="Debit">${formatAmount(row.debit)}</td>
@@ -2194,8 +2192,7 @@
             <thead>
               <tr>
                 <th>Account_Code</th>
-                <th>${isBank ? 'Txn_Date' : 'Date'}</th>
-                <th>${isBank ? 'Value_Date' : 'Date'}</th>
+                <th>Date</th>
                 <th>${refLabel}</th>
                 <th>Description</th>
                 <th>Debit</th>
