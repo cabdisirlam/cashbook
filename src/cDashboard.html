@@ -2382,6 +2382,15 @@
       google.script.run
         .withSuccessHandler(function(result) {
           const count = result && result.count ? result.count : 0;
+          const dupes = result && result.duplicateCount ? result.duplicateCount : 0;
+          if (count && dupes) {
+            showBankImportAlert('Saved ' + count + ' rows. ' + dupes + ' already uploaded.', 'success');
+            return;
+          }
+          if (!count && dupes) {
+            showBankImportAlert(dupes + ' rows already uploaded.', 'info');
+            return;
+          }
           showBankImportAlert('Bank statement uploaded (' + count + ' rows).', 'success');
         })
         .withFailureHandler(function(error) {

@@ -1567,8 +1567,23 @@ function saveBankStatementUpload(payload) {
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
   _requireBankHeaders_(headers);
   const headerMap = _getBankHeaderMap_(headers);
+  const lastRow = sheet.getLastRow();
+  const existingRefs = new Set();
+  if (lastRow > 1) {
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    data.forEach(function(row) {
+      const rowAccount = headerMap.accountCode ? String(row[headerMap.accountCode - 1] || '').trim() : '';
+      const rowYear = headerMap.financialYear ? String(row[headerMap.financialYear - 1] || '').trim() : '';
+      if (rowAccount !== accountCode || rowYear !== financialYear) return;
+      const refValue = headerMap.bankRef ? String(row[headerMap.bankRef - 1] || '').trim() : '';
+      if (!refValue) return;
+      existingRefs.add(refValue.toLowerCase());
+    });
+  }
 
   const output = [];
+  let duplicateCount = 0;
+  const incomingRefs = new Set();
   rows.forEach(function(item, index) {
     const rowIndex = index + 1;
     const rowAccount = String(item.accountCode || '').trim() || accountCode;
@@ -1591,11 +1606,18 @@ function saveBankStatementUpload(payload) {
     }
 
     const row = new Array(lastCol).fill('');
+    const bankRefValue = String(item.bankRef || '').trim();
+    const normalizedRef = bankRefValue ? bankRefValue.toLowerCase() : '';
+    if (normalizedRef && (existingRefs.has(normalizedRef) || incomingRefs.has(normalizedRef))) {
+      duplicateCount += 1;
+      return;
+    }
+    if (normalizedRef) incomingRefs.add(normalizedRef);
     _setIfPresent_(row, headerMap.accountCode, rowAccount);
     _setIfPresent_(row, headerMap.financialYear, rowYear);
     _setIfPresent_(row, headerMap.txnDate, txnDate);
     _setIfPresent_(row, headerMap.valueDate, valueDate);
-    _setIfPresent_(row, headerMap.bankRef, String(item.bankRef || '').trim());
+    _setIfPresent_(row, headerMap.bankRef, bankRefValue);
     _setIfPresent_(row, headerMap.description, description);
     _setIfPresent_(row, headerMap.debit, debit);
     _setIfPresent_(row, headerMap.credit, credit);
@@ -1604,11 +1626,14 @@ function saveBankStatementUpload(payload) {
     output.push(row);
   });
 
+  if (!output.length && duplicateCount) {
+    return { count: 0, duplicateCount: duplicateCount };
+  }
   if (!output.length) throw new Error('No valid rows to upload.');
 
   const startRow = sheet.getLastRow() + 1;
   sheet.getRange(startRow, 1, output.length, lastCol).setValues(output);
-  return { count: output.length };
+  return { count: output.length, duplicateCount: duplicateCount };
 }
 
 function addMasterItem(type, value, parent, accountType, reportMapping) {
