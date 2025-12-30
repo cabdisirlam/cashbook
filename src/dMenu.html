@@ -1,39 +1,42 @@
 <style>
   .menu-section {
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   }
 
   .menu-section-title {
-    padding: 10px 20px;
-    font-size: 11px;
-    letter-spacing: 1px;
+    padding: 6px 16px;
+    font-size: 9px;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
     color: #94a3b8;
+    font-weight: 700;
   }
 
   .menu-item {
-    padding: 10px 20px;
+    padding: 7px 16px;
     color: #cbd5f5;
     cursor: pointer;
-    transition: background 0.2s ease;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    border-left: 3px solid transparent;
+    gap: 8px;
+    font-size: 12px;
+    border-left: 2px solid transparent;
   }
 
   .menu-item:hover,
   .menu-item.active {
-    background: #1e293b;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, rgba(30, 41, 59, 0.8) 100%);
     color: #ffffff;
     border-left-color: #3b82f6;
+    transform: translateX(2px);
   }
 
   .menu-item-icon {
-    font-size: 12px;
-    width: 16px;
+    font-size: 10px;
+    width: 14px;
     text-align: center;
+    opacity: 0.7;
   }
 </style>
 

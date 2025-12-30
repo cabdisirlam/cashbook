@@ -41,16 +41,16 @@
 
   .modal-content {
     width: 90%;
-    max-width: 850px;
-    max-height: 90vh;
+    max-width: 720px;
+    max-height: 92vh;
     background: #ffffff;
-    border-radius: 20px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+    border-radius: 12px;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     border: 1px solid #e2e8f0;
-    margin: 20px;
+    margin: 12px;
   }
 
   .submodal {
@@ -76,26 +76,26 @@
 
   .submodal-card {
     width: 90%;
-    max-width: 420px;
+    max-width: 380px;
     background: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
-    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
     border: 1px solid #e2e8f0;
-    margin: 20px;
+    margin: 12px;
   }
 
   .submodal-header {
-    font-size: 20px;
-    font-weight: 800;
+    font-size: 15px;
+    font-weight: 700;
     color: #0f172a;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
   }
 
   .submodal-actions {
@@ -133,13 +133,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 22px 28px;
+    padding: 14px 18px;
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    border-bottom: 2px solid #e2e8f0;
-    font-size: 22px;
-    font-weight: 800;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 15px;
+    font-weight: 700;
     color: #0f172a;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
   }
 
   .close-btn {
@@ -164,21 +164,21 @@
   }
 
   .form-body {
-    padding: 24px 28px;
+    padding: 14px 18px;
   }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-    margin-bottom: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
   }
 
   .form-label {
     display: block;
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     color: #0f172a;
     letter-spacing: -0.01em;
   }
@@ -186,10 +186,10 @@
   .input-field,
   .input-field[readonly] {
     width: 100%;
-    border: 2px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 12px 16px;
-    font-size: 15px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
     font-family: inherit;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     background: #fafbfc;
@@ -245,11 +245,11 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 13px;
+    font-size: 11px;
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
+    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.08);
   }
 
   .split-table thead {
@@ -260,15 +260,15 @@
 
   .split-table th,
   .split-table td {
-    padding: 12px 14px;
+    padding: 8px 10px;
     border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
   }
 
   .split-table th {
-    font-size: 12px;
+    font-size: 9px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.03em;
     color: #64748b;
   }
 
@@ -297,15 +297,15 @@
 
   .btn {
     border: none;
-    border-radius: 10px;
-    padding: 12px 20px;
-    font-size: 14px;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     letter-spacing: -0.01em;
-    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 4px -1px rgba(0, 0, 0, 0.08);
   }
 
   .btn:hover {
@@ -355,21 +355,21 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 22px 28px;
-    border-top: 2px solid #e2e8f0;
+    padding: 14px 18px;
+    border-top: 1px solid #e2e8f0;
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   }
 
   .total-amount {
-    font-size: 24px;
-    font-weight: 800;
+    font-size: 16px;
+    font-weight: 700;
     color: #0f172a;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
   }
 
   .status-text {
-    padding: 8px 0 0;
-    font-size: 13px;
+    padding: 6px 0 0;
+    font-size: 11px;
     color: #64748b;
     font-weight: 500;
   }
