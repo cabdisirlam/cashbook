@@ -2667,11 +2667,11 @@
 
       const rows = budgetCatalog.map((item, index) => `
         <tr>
-          <td>${item.particulars || ''}</td>
-          <td>${item.subCategory || ''}</td>
-          <td>${item.category || ''}</td>
-          <td>${item.accountType || ''}</td>
-          <td>
+          <td data-label="Particulars">${item.particulars || ''}</td>
+          <td data-label="Sub-Category">${item.subCategory || ''}</td>
+          <td data-label="Category">${item.category || ''}</td>
+          <td data-label="Account Type">${item.accountType || ''}</td>
+          <td data-label="Original Budget">
             <input type="number" id="bulkAmount_${index}" step="0.01" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:12px;box-sizing:border-box;">
           </td>
         </tr>
