@@ -1102,7 +1102,9 @@ function getNotesReport(currentYear, comparativeYear) {
     'Cash and Cash Equivalent',
     'Non Current Assets',
     'Non-Current Assets',
-    'Liabilities'
+    'Assets',
+    'Liabilities',
+    'Liability'
   ];
   const orderMap = {};
   orderedCategories.forEach((name, index) => {
@@ -1110,16 +1112,22 @@ function getNotesReport(currentYear, comparativeYear) {
     if (!(normalized in orderMap)) orderMap[normalized] = index;
   });
 
+  const getCategoryOrder = (categoryName) => {
+    const key = String(categoryName || '').toLowerCase().replace(/[-\s]+/g, ' ').trim();
+    if (orderMap[key] != null) return orderMap[key];
+    if (key.includes('income') || key.includes('revenue')) return 0;
+    if (key.includes('expense')) return 1;
+    if (key.includes('asset')) return 2;
+    if (key.includes('liabil')) return 3;
+    return 99;
+  };
+
   results.sort((a, b) => {
     const aKey = String(a.category || '').toLowerCase().replace(/[-\s]+/g, ' ').trim();
     const bKey = String(b.category || '').toLowerCase().replace(/[-\s]+/g, ' ').trim();
-    const aOrder = orderMap[aKey];
-    const bOrder = orderMap[bKey];
-    const aHasOrder = Number.isFinite(aOrder);
-    const bHasOrder = Number.isFinite(bOrder);
-    if (aHasOrder && bHasOrder && aOrder !== bOrder) return aOrder - bOrder;
-    if (aHasOrder && !bHasOrder) return -1;
-    if (!aHasOrder && bHasOrder) return 1;
+    const aOrder = getCategoryOrder(aKey);
+    const bOrder = getCategoryOrder(bKey);
+    if (aOrder !== bOrder) return aOrder - bOrder;
     return String(a.category || '').localeCompare(String(b.category || ''));
   });
 
