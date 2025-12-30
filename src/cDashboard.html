@@ -2075,12 +2075,22 @@
       };
     }
 
+    function requireReconciliationCriteria() {
+      const criteria = getReconciliationCriteria();
+      if (!criteria.accountCode || !criteria.financialYear || !criteria.startDate || !criteria.endDate) {
+        showReconAlert('Select bank account, financial year, start date, and end date.', 'error');
+        return null;
+      }
+      return criteria;
+    }
+
     function loadReconciliationPreview() {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showReconAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      const criteria = getReconciliationCriteria();
+      const criteria = requireReconciliationCriteria();
+      if (!criteria) return;
       const status = document.getElementById('reconStatus');
       if (status) status.textContent = 'Loading reconciliation preview...';
       google.script.run
@@ -2108,7 +2118,8 @@
         showReconAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      const criteria = getReconciliationCriteria();
+      const criteria = requireReconciliationCriteria();
+      if (!criteria) return;
       const status = document.getElementById('reconStatus');
       if (status) status.textContent = 'Reconciling...';
       google.script.run
@@ -2139,7 +2150,8 @@
         showReconAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      const criteria = getReconciliationCriteria();
+      const criteria = requireReconciliationCriteria();
+      if (!criteria) return;
       const status = document.getElementById('reconStatus');
       if (status) status.textContent = 'Preparing export...';
       google.script.run

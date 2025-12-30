@@ -497,12 +497,14 @@ function exportJournal(criteria) {
 }
 
 function getReconciliationPreview(criteria) {
+  _requireReconCriteria_(criteria);
   const data = _collectReconciliationData_(criteria);
   const matchResult = _matchReconRows_(data.journalRows, data.bankRows);
   return _buildReconciliationResponse_(data.journalRows, data.bankRows, matchResult, true);
 }
 
 function autoReconcileBankStatements(criteria) {
+  _requireReconCriteria_(criteria);
   const data = _collectReconciliationData_(criteria);
   const matchResult = _matchReconRows_(data.journalRows, data.bankRows);
   if (matchResult.pairs.length) {
@@ -527,6 +529,7 @@ function autoReconcileBankStatements(criteria) {
 }
 
 function exportBankReconciliation(criteria) {
+  _requireReconCriteria_(criteria);
   const data = _collectReconciliationData_(criteria);
   const matchResult = _matchReconRows_(data.journalRows, data.bankRows);
 
@@ -585,6 +588,8 @@ function exportBankReconciliation(criteria) {
     cashbookReceipts: cashbookReceipts,
     totals: totals
   });
+  SpreadsheetApp.flush();
+  Utilities.sleep(100);
 
   const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   const exportUrl = 'https://www.googleapis.com/drive/v3/files/' + report.getId()
@@ -2059,6 +2064,17 @@ function _sumReconAmounts_(rows) {
     const amount = Number(row && row.amount || 0);
     return total + (Number.isFinite(amount) ? amount : 0);
   }, 0);
+}
+
+function _requireReconCriteria_(criteria) {
+  if (!criteria) throw new Error('Reconciliation filters are required.');
+  const accountCode = String(criteria.accountCode || '').trim();
+  const financialYear = String(criteria.financialYear || '').trim();
+  const startDate = String(criteria.startDate || '').trim();
+  const endDate = String(criteria.endDate || '').trim();
+  if (!accountCode || !financialYear || !startDate || !endDate) {
+    throw new Error('Select bank account, financial year, start date, and end date.');
+  }
 }
 
 function _sumReconDebitCredit_(rows) {
