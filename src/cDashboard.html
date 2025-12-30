@@ -1919,11 +1919,13 @@
 
         <div class="modal" id="budgetBulkModal">
           <div class="modal-card" style="max-width:900px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-              <h3 style="font-size:18px;font-weight:700;margin:0;">Original Input (Bulk Loader)</h3>
-              <button class="btn btn-secondary" onclick="closeBudgetBulkModal()" style="padding:6px 10px;font-size:12px;">Close</button>
-            </div>
+            <h3>Original Input (Bulk Loader)</h3>
+            <div style="overflow-y:auto;max-height:calc(85vh - 120px);">
+              <div style="display:flex;justify-content:flex-end;padding:8px 12px;border-bottom:1px solid #e2e8f0;">
+                <button class="btn btn-secondary" onclick="closeBudgetBulkModal()" style="padding:4px 8px;font-size:11px;">Close</button>
+              </div>
 
+            <div style="padding:12px;">
             <div class="form-row">
               <div class="form-group">
                 <label for="bulkFinancialYear">Financial Year</label>
@@ -1957,9 +1959,11 @@
               </div>
             </div>
 
-            <div id="bulkBudgetTable"></div>
+              <div id="bulkBudgetTable" style="padding:0 12px;"></div>
+            </div>
+            </div>
 
-            <div class="form-actions">
+            <div class="form-actions" style="padding:12px;border-top:1px solid #e2e8f0;background:#f8fafc;">
               <button class="btn btn-secondary" onclick="closeBudgetBulkModal()">Cancel</button>
               <button class="btn btn-primary" onclick="saveOriginalBudget()">Save Original Budget</button>
             </div>
