@@ -1041,7 +1041,40 @@ function getBudgetSubCategoryCatalog() {
       }
     });
 
-    return Array.from(catalogMap.values()).sort((a, b) => a.particulars.localeCompare(b.particulars));
+    const accountOrder = {
+      Income: 1,
+      Expense: 2,
+      Asset: 3,
+      'Capital Purchase': 3,
+      Capital: 3,
+      Liabilities: 4,
+      Liability: 4,
+      Equity: 5
+    };
+
+    const getOrder = (value) => {
+      const key = String(value || '').trim();
+      if (!key) return 99;
+      if (accountOrder[key] != null) return accountOrder[key];
+      const normalized = key.toLowerCase();
+      if (normalized.includes('income')) return 1;
+      if (normalized.includes('expense')) return 2;
+      if (normalized.includes('asset') || normalized.includes('capital')) return 3;
+      if (normalized.includes('liabil')) return 4;
+      if (normalized.includes('equity')) return 5;
+      return 99;
+    };
+
+    return Array.from(catalogMap.values()).sort((a, b) => {
+      const orderA = getOrder(a.accountType);
+      const orderB = getOrder(b.accountType);
+      if (orderA !== orderB) return orderA - orderB;
+      if (a.category === b.category) {
+        if (a.subCategory === b.subCategory) return a.particulars.localeCompare(b.particulars);
+        return a.subCategory.localeCompare(b.subCategory);
+      }
+      return a.category.localeCompare(b.category);
+    });
   } catch (error) {
     Logger.log('Error in getBudgetSubCategoryCatalog: ' + error.toString());
     return [];
