@@ -1094,39 +1094,33 @@ function getNotesReport(currentYear, comparativeYear) {
     });
   }
 
-  const orderedCategories = [
-    'Income',
-    'Expenses',
-    'Expense',
-    'Current Assets',
-    'Cash and Cash Equivalent',
-    'Non Current Assets',
-    'Non-Current Assets',
-    'Assets',
-    'Liabilities',
-    'Liability'
-  ];
-  const orderMap = {};
-  orderedCategories.forEach((name, index) => {
-    const normalized = String(name || '').toLowerCase().replace(/[-\s]+/g, ' ').trim();
-    if (!(normalized in orderMap)) orderMap[normalized] = index;
-  });
+  const getCategoryOrder = (item) => {
+    const name = String(item.category || '').toLowerCase();
+    const accountTypes = (item.accountTypes || []).map(value => String(value || '').toLowerCase());
+    const mappings = (item.reportMappings || []).map(value => String(value || '').toLowerCase());
 
-  const getCategoryOrder = (categoryName) => {
-    const key = String(categoryName || '').toLowerCase().replace(/[-\s]+/g, ' ').trim();
-    if (orderMap[key] != null) return orderMap[key];
-    if (key.includes('income') || key.includes('revenue')) return 0;
-    if (key.includes('expense')) return 1;
-    if (key.includes('asset')) return 2;
-    if (key.includes('liabil')) return 3;
+    if (name.includes('income') || name.includes('revenue') || accountTypes.some(v => v.includes('income')) || mappings.some(v => v.includes('operating income'))) {
+      return 0;
+    }
+    if (name.includes('expense') || accountTypes.some(v => v.includes('expense')) || mappings.some(v => v.includes('operating expense'))) {
+      return 1;
+    }
+    if (name.includes('cash and cash equivalent')) return 2;
+    if (name.includes('non current asset') || name.includes('non-current asset') || mappings.some(v => v.includes('non-current asset') || v.includes('non current asset'))) {
+      return 3;
+    }
+    if (name.includes('asset') || accountTypes.some(v => v.includes('asset')) || mappings.some(v => v.includes('current asset'))) {
+      return 4;
+    }
+    if (name.includes('liabil') || accountTypes.some(v => v.includes('liabil')) || mappings.some(v => v.includes('liability'))) {
+      return 5;
+    }
     return 99;
   };
 
   results.sort((a, b) => {
-    const aKey = String(a.category || '').toLowerCase().replace(/[-\s]+/g, ' ').trim();
-    const bKey = String(b.category || '').toLowerCase().replace(/[-\s]+/g, ' ').trim();
-    const aOrder = getCategoryOrder(aKey);
-    const bOrder = getCategoryOrder(bKey);
+    const aOrder = getCategoryOrder(a);
+    const bOrder = getCategoryOrder(b);
     if (aOrder !== bOrder) return aOrder - bOrder;
     return String(a.category || '').localeCompare(String(b.category || ''));
   });
