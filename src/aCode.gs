@@ -1047,6 +1047,35 @@ function getBudgetSubCategoryCatalog() {
 }
 
 /**
+ * Get financial years that already have original budgets.
+ */
+function getOriginalBudgetYears() {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
+  if (!sheet) return [];
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return [];
+
+  const headerMap = _getBudgetHeaderMap(sheet);
+  _ensureBudgetHeaders(headerMap);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const years = new Set();
+
+  data.forEach(row => {
+    const year = String(row[headerMap.Financial_Year] || '').trim();
+    const original = row[headerMap.Original_Budget];
+    const originalValue = String(original == null ? '' : original).trim();
+    if (year && originalValue !== '') {
+      years.add(year);
+    }
+  });
+
+  return Array.from(years).sort();
+}
+
+/**
  * Save original budget via bulk loader. Blocks if original budget exists for year.
  */
 function saveOriginalBudget(payload) {

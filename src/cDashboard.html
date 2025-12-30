@@ -1146,6 +1146,7 @@
           sessionStorage.removeItem('justLoggedIn');
           document.getElementById('userName').textContent = user.name;
           document.getElementById('userRole').textContent = user.role;
+          currentUserRole = user.role || '';
           initializeMenuForRole(user.role);
         })
         .withFailureHandler(function(error) {
@@ -1629,6 +1630,17 @@
             </div>
           </div>
 
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="exportAccountCode">Bank</label>
+              <select id="exportAccountCode"></select>
+            </div>
+            <div class="form-group">
+              <label for="exportFinancialYear">Financial Year</label>
+              <select id="exportFinancialYear"></select>
+            </div>
+          </div>
+
           <div class="form-actions" style="justify-content:flex-start;">
             <button class="btn btn-primary" onclick="exportJournal()">Export CSV</button>
           </div>
@@ -1636,6 +1648,7 @@
           <div id="exportStatus" style="color:#6b7280;font-size:12px;margin-top:10px;"></div>
         </div>
       `;
+      loadExportJournalFilters();
     }
 
     function exportJournal() {
@@ -1645,7 +1658,9 @@
 
       const criteria = {
         startDate: document.getElementById('exportStartDate').value,
-        endDate: document.getElementById('exportEndDate').value
+        endDate: document.getElementById('exportEndDate').value,
+        accountCode: document.getElementById('exportAccountCode') ? document.getElementById('exportAccountCode').value.trim() : '',
+        financialYear: document.getElementById('exportFinancialYear') ? document.getElementById('exportFinancialYear').value.trim() : ''
       };
 
       const status = document.getElementById('exportStatus');
@@ -1675,10 +1690,36 @@
         .exportJournal(criteria);
     }
 
+    function loadExportJournalFilters() {
+      const status = document.getElementById('exportStatus');
+      if (exportAccounts.length || exportYears.length) {
+        fillSelectOptionsWithDefault('exportAccountCode', exportAccounts, 'All banks');
+        fillSelectOptionsWithDefault('exportFinancialYear', exportYears, 'All years');
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return;
+      }
+      if (status) status.textContent = 'Loading filters...';
+      google.script.run
+        .withSuccessHandler(function(data) {
+          exportAccounts = (data && data.accounts) ? data.accounts : [];
+          exportYears = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptionsWithDefault('exportAccountCode', exportAccounts, 'All banks');
+          fillSelectOptionsWithDefault('exportFinancialYear', exportYears, 'All years');
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = error.message || 'Failed to load filters.';
+        })
+        .getDropdownData();
+    }
+
     function renderBudgetManagerContent() {
       const contentArea = document.getElementById('contentArea');
       budgetCatalog = [];
       budgetYears = [];
+      budgetOriginalYears = [];
       contentArea.innerHTML = `
         <div id="budgetAlert"></div>
         ${renderSectionHero('Budget', 'Upload original budgets and track adjustments with clear approvals.')}
@@ -1911,7 +1952,10 @@
     function loadBudgetYears(callback) {
       if (budgetYears.length) {
         fillYearSelects();
-        if (callback) callback();
+        loadBudgetOriginalYears(function() {
+          applyBudgetYearRestrictions();
+          if (callback) callback();
+        });
         return;
       }
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
@@ -1922,7 +1966,10 @@
         .withSuccessHandler(function(data) {
           budgetYears = (data && data.financialYears) ? data.financialYears : [];
           fillYearSelects();
-          if (callback) callback();
+          loadBudgetOriginalYears(function() {
+            applyBudgetYearRestrictions();
+            if (callback) callback();
+          });
         })
         .withFailureHandler(function(error) {
           showBudgetAlert(error.message || 'Failed to load financial years.', 'error');
@@ -1933,6 +1980,40 @@
     function fillYearSelects() {
       fillSelectOptions('bulkFinancialYear', budgetYears);
       fillSelectOptions('adjustFinancialYear', budgetYears);
+    }
+
+    function isAdminUser() {
+      return String(currentUserRole || '').toUpperCase() === 'ADMIN';
+    }
+
+    function loadBudgetOriginalYears(callback) {
+      if (budgetOriginalYears.length) {
+        if (callback) callback();
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showBudgetAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(years) {
+          budgetOriginalYears = Array.isArray(years) ? years : [];
+          if (callback) callback();
+        })
+        .withFailureHandler(function(error) {
+          showBudgetAlert(error.message || 'Failed to load original budget years.', 'error');
+        })
+        .getOriginalBudgetYears();
+    }
+
+    function applyBudgetYearRestrictions() {
+      if (isAdminUser()) return;
+      const select = document.getElementById('bulkFinancialYear');
+      if (!select || !budgetOriginalYears.length) return;
+      Array.from(select.options).forEach(option => {
+        if (!option.value) return;
+        option.disabled = budgetOriginalYears.includes(option.value);
+      });
     }
 
     function saveBudgetYear() {
@@ -2225,7 +2306,10 @@
 
       if (yearValues.size === 1) {
         const yearValue = Array.from(yearValues)[0];
-        if (budgetYears.includes(yearValue)) {
+        if (!isAdminUser() && budgetOriginalYears.includes(yearValue)) {
+          document.getElementById('bulkFinancialYear').value = '';
+          showBudgetAlert('Original budget already exists for ' + yearValue + '. Choose another year or contact admin.', 'error');
+        } else if (budgetYears.includes(yearValue)) {
           document.getElementById('bulkFinancialYear').value = yearValue;
         } else {
           document.getElementById('bulkFinancialYear').value = '';
@@ -2382,6 +2466,10 @@
         showBudgetAlert('Financial year is required.', 'error');
         return;
       }
+      if (!isAdminUser() && budgetOriginalYears.includes(financialYear)) {
+        showBudgetAlert('Original budget already exists for ' + financialYear + '. Choose another year or contact admin.', 'error');
+        return;
+      }
       if (!budgetDate) {
         showBudgetAlert('Budget date is required.', 'error');
         return;
@@ -2423,6 +2511,10 @@
       google.script.run
         .withSuccessHandler(function(result) {
           closeBudgetBulkModal();
+          if (financialYear && !budgetOriginalYears.includes(financialYear)) {
+            budgetOriginalYears.push(financialYear);
+            budgetOriginalYears.sort();
+          }
           showBudgetAlert('Original budget saved (' + (result ? result.count : 0) + ' rows).', 'success');
         })
         .withFailureHandler(function(error) {
@@ -2442,6 +2534,23 @@
       const select = document.getElementById(selectId);
       if (!select) return;
       select.innerHTML = '<option value="">Select...</option>';
+      values.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+    }
+
+    function fillSelectOptionsWithDefault(selectId, values, defaultLabel) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      select.innerHTML = '';
+      const baseLabel = defaultLabel || 'All';
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = baseLabel;
+      select.appendChild(defaultOption);
       values.forEach(value => {
         const option = document.createElement('option');
         option.value = value;
@@ -2563,6 +2672,10 @@
     let confirmAction = null;
     let budgetCatalog = [];
     let budgetYears = [];
+    let budgetOriginalYears = [];
+    let currentUserRole = '';
+    let exportAccounts = [];
+    let exportYears = [];
 
     function bindSearchHandlers() {
       ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchParticulars', 'searchPayee']

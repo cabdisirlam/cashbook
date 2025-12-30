@@ -450,14 +450,25 @@ function exportJournal(criteria) {
 
   const headerMap = headers.map(_normalizeHeader_);
   const dateIndex = headerMap.indexOf('date');
+  const yearIndex = headerMap.indexOf('financial_year');
+  const accountIndex = headerMap.indexOf('account_code');
 
   const filtered = data.filter(function(row) {
-    if (dateIndex < 0) return true;
-    const rowDate = row[dateIndex];
-    const dateValue = rowDate instanceof Date ? rowDate : _parseDate_(rowDate);
-    if (!dateValue) return true;
-    if (startDate && dateValue < startDate) return false;
-    if (endDate && dateValue > endDate) return false;
+    if (dateIndex >= 0) {
+      const rowDate = row[dateIndex];
+      const dateValue = rowDate instanceof Date ? rowDate : _parseDate_(rowDate);
+      if (!dateValue) return true;
+      if (startDate && dateValue < startDate) return false;
+      if (endDate && dateValue > endDate) return false;
+    }
+    if (accountIndex >= 0 && criteria && criteria.accountCode) {
+      const accountValue = String(row[accountIndex] || '').trim();
+      if (accountValue !== String(criteria.accountCode || '').trim()) return false;
+    }
+    if (yearIndex >= 0 && criteria && criteria.financialYear) {
+      const yearValue = String(row[yearIndex] || '').trim();
+      if (yearValue !== String(criteria.financialYear || '').trim()) return false;
+    }
     return true;
   });
 
