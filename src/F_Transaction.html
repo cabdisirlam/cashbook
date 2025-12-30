@@ -43,13 +43,13 @@
     width: 90%;
     max-width: 720px;
     max-height: 92vh;
-    background: #ffffff;
+    background: linear-gradient(to bottom, #dbeafe 0%, #ffffff 100%);
     border-radius: 12px;
     box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    border: 1px solid #e2e8f0;
+    border: 2px solid #93c5fd;
     margin: 12px;
   }
 
@@ -77,14 +77,14 @@
   .submodal-card {
     width: 90%;
     max-width: 380px;
-    background: #ffffff;
+    background: linear-gradient(to bottom, #e0f2fe 0%, #ffffff 100%);
     border-radius: 12px;
     box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    border: 1px solid #e2e8f0;
+    border: 2px solid #7dd3fc;
     margin: 12px;
   }
 
@@ -107,26 +107,31 @@
 
   .select-field {
     width: 100%;
-    border: 2px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 12px 14px;
-    font-size: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
     font-family: inherit;
-    background: #fafbfc;
+    background: #fef9c3;
     font-weight: 500;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .select-field:focus {
     outline: none;
-    border-color: #2563eb;
+    border-color: #3b82f6;
     background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
   }
 
   .select-field:hover {
-    border-color: #cbd5e1;
+    border-color: #3b82f6;
+    background: #fefce8;
+  }
+
+  .select-field:valid {
     background: #ffffff;
+    border-color: #10b981;
   }
 
   .form-header {
@@ -192,27 +197,32 @@
     font-size: 12px;
     font-family: inherit;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    background: #fafbfc;
+    background: #fef9c3;
     font-weight: 500;
   }
 
   .input-field:focus {
     outline: none;
-    border-color: #2563eb;
+    border-color: #3b82f6;
     background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
     transform: translateY(-1px);
   }
 
   .input-field:hover:not([readonly]) {
-    border-color: #cbd5e1;
+    border-color: #3b82f6;
+    background: #fefce8;
+  }
+
+  .input-field:valid {
     background: #ffffff;
+    border-color: #10b981;
   }
 
   .input-field[readonly] {
     background: #f1f5f9;
     color: #64748b;
-    border-color: #e2e8f0;
+    border-color: #cbd5e1;
   }
 
   .input-action {
