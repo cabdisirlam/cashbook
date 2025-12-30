@@ -2254,8 +2254,8 @@ function _writeReconPage2_(sheet, payload) {
 
   sheet.getRange('A1').setValue('F.O. 30').setFontWeight('bold');
   sheet.getRange('G1').setValue('Page 2 of 2').setHorizontalAlignment('right');
-  _mergeAndSet_(sheet, 'A2:H2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
-  _mergeAndSet_(sheet, 'A3:H3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
+  _mergeAndSet_(sheet, 'A2:G2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
+  _mergeAndSet_(sheet, 'A3:G3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
 
   const fromDate = _formatDate_(criteria.startDate);
   const toDate = _formatDate_(criteria.endDate);
