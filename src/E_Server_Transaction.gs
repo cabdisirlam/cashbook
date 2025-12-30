@@ -570,21 +570,15 @@ function exportBankReconciliation(criteria) {
 
   const reportName = 'Bank Reconciliation';
   const report = SpreadsheetApp.create(reportName);
-  const page1 = report.getActiveSheet();
-  page1.setName('Page 1');
-  const page2 = report.insertSheet('Page 2');
+  const sheet = report.getActiveSheet();
+  sheet.setName('Bank Reconciliation');
 
-  _writeReconPage1_(page1, {
+  _writeReconExportSheet_(sheet, {
     settings: settings,
     criteria: criteria,
     totals: totals,
     bankBalance: bankBalance,
-    cashbookBalance: cashbookBalance
-  });
-
-  _writeReconPage2_(page2, {
-    settings: settings,
-    criteria: criteria,
+    cashbookBalance: cashbookBalance,
     cashbookPayments: cashbookPayments,
     bankReceipts: bankReceipts,
     bankPayments: bankPayments,
@@ -2128,119 +2122,12 @@ function _getLatestBankBalance_(sheet, bankCols, criteria) {
   return Number(latestBalance || 0);
 }
 
-function _writeReconPage1_(sheet, payload) {
+function _writeReconExportSheet_(sheet, payload) {
   const settings = payload.settings || {};
   const criteria = payload.criteria || {};
   const totals = payload.totals || {};
   const bankBalance = Number(payload.bankBalance || 0);
   const cashbookBalance = Number(payload.cashbookBalance || 0);
-
-  sheet.clear();
-  sheet.setHiddenGridlines(true);
-  sheet.setColumnWidth(1, 70);
-  sheet.setColumnWidth(2, 110);
-  sheet.setColumnWidth(3, 110);
-  sheet.setColumnWidth(4, 110);
-  sheet.setColumnWidth(5, 110);
-  sheet.setColumnWidth(6, 110);
-  sheet.setColumnWidth(7, 130);
-  sheet.setColumnWidth(8, 130);
-
-  sheet.getRange('A1').setValue('F.O. 30').setFontWeight('bold');
-  _mergeAndSet_(sheet, 'A2:G2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
-  _mergeAndSet_(sheet, 'A3:G3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
-
-  const fromDate = _formatDate_(criteria.startDate);
-  const toDate = _formatDate_(criteria.endDate);
-  _mergeAndSet_(
-    sheet,
-    'A4:D4',
-    'From Date : ' + (fromDate || '') + ' To : ' + (toDate || ''),
-    { merge: true }
-  );
-  _mergeAndSet_(
-    sheet,
-    'E4:H4',
-    settings.entityName || '',
-    { merge: true, align: 'right' }
-  );
-
-  const bankLine = [
-    'Bank : ' + (settings.bankName || ''),
-    'Branch : ' + (settings.bankBranch || ''),
-    'Account Number : ' + (settings.bankAccountNumber || '')
-  ].join(' , ');
-  _mergeAndSet_(sheet, 'A5:H5', bankLine, { merge: true });
-
-  _mergeAndSet_(sheet, 'A7:F7', 'Balance as per bank certificate', { merge: true, border: true, bold: true });
-  _mergeAndSet_(sheet, 'G7:H7', bankBalance, { merge: true, border: true, align: 'right' })
-    .setNumberFormat('#,##0.00');
-
-  sheet.getRange('A8').setValue('Less --').setFontWeight('bold');
-  _mergeAndSet_(
-    sheet,
-    'B9:F9',
-    '1. Payments in Cash Book not yet recorded in Bank Statement (Unpresented Cheques)',
-    { merge: true, border: true }
-  );
-  _mergeAndSet_(sheet, 'G9:H9', totals.cashbookPayments || 0, { merge: true, border: true, align: 'right' })
-    .setNumberFormat('#,##0.00');
-
-  _mergeAndSet_(
-    sheet,
-    'B10:F10',
-    '2. Receipts in Bank Statement not yet recorded in Cash Book',
-    { merge: true, border: true }
-  );
-  _mergeAndSet_(sheet, 'G10:H10', totals.bankReceipts || 0, { merge: true, border: true, align: 'right' })
-    .setNumberFormat('#,##0.00');
-
-  sheet.getRange('A11').setValue('Add --').setFontWeight('bold');
-  _mergeAndSet_(
-    sheet,
-    'B12:F12',
-    '3. Payments in Bank Statement not yet recorded in Cash Book',
-    { merge: true, border: true }
-  );
-  _mergeAndSet_(sheet, 'G12:H12', totals.bankPayments || 0, { merge: true, border: true, align: 'right' })
-    .setNumberFormat('#,##0.00');
-
-  _mergeAndSet_(
-    sheet,
-    'B13:F13',
-    '4. Receipts in Cash Book not yet recorded in Bank Statement',
-    { merge: true, border: true }
-  );
-  _mergeAndSet_(sheet, 'G13:H13', totals.cashbookReceipts || 0, { merge: true, border: true, align: 'right' })
-    .setNumberFormat('#,##0.00');
-
-  _mergeAndSet_(sheet, 'A14:F14', 'Bank Balance as per Cash Book', { merge: true, border: true, bold: true });
-  _mergeAndSet_(sheet, 'G14:H14', cashbookBalance, { merge: true, border: true, align: 'right' })
-    .setNumberFormat('#,##0.00');
-
-  _mergeAndSet_(
-    sheet,
-    'A17:H17',
-    'Reconciled by : ............................ Signature: ............................ Date: ............................',
-    { merge: true }
-  );
-  _mergeAndSet_(
-    sheet,
-    'A19:H19',
-    'Reviewed by : .............................. Signature: ............................ Date: ............................',
-    { merge: true }
-  );
-  _mergeAndSet_(
-    sheet,
-    'A21:H21',
-    'Approved by : .............................. Signature: ............................ Date: ............................',
-    { merge: true }
-  );
-}
-
-function _writeReconPage2_(sheet, payload) {
-  const settings = payload.settings || {};
-  const criteria = payload.criteria || {};
 
   sheet.clear();
   sheet.setHiddenGridlines(true);
@@ -2253,7 +2140,6 @@ function _writeReconPage2_(sheet, payload) {
   sheet.setColumnWidth(7, 110);
 
   sheet.getRange('A1').setValue('F.O. 30').setFontWeight('bold');
-  sheet.getRange('G1').setValue('Page 2 of 2').setHorizontalAlignment('right');
   _mergeAndSet_(sheet, 'A2:G2', 'REPUBLIC OF KENYA', { bold: true, align: 'center', merge: true });
   _mergeAndSet_(sheet, 'A3:G3', 'BANK RECONCILIATION', { bold: true, align: 'center', merge: true });
 
@@ -2272,14 +2158,56 @@ function _writeReconPage2_(sheet, payload) {
     { merge: true, align: 'right' }
   );
 
-  const bankLine = [
-    'Bank : ' + (settings.bankName || ''),
-    'Branch : ' + (settings.bankBranch || ''),
-    'Account Number : ' + (settings.bankAccountNumber || '')
-  ].join(' , ');
-  _mergeAndSet_(sheet, 'A5:G5', bankLine, { merge: true });
+  const bankLabel = criteria.accountCode || settings.bankName || '';
+  _mergeAndSet_(sheet, 'A5:G5', 'Bank : ' + bankLabel, { merge: true });
 
-  let row = 7;
+  _mergeAndSet_(sheet, 'A7:F7', 'Balance as per bank certificate', { merge: true, border: true, bold: true });
+  _mergeAndSet_(sheet, 'G7:G7', bankBalance, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  sheet.getRange('A8').setValue('Less --').setFontWeight('bold');
+  _mergeAndSet_(
+    sheet,
+    'B9:F9',
+    '1. Payments in Cash Book not yet recorded in Bank Statement (Unpresented Cheques)',
+    { merge: true, border: true }
+  );
+  _mergeAndSet_(sheet, 'G9:G9', totals.cashbookPayments || 0, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  _mergeAndSet_(
+    sheet,
+    'B10:F10',
+    '2. Receipts in Bank Statement not yet recorded in Cash Book',
+    { merge: true, border: true }
+  );
+  _mergeAndSet_(sheet, 'G10:G10', totals.bankReceipts || 0, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  sheet.getRange('A11').setValue('Add --').setFontWeight('bold');
+  _mergeAndSet_(
+    sheet,
+    'B12:F12',
+    '3. Payments in Bank Statement not yet recorded in Cash Book',
+    { merge: true, border: true }
+  );
+  _mergeAndSet_(sheet, 'G12:G12', totals.bankPayments || 0, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  _mergeAndSet_(
+    sheet,
+    'B13:F13',
+    '4. Receipts in Cash Book not yet recorded in Bank Statement',
+    { merge: true, border: true }
+  );
+  _mergeAndSet_(sheet, 'G13:G13', totals.cashbookReceipts || 0, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  _mergeAndSet_(sheet, 'A14:F14', 'Bank Balance as per Cash Book', { merge: true, border: true, bold: true });
+  _mergeAndSet_(sheet, 'G14:G14', cashbookBalance, { merge: true, border: true, align: 'right' })
+    .setNumberFormat('#,##0.00');
+
+  let row = 17;
   row = _writeReconSection_(
     sheet,
     row,
@@ -2304,14 +2232,35 @@ function _writeReconPage2_(sheet, payload) {
     payload.bankPayments || []
   );
   row += 1;
-  _writeReconSection_(
+  row = _writeReconSection_(
     sheet,
     row,
     '4. RECEIPTS IN CASH BOOK NOT YET RECORDED IN BANK STATEMENT',
     'Ref_No',
     payload.cashbookReceipts || []
   );
+
+  const signaturesRow = row + 2;
+  _mergeAndSet_(
+    sheet,
+    'A' + signaturesRow + ':G' + signaturesRow,
+    'Reconciled by : ............................ Signature: ............................ Date: ............................',
+    { merge: true }
+  );
+  _mergeAndSet_(
+    sheet,
+    'A' + (signaturesRow + 2) + ':G' + (signaturesRow + 2),
+    'Reviewed by : .............................. Signature: ............................ Date: ............................',
+    { merge: true }
+  );
+  _mergeAndSet_(
+    sheet,
+    'A' + (signaturesRow + 4) + ':G' + (signaturesRow + 4),
+    'Approved by : .............................. Signature: ............................ Date: ............................',
+    { merge: true }
+  );
 }
+
 
 function _writeReconSection_(sheet, startRow, title, refLabel, rows) {
   const titleRange = sheet.getRange(startRow, 1, 1, 7);
