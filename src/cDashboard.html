@@ -5304,15 +5304,15 @@
 
       const rows = users.map(user => `
         <tr>
-          <td>${user.email}</td>
-          <td>${user.name}</td>
-          <td>${user.role}</td>
-          <td>
+          <td data-label="Email">${user.email}</td>
+          <td data-label="Name">${user.name}</td>
+          <td data-label="Role">${user.role}</td>
+          <td data-label="Status">
             <span class="badge ${user.status === 'Active' ? 'badge-active' : 'badge-inactive'}">
               ${user.status}
             </span>
           </td>
-          <td>
+          <td data-label="Actions">
             <button class="btn btn-secondary" onclick="openUserModal(${user.rowId})">Edit</button>
             <button class="btn btn-danger" onclick="deactivateUser(${user.rowId})">Deactivate</button>
           </td>
