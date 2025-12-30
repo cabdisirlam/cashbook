@@ -621,30 +621,44 @@
     }
 
     .modal-card {
-      background: linear-gradient(to bottom, #e0f2fe 0%, #ffffff 100%);
-      border-radius: 12px;
-      padding: 16px;
+      background: #ffffff;
+      border-radius: 4px;
+      padding: 0;
       width: 90%;
       max-width: 480px;
       max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
-      border: 2px solid #7dd3fc;
-      margin: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+      border: 1px solid #94a3b8;
+    }
+
+    .modal-card h3 {
+      background: linear-gradient(180deg, #336699 0%, #2d5a85 100%);
+      color: #ffffff;
+      padding: 8px 12px;
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+      border-bottom: 1px solid #1e3a5f;
+    }
+
+    .modal-card > div {
+      padding: 12px;
     }
 
     .confirm-modal-card {
-      background: linear-gradient(to bottom, #dbeafe 0%, #ffffff 100%);
-      border-radius: 12px;
-      padding: 16px;
+      background: #ffffff;
+      border-radius: 4px;
+      padding: 0;
       width: 90%;
       max-width: 400px;
-      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
-      border: 2px solid #93c5fd;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+      border: 1px solid #94a3b8;
+      overflow: hidden;
+    }
+
+    .confirm-modal-card > div {
+      padding: 12px;
     }
 
     .confirm-title {
@@ -667,55 +681,48 @@
     }
 
     .form-group {
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
     .form-group label {
       display: block;
       font-size: 11px;
       font-weight: 600;
-      margin-bottom: 4px;
-      color: var(--ink);
-      letter-spacing: -0.01em;
+      margin-bottom: 3px;
+      color: #334155;
+      letter-spacing: 0;
     }
 
     .form-group input,
     .form-group select {
       width: 100%;
-      padding: 8px 10px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      padding: 4px 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 2px;
       font-size: 12px;
       font-family: inherit;
-      transition: var(--transition);
-      background: #fef9c3;
-      font-weight: 500;
+      transition: all 0.15s ease;
+      background: #ffffff;
+      font-weight: 400;
     }
 
     .form-group input:focus,
     .form-group select:focus {
       outline: none;
-      border-color: #3b82f6;
-      background: #ffffff;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-      transform: translateY(-1px);
+      border-color: #60a5fa;
+      background: #eff6ff;
+      box-shadow: 0 0 0 1px #60a5fa;
     }
 
     .form-group input:hover,
     .form-group select:hover {
-      border-color: #3b82f6;
-      background: #fefce8;
-    }
-
-    .form-group input:valid,
-    .form-group select:valid {
-      background: #ffffff;
-      border-color: #10b981;
+      border-color: #94a3b8;
     }
 
     .form-group input[readonly] {
       background: #f1f5f9;
       border-color: #cbd5e1;
+      color: #64748b;
     }
 
     .form-actions {
