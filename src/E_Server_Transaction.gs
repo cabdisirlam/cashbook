@@ -2113,8 +2113,6 @@ function getReceivablePayableSummary(type, criteria) {
   const kind = String(type || '').toLowerCase();
   const isReceivable = kind.includes('receivable');
   const financialYear = String(criteria && criteria.financialYear || '').trim();
-  const startDate = _parseDate_(criteria && criteria.startDate);
-  const endDate = _parseDate_(criteria && criteria.endDate);
 
   const ss = _getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -2139,7 +2137,6 @@ function getReceivablePayableSummary(type, criteria) {
     const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
     const dateCell = cols.date ? row[cols.date - 1] : '';
     const rowDate = dateCell instanceof Date ? dateCell : _parseDate_(dateCell);
-    if (endDate && rowDate && rowDate > endDate) return;
 
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
@@ -2156,9 +2153,8 @@ function getReceivablePayableSummary(type, criteria) {
     const increase = isReceivable ? debit : credit;
     const decrease = isReceivable ? credit : debit;
 
-    const isBeforeStart = startDate && rowDate && rowDate < startDate;
     const isYearMatch = !financialYear || (rowYear && rowYear === financialYear);
-    const isOpening = isBeforeStart || (financialYear && !isYearMatch);
+    const isOpening = financialYear && !isYearMatch;
 
     if (!summaries[payee]) {
       summaries[payee] = { payee: payee, opening: 0, additions: 0, payments: 0, closing: 0 };
@@ -2178,6 +2174,100 @@ function getReceivablePayableSummary(type, criteria) {
     .sort((a, b) => String(a.payee || '').localeCompare(String(b.payee || '')));
 
   return { rows: rows };
+}
+
+function getReceivablePayableStatement(type, payeeName, criteria) {
+  const kind = String(type || '').toLowerCase();
+  const isReceivable = kind.includes('receivable');
+  const payee = String(payeeName || '').trim();
+  if (!payee) throw new Error('Payee is required.');
+  const financialYear = String(criteria && criteria.financialYear || '').trim();
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return { payee: payee, opening: 0, rows: [] };
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  let opening = 0;
+  const rows = [];
+
+  data.forEach(function(row, index) {
+    if (!cols.payee || !cols.particulars) return;
+    const rowPayee = String(row[cols.payee - 1] || '').trim();
+    if (rowPayee !== payee) return;
+    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+    if (accountCode) return;
+
+    const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
+    const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
+    const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
+    const mappingLower = reportMapping.toLowerCase();
+    const categoryLower = category.toLowerCase();
+    const matches = isReceivable
+      ? (mappingLower.includes('receivable') || categoryLower.includes('receivable'))
+      : (mappingLower.includes('payable') || categoryLower.includes('payable'));
+    if (!matches) return;
+
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+    const increase = isReceivable ? debit : credit;
+    const decrease = isReceivable ? credit : debit;
+
+    if (financialYear && rowYear !== financialYear) {
+      opening += increase - decrease;
+      return;
+    }
+
+    const dateCell = cols.date ? row[cols.date - 1] : '';
+    const rowDate = dateCell instanceof Date ? dateCell : _parseDate_(dateCell);
+    const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
+    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+    rows.push({
+      index: index,
+      dateValue: rowDate,
+      date: rowDate ? _formatDate_(rowDate) : '',
+      particulars: particulars,
+      narration: description,
+      debit: debit,
+      credit: credit,
+      increase: increase,
+      decrease: decrease
+    });
+  });
+
+  rows.sort((a, b) => {
+    const aTime = a.dateValue instanceof Date ? a.dateValue.getTime() : 0;
+    const bTime = b.dateValue instanceof Date ? b.dateValue.getTime() : 0;
+    if (aTime !== bTime) return aTime - bTime;
+    return a.index - b.index;
+  });
+
+  let balance = opening;
+  const finalRows = rows.map(row => {
+    balance += row.increase - row.decrease;
+    return {
+      date: row.date,
+      particulars: row.particulars,
+      narration: row.narration,
+      debit: row.debit,
+      credit: row.credit,
+      balance: balance
+    };
+  });
+
+  return {
+    payee: payee,
+    financialYear: financialYear,
+    opening: opening,
+    rows: finalRows
+  };
 }
 
 function saveBankStatementUpload(payload) {
@@ -2665,11 +2755,11 @@ function _roundAmount_(value) {
 function _getReconType_(debit, credit) {
   const debitValue = Number(debit || 0);
   const creditValue = Number(credit || 0);
-  if (creditValue > 0 && debitValue === 0) {
-    return { type: 'receipt', amount: creditValue };
-  }
   if (debitValue > 0 && creditValue === 0) {
-    return { type: 'payment', amount: debitValue };
+    return { type: 'receipt', amount: debitValue };
+  }
+  if (creditValue > 0 && debitValue === 0) {
+    return { type: 'payment', amount: creditValue };
   }
   return null;
 }

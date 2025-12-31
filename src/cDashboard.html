@@ -3555,14 +3555,6 @@
               <select id="receivablesFinancialYear"></select>
             </div>
             <div class="form-group">
-              <label for="receivablesStartDate">Start Date</label>
-              <input type="date" id="receivablesStartDate">
-            </div>
-            <div class="form-group">
-              <label for="receivablesEndDate">End Date</label>
-              <input type="date" id="receivablesEndDate">
-            </div>
-            <div class="form-group">
               <label>&nbsp;</label>
               <button class="btn btn-primary" onclick="refreshReceivablesStatements()">Run</button>
             </div>
@@ -3597,14 +3589,6 @@
             <div class="form-group">
               <label for="payablesFinancialYear">Financial Year</label>
               <select id="payablesFinancialYear"></select>
-            </div>
-            <div class="form-group">
-              <label for="payablesStartDate">Start Date</label>
-              <input type="date" id="payablesStartDate">
-            </div>
-            <div class="form-group">
-              <label for="payablesEndDate">End Date</label>
-              <input type="date" id="payablesEndDate">
             </div>
             <div class="form-group">
               <label>&nbsp;</label>
@@ -3931,8 +3915,6 @@
 
     function refreshReceivablesStatements() {
       const financialYear = document.getElementById('receivablesFinancialYear').value.trim();
-      const startDate = document.getElementById('receivablesStartDate').value;
-      const endDate = document.getElementById('receivablesEndDate').value;
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showReceivablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
@@ -3951,13 +3933,11 @@
           if (status) status.textContent = '';
           showReceivablesAlert(error.message || 'Failed to load statements.', 'error');
         })
-        .getReceivablePayableSummary('receivable', { financialYear: financialYear, startDate: startDate, endDate: endDate });
+        .getReceivablePayableSummary('receivable', { financialYear: financialYear });
     }
 
     function refreshPayablesStatements() {
       const financialYear = document.getElementById('payablesFinancialYear').value.trim();
-      const startDate = document.getElementById('payablesStartDate').value;
-      const endDate = document.getElementById('payablesEndDate').value;
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showPayablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
@@ -3976,7 +3956,7 @@
           if (status) status.textContent = '';
           showPayablesAlert(error.message || 'Failed to load statements.', 'error');
         })
-        .getReceivablePayableSummary('payable', { financialYear: financialYear, startDate: startDate, endDate: endDate });
+        .getReceivablePayableSummary('payable', { financialYear: financialYear });
     }
 
     function renderPerformanceReport(result) {
@@ -4726,81 +4706,116 @@
     }
 
     function printStatementRow(kind, payee) {
-      const data = getStatementRowData(kind, payee);
-      if (!data) {
-        showAlert('Statement not found for selected payee.', 'error');
-        return;
-      }
-      const title = kind === 'payable' ? 'Payables' : 'Receivables';
-      const content = `
-        <html>
-          <head>
-            <title>${title} Statement</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 20px; }
-              h2 { margin-bottom: 12px; }
-              table { width: 100%; border-collapse: collapse; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            </style>
-          </head>
-          <body>
-            <h2>${title} Statement - ${data.payee}</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Opening</th>
-                  <th>Additions</th>
-                  <th>Payments</th>
-                  <th>Closing</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>${formatPerformanceAmount(data.opening)}</td>
-                  <td>${formatPerformanceAmount(data.additions)}</td>
-                  <td>${formatPerformanceAmount(data.payments)}</td>
-                  <td>${formatPerformanceAmount(data.closing)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </body>
-        </html>
-      `;
-      const win = window.open('', '_blank', 'width=900,height=700');
-      if (win) {
-        win.document.write(content);
-        win.document.close();
-        win.focus();
-        win.print();
-      }
+      fetchStatementDetails(kind, payee, function(data) {
+        if (!data) {
+          showAlert('Statement not found for selected payee.', 'error');
+          return;
+        }
+        const title = kind === 'payable' ? 'Payables' : 'Receivables';
+        const rows = data.rows || [];
+        const tableRows = rows.map(row => `
+          <tr>
+            <td>${row.date || ''}</td>
+            <td>${escapeHtml(row.particulars || '')}</td>
+            <td>${escapeHtml(row.narration || '')}</td>
+            <td>${formatPerformanceAmount(row.debit)}</td>
+            <td>${formatPerformanceAmount(row.credit)}</td>
+            <td>${formatPerformanceAmount(row.balance)}</td>
+          </tr>
+        `).join('');
+
+        const content = `
+          <html>
+            <head>
+              <title>${title} Statement</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                h2 { margin-bottom: 12px; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              </style>
+            </head>
+            <body>
+              <h2>${title} Statement - ${escapeHtml(data.payee || '')}</h2>
+              <div style="margin-bottom:8px;">Opening Balance: ${formatPerformanceAmount(data.opening)}</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Particulars</th>
+                    <th>Narration</th>
+                    <th>Debit</th>
+                    <th>Credit</th>
+                    <th>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRows}
+                </tbody>
+              </table>
+            </body>
+          </html>
+        `;
+        const win = window.open('', '_blank', 'width=900,height=700');
+        if (win) {
+          win.document.write(content);
+          win.document.close();
+          win.focus();
+          win.print();
+        }
+      });
     }
 
     function downloadStatementRowCsv(kind, payee) {
-      const data = getStatementRowData(kind, payee);
-      if (!data) {
-        showAlert('Statement not found for selected payee.', 'error');
-        return;
-      }
-      const title = kind === 'payable' ? 'Payables' : 'Receivables';
-      const rows = [
-        [`${title} Statement - ${data.payee}`],
-        ['Opening', 'Additions', 'Payments', 'Closing'],
-        [
-          formatPerformanceAmount(data.opening),
-          formatPerformanceAmount(data.additions),
-          formatPerformanceAmount(data.payments),
-          formatPerformanceAmount(data.closing)
-        ]
-      ];
-      const safeName = String(data.payee || 'statement').replace(/[^\w\-]+/g, '_');
-      downloadRowsAsCsv(rows, `${title.toLowerCase()}_${safeName}.csv`);
+      fetchStatementDetails(kind, payee, function(data) {
+        if (!data) {
+          showAlert('Statement not found for selected payee.', 'error');
+          return;
+        }
+        const title = kind === 'payable' ? 'Payables' : 'Receivables';
+        const rows = [
+          [`${title} Statement - ${data.payee}`],
+          [`Opening Balance`, formatPerformanceAmount(data.opening)],
+          ['Date', 'Particulars', 'Narration', 'Debit', 'Credit', 'Balance']
+        ];
+        (data.rows || []).forEach(row => {
+          rows.push([
+            row.date || '',
+            row.particulars || '',
+            row.narration || '',
+            formatPerformanceAmount(row.debit),
+            formatPerformanceAmount(row.credit),
+            formatPerformanceAmount(row.balance)
+          ]);
+        });
+        const safeName = String(data.payee || 'statement').replace(/[^\w\-]+/g, '_');
+        downloadRowsAsCsv(rows, `${title.toLowerCase()}_${safeName}.csv`);
+      });
     }
 
-    function getStatementRowData(kind, payee) {
-      const list = kind === 'payable'
-        ? (lastPayablesResult && lastPayablesResult.rows ? lastPayablesResult.rows : [])
-        : (lastReceivablesResult && lastReceivablesResult.rows ? lastReceivablesResult.rows : []);
-      return list.find(row => row.payee === payee) || null;
+    function fetchStatementDetails(kind, payee, callback) {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      const financialYear = getStatementYear(kind);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (typeof callback === 'function') callback(result);
+        })
+        .withFailureHandler(function(error) {
+          showAlert(error.message || 'Failed to load statement details.', 'error');
+        })
+        .getReceivablePayableStatement(kind, payee, { financialYear: financialYear });
+    }
+
+    function getStatementYear(kind) {
+      if (kind === 'payable') {
+        const select = document.getElementById('payablesFinancialYear');
+        return select ? select.value.trim() : '';
+      }
+      const select = document.getElementById('receivablesFinancialYear');
+      return select ? select.value.trim() : '';
     }
 
     function downloadRowsAsCsv(rows, filename) {
