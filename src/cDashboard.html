@@ -889,24 +889,42 @@
       border: none;
       will-change: transform, opacity;
       transform: translateZ(0);
+      display: flex;
+      flex-direction: column;
     }
 
-    .modal-card h3 {
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    .modal-header {
+      background: linear-gradient(180deg, #336699 0%, #2d5a85 100%);
       color: #ffffff;
       padding: 14px 20px;
       margin: 0;
       font-size: 15px;
       font-weight: 700;
       letter-spacing: -0.01em;
-      border-bottom: none;
+      border-bottom: 1px solid #1e3a5f;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 10px;
     }
 
-    .modal-card > div {
-      padding: 20px;
+    .modal-body {
+      padding: 12px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-footer {
+      padding: 12px;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+
+    .modal-card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 8px;
+      color: var(--ink);
     }
 
     .confirm-modal-card {
@@ -924,6 +942,8 @@
       overflow: hidden;
       will-change: transform, opacity;
       transform: translateZ(0);
+      display: flex;
+      flex-direction: column;
     }
 
     .confirm-modal-card > div {
@@ -1217,7 +1237,7 @@
       .topbar {
         flex-wrap: wrap;
         gap: 12px;
-        padding: 12px 16px;
+        padding: 10px 12px;
       }
 
       .topbar-left {
@@ -1230,34 +1250,40 @@
       }
 
       .content {
-        padding: 16px;
+        padding: 12px;
       }
 
       .card {
-        padding: 16px;
+        padding: 12px;
         border-radius: 12px;
         margin-bottom: 16px;
       }
 
       .section-hero {
-        padding: 16px;
+        padding: 14px;
         flex-direction: column;
         align-items: flex-start;
         border-radius: 12px;
       }
 
       .section-hero__icon {
-        width: 44px;
-        height: 44px;
-        font-size: 18px;
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
       }
 
       .section-hero__title {
-        font-size: 18px;
+        font-size: 16px;
       }
 
       .card h2 {
-        font-size: 18px;
+        font-size: 16px;
+      }
+
+      .table th,
+      .table td {
+        padding: 6px 8px;
+        font-size: 10px;
       }
 
       .form-row {
@@ -1265,7 +1291,6 @@
         gap: 12px;
       }
 
-      /* Full-screen modals on mobile for better UX */
       .modal {
         padding: 0;
       }
@@ -1280,29 +1305,27 @@
         margin: 0;
       }
 
-      .modal-card h3 {
-        font-size: 16px;
-        padding: 16px;
-        position: sticky;
-        top: 0;
-        z-index: 10;
+      .modal-header {
+        padding: 8px 12px;
+        font-size: 13px;
       }
 
-      .modal-card > div,
+      .modal-body,
+      .modal-footer,
       .confirm-modal-card > div {
-        padding: 16px;
+        padding: 12px;
       }
 
       .btn {
-        padding: 12px 18px;
-        font-size: 15px;
-        min-height: 48px;
-        border-radius: 10px;
+        padding: 6px 10px;
+        font-size: 11px;
+        min-height: 32px;
+        border-radius: 8px;
       }
 
       .icon-btn {
-        padding: 12px 16px;
-        min-height: 48px;
+        padding: 6px 10px;
+        min-height: 32px;
       }
 
       .session-timer {
@@ -1329,11 +1352,11 @@
       }
 
       .panel-header h2 {
-        font-size: 17px;
+        font-size: 14px;
       }
 
       .panel-header p {
-        font-size: 13px;
+        font-size: 10px;
       }
 
       .panel-header > div:last-child {
@@ -1350,25 +1373,24 @@
       }
 
       .page-title {
-        font-size: 17px;
+        font-size: 14px;
       }
 
-      /* Form improvements for mobile */
       .form-group {
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .form-group label {
-        font-size: 13px;
+        font-size: 12px;
         margin-bottom: 6px;
       }
 
       .form-group input,
       .form-group select {
-        padding: 12px 14px;
-        font-size: 16px;
-        min-height: 48px;
-        border-radius: 10px;
+        padding: 6px 8px;
+        font-size: 12px;
+        min-height: 32px;
+        border-radius: 8px;
       }
 
       .form-actions {
@@ -1380,19 +1402,18 @@
         width: 100%;
       }
 
-      /* Table mobile improvements */
       .table td {
-        padding: 12px 14px;
-        font-size: 14px;
+        padding: 8px 10px;
+        font-size: 11px;
       }
 
       .table td:before {
-        font-size: 12px;
-        min-width: 100px;
+        font-size: 10px;
+        min-width: 90px;
       }
 
       .table input {
-        padding: 5px 6px;
+        padding: 4px 6px;
         font-size: 10px;
       }
     }
@@ -1458,44 +1479,49 @@
 
   <div class="modal" id="userModal">
     <div class="modal-card">
-      <h3 style="margin-bottom: 12px;">User Details</h3>
-      <form id="userForm" onsubmit="saveUser(event)">
-        <div class="form-group">
-          <label for="userEmail">Email</label>
-          <input type="email" id="userEmail" required>
-        </div>
-        <div class="form-row">
+      <div class="modal-header">
+        <span>User Details</span>
+        <button type="button" class="btn btn-secondary" onclick="closeUserModal()" style="padding:6px 10px;font-size:12px;">Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="userForm" onsubmit="saveUser(event)">
           <div class="form-group">
-            <label for="userNameInput">Name</label>
-            <input type="text" id="userNameInput" required>
+            <label for="userEmail">Email</label>
+            <input type="email" id="userEmail" required>
           </div>
-          <div class="form-group">
-            <label for="userRoleInput">Role</label>
-            <select id="userRoleInput" required>
-              <option value="ADMIN">ADMIN</option>
-              <option value="INPUTTER">INPUTTER</option>
-              <option value="VIEWER">VIEWER</option>
-            </select>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="userNameInput">Name</label>
+              <input type="text" id="userNameInput" required>
+            </div>
+            <div class="form-group">
+              <label for="userRoleInput">Role</label>
+              <select id="userRoleInput" required>
+                <option value="ADMIN">ADMIN</option>
+                <option value="INPUTTER">INPUTTER</option>
+                <option value="VIEWER">VIEWER</option>
+              </select>
+            </div>
           </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="userPin">PIN (4 digits)</label>
-            <input type="password" id="userPin" inputmode="numeric" pattern="[0-9]{4}" required>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="userPin">PIN (4 digits)</label>
+              <input type="password" id="userPin" inputmode="numeric" pattern="[0-9]{4}" required>
+            </div>
+            <div class="form-group">
+              <label for="userStatusInput">Status</label>
+              <select id="userStatusInput" required>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="userStatusInput">Status</label>
-            <select id="userStatusInput" required>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
           </div>
-        </div>
-        <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save</button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -2001,16 +2027,16 @@
       contentArea.innerHTML = `
         <div id="alertContainer"></div>
 
-        ${renderSectionHero('Search / Edit', 'Find transactions and update or delete entries quickly.')}
-        <div class="card">
-          <div class="panel-header">
-            <div>
-              <h2 style="margin-bottom:4px;">Search / Edit</h2>
-              <p style="color:#6b7280;font-size:13px;">Find transactions and update or delete.</p>
-            </div>
-            <div>
-              <button class="btn btn-primary" onclick="renderSearchEditContent()">Refresh</button>
-              <button class="btn btn-primary" onclick="undoJournalAction()">Undo Last</button>
+          ${renderSectionHero('Search / Edit', 'Find transactions and update or reverse entries quickly.')}
+          <div class="card">
+            <div class="panel-header">
+              <div>
+                <h2 style="margin-bottom:4px;">Search / Edit</h2>
+                <p style="color:#6b7280;font-size:13px;">Find transactions and update or reverse.</p>
+              </div>
+              <div>
+                <button class="btn btn-primary" onclick="renderSearchEditContent()">Refresh</button>
+                <button class="btn btn-primary" onclick="undoJournalAction()">Undo Last</button>
             </div>
           </div>
 
@@ -2062,135 +2088,157 @@
           <div id="searchResults"></div>
         </div>
 
-        <div class="modal" id="editModal">
-          <div class="modal-card" style="max-width:600px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-              <h3 style="font-size:18px;font-weight:700;margin:0;">Edit Transaction</h3>
-              <button class="btn btn-secondary" onclick="closeEditModal()" style="padding:6px 10px;font-size:12px;">Close</button>
-            </div>
+          <div class="modal" id="editModal">
+            <div class="modal-card" style="max-width:720px;">
+              <div class="modal-header">
+                <span>Edit Transaction</span>
+                <button class="btn btn-secondary" onclick="closeEditModal()" style="padding:6px 10px;font-size:12px;">Close</button>
+              </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editUuid">UUID</label>
-              <input type="text" id="editUuid" readonly>
-            </div>
-            <div class="form-group">
-              <label for="editBatchId">Batch ID</label>
-              <input type="text" id="editBatchId" readonly>
+              <div class="modal-body">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editUuid">UUID</label>
+                    <input type="text" id="editUuid" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label for="editBatchId">Batch ID</label>
+                    <input type="text" id="editBatchId" readonly>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editTransactionType">Transaction Type</label>
+                    <input type="text" id="editTransactionType" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label for="editBatchTotals">Batch Totals</label>
+                    <input type="text" id="editBatchTotals" readonly>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editBatchLine">Batch Line</label>
+                    <select id="editBatchLine"></select>
+                  </div>
+                  <div class="form-group">
+                    <label for="editBatchCount">Lines in Batch</label>
+                    <input type="text" id="editBatchCount" readonly>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editDate">Date</label>
+                    <input type="date" id="editDate">
+                  </div>
+                  <div class="form-group">
+                    <label for="editFinancialYear">Financial Year</label>
+                    <input list="editFinancialYearList" id="editFinancialYear">
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="editApplyBatch">
+                    <label for="editApplyBatch" style="margin:0;">Apply date/refs/payee to entire batch</label>
+                  </div>
+                  <div class="form-group"></div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editAccountCode">Account Code</label>
+                    <input type="text" id="editAccountCode">
+                  </div>
+                  <div class="form-group">
+                    <label for="editPayee">Payee</label>
+                    <input type="text" id="editPayee">
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editRefNo">Ref No (Invoice / Doc No)</label>
+                    <input type="text" id="editRefNo">
+                    <div class="status-text">Invoice or document number for the bill.</div>
+                  </div>
+                  <div class="form-group">
+                    <label for="editBankRef">Bank Ref (Payment Ref)</label>
+                    <input type="text" id="editBankRef">
+                    <div class="status-text">Payment reference from the bank statement.</div>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editParticulars">Particulars</label>
+                    <input list="editParticularList" id="editParticulars">
+                  </div>
+                  <div class="form-group">
+                    <label for="editSubCategory">Sub-Category</label>
+                    <input type="text" id="editSubCategory" readonly>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editCategory">Category</label>
+                    <input type="text" id="editCategory" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label for="editDescription">Description</label>
+                    <input type="text" id="editDescription">
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editDebit">Debit</label>
+                    <input type="number" id="editDebit" step="0.01">
+                  </div>
+                  <div class="form-group">
+                    <label for="editCredit">Credit</label>
+                    <input type="number" id="editCredit" step="0.01">
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editAccountType">Account Type</label>
+                    <input type="text" id="editAccountType">
+                  </div>
+                  <div class="form-group">
+                    <label for="editReportMapping">Report Mapping</label>
+                    <input type="text" id="editReportMapping">
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="editReconStatus">Recon Status</label>
+                    <input type="text" id="editReconStatus">
+                  </div>
+                  <div class="form-group">
+                    <label for="editReceiptUrl">Receipt URL</label>
+                    <input type="text" id="editReceiptUrl">
+                  </div>
+                </div>
+
+                <datalist id="editFinancialYearList"></datalist>
+                <datalist id="editParticularList"></datalist>
+              </div>
+
+              <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;">
+                <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button class="btn btn-danger" id="reverseLineBtn" onclick="reverseSelectedRow()">Reverse Line</button>
+                <button class="btn btn-danger" id="reverseBatchBtn" onclick="reverseBatch()">Reverse Batch</button>
+                <button class="btn btn-primary" onclick="updateJournal()">Save Changes</button>
+              </div>
             </div>
           </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editBatchLine">Batch Line</label>
-              <select id="editBatchLine"></select>
-            </div>
-            <div class="form-group">
-              <label for="editBatchCount">Lines in Batch</label>
-              <input type="text" id="editBatchCount" readonly>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editDate">Date</label>
-              <input type="date" id="editDate">
-            </div>
-            <div class="form-group">
-              <label for="editFinancialYear">Financial Year</label>
-              <input list="editFinancialYearList" id="editFinancialYear">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editAccountCode">Account Code</label>
-              <input type="text" id="editAccountCode">
-            </div>
-            <div class="form-group">
-              <label for="editPayee">Payee</label>
-              <input type="text" id="editPayee">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editRefNo">Ref No (Invoice / Doc No)</label>
-              <input type="text" id="editRefNo">
-              <div class="status-text">Invoice or document number for the bill.</div>
-            </div>
-            <div class="form-group">
-              <label for="editBankRef">Bank Ref (Payment Ref)</label>
-              <input type="text" id="editBankRef">
-              <div class="status-text">Payment reference from the bank statement.</div>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editParticulars">Particulars</label>
-              <input list="editParticularList" id="editParticulars">
-            </div>
-            <div class="form-group">
-              <label for="editSubCategory">Sub-Category</label>
-              <input type="text" id="editSubCategory" readonly>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editCategory">Category</label>
-              <input type="text" id="editCategory" readonly>
-            </div>
-            <div class="form-group">
-              <label for="editDescription">Description</label>
-              <input type="text" id="editDescription">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editDebit">Debit</label>
-              <input type="number" id="editDebit" step="0.01">
-            </div>
-            <div class="form-group">
-              <label for="editCredit">Credit</label>
-              <input type="number" id="editCredit" step="0.01">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editAccountType">Account Type</label>
-              <input type="text" id="editAccountType">
-            </div>
-            <div class="form-group">
-              <label for="editReportMapping">Report Mapping</label>
-              <input type="text" id="editReportMapping">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editReconStatus">Recon Status</label>
-              <input type="text" id="editReconStatus">
-            </div>
-            <div class="form-group">
-              <label for="editReceiptUrl">Receipt URL</label>
-              <input type="text" id="editReceiptUrl">
-            </div>
-          </div>
-
-          <datalist id="editFinancialYearList"></datalist>
-          <datalist id="editParticularList"></datalist>
-
-          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line);">
-            <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
-            <button class="btn btn-danger" onclick="deleteBatch()">Delete Batch</button>
-            <button class="btn btn-primary" onclick="updateJournal()">Save Changes</button>
-          </div>
-          </div>
-        </div>
       `;
 
       bindSearchHandlers();
@@ -6941,7 +6989,7 @@
           <td data-label="Action">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="btn btn-secondary edit-transaction-btn" data-batch-id="${item.batchId || ''}" data-row-id="${item.rowId}">Edit</button>
-              <button class="btn btn-danger delete-transaction-btn" data-batch-id="${item.batchId || ''}" data-row-id="${item.rowId}">Delete</button>
+              <button class="btn btn-danger reverse-transaction-btn" data-batch-id="${item.batchId || ''}" data-row-id="${item.rowId}">Reverse</button>
             </div>
           </td>
         </tr>
@@ -6992,19 +7040,19 @@
           return;
         }
 
-        const deleteBtn = event.target.closest('.delete-transaction-btn');
-        if (deleteBtn) {
-          const batchId = String(deleteBtn.dataset.batchId || '').trim();
+        const reverseBtn = event.target.closest('.reverse-transaction-btn');
+        if (reverseBtn) {
+          const batchId = String(reverseBtn.dataset.batchId || '').trim();
           if (batchId) {
-            confirmDeleteBatch(batchId);
+            confirmReverseBatch(batchId);
             return;
           }
-          const rowId = Number(deleteBtn.dataset.rowId);
+          const rowId = Number(reverseBtn.dataset.rowId);
           if (!rowId) {
             showAlert('Invalid transaction row.', 'error');
             return;
           }
-          confirmDelete(rowId);
+          confirmReverseRow(rowId);
         }
       };
     }
@@ -7112,6 +7160,8 @@
           currentBatchId = row.batchId || '';
           fillBatchLineSelect(currentBatchRows);
           selectedRowId = row.rowId;
+          setEditBatchSummary(currentBatchRows);
+          resetEditBatchToggle();
           document.getElementById('editUuid').value = row.uuid || '';
           document.getElementById('editBatchId').value = row.batchId || '';
           document.getElementById('editDate').value = row.date || '';
@@ -7154,6 +7204,8 @@
           currentBatchId = String(batchId || '');
           fillBatchLineSelect(rows);
           applyBatchRowToEditForm(rows[0]);
+          setEditBatchSummary(rows);
+          resetEditBatchToggle();
           openEditModal();
         })
         .withFailureHandler(function(error) {
@@ -7181,6 +7233,45 @@
       select.value = '0';
     }
 
+    function resetEditBatchToggle() {
+      const checkbox = document.getElementById('editApplyBatch');
+      if (checkbox) checkbox.checked = false;
+    }
+
+    function setEditBatchSummary(rows) {
+      if (!rows || !rows.length) return;
+      const typeField = document.getElementById('editTransactionType');
+      const totalsField = document.getElementById('editBatchTotals');
+      const totals = rows.reduce((acc, item) => {
+        acc.debit += Number(item.debit || 0) || 0;
+        acc.credit += Number(item.credit || 0) || 0;
+        return acc;
+      }, { debit: 0, credit: 0 });
+      if (typeField) typeField.value = resolveTransactionType(rows);
+      if (totalsField) totalsField.value = `Dr ${formatAmount(totals.debit)} / Cr ${formatAmount(totals.credit)}`;
+      setReverseButtonsState(rows);
+    }
+
+    function resolveTransactionType(rows) {
+      const firstBatch = String(rows[0]?.batchId || '').trim();
+      if (firstBatch.startsWith('JRN-')) return 'Journal Entry';
+      const bankRow = rows.find(item => String(item.accountCode || '').trim());
+      if (!bankRow) return 'Journal Entry';
+      const debit = Number(bankRow.debit || 0) || 0;
+      const credit = Number(bankRow.credit || 0) || 0;
+      if (debit > 0 && credit === 0) return 'Receipt';
+      if (credit > 0 && debit === 0) return 'Payment';
+      return 'Transaction';
+    }
+
+    function setReverseButtonsState(rows) {
+      const hasBatch = rows && rows.length && String(rows[0].batchId || '').trim();
+      const reverseBatchBtn = document.getElementById('reverseBatchBtn');
+      if (reverseBatchBtn) reverseBatchBtn.disabled = !hasBatch;
+      const reverseLineBtn = document.getElementById('reverseLineBtn');
+      if (reverseLineBtn) reverseLineBtn.disabled = !selectedRowId;
+    }
+
     function applyBatchRowToEditForm(row) {
       if (!row) return;
       selectedRowId = row.rowId;
@@ -7202,6 +7293,7 @@
       document.getElementById('editReportMapping').value = row.reportMapping || '';
       document.getElementById('editReconStatus').value = row.reconStatus || '';
       document.getElementById('editReceiptUrl').value = row.receiptUrl || '';
+      setReverseButtonsState(currentBatchRows.length ? currentBatchRows : [row]);
     }
 
     function updateJournal() {
@@ -7223,6 +7315,8 @@
 
       const payload = {
         rowId: selectedRowId,
+        batchId: currentBatchId || '',
+        applyToBatch: document.getElementById('editApplyBatch')?.checked || false,
         date: document.getElementById('editDate').value,
         accountCode: document.getElementById('editAccountCode').value.trim(),
         payee: document.getElementById('editPayee').value.trim(),
@@ -7277,6 +7371,22 @@
       confirmDeleteBatch(currentBatchId);
     }
 
+    function reverseSelectedRow() {
+      if (!selectedRowId) {
+        showAlert('Please select a transaction to reverse', 'error');
+        return;
+      }
+      confirmReverseRow(selectedRowId);
+    }
+
+    function reverseBatch() {
+      if (!currentBatchId) {
+        showAlert('Please select a batch to reverse', 'error');
+        return;
+      }
+      confirmReverseBatch(currentBatchId);
+    }
+
     function confirmDelete(rowId) {
       showAlert('Preparing delete...', 'info');
       openConfirmModal('Confirm Delete', 'Are you sure you want to delete this record? This action cannot be undone.', function() {
@@ -7289,6 +7399,28 @@
       openConfirmModal('Confirm Delete', 'Delete all rows in this transaction batch? This action cannot be undone.', function() {
         doDeleteJournalBatch(batchId);
       });
+    }
+
+    function confirmReverseRow(rowId) {
+      openConfirmModal(
+        'Confirm Reversal',
+        'Create a reversal entry for this line? This will add new reversing rows to the journal.',
+        function() {
+          doReverseJournalRow(rowId);
+        },
+        'Reverse'
+      );
+    }
+
+    function confirmReverseBatch(batchId) {
+      openConfirmModal(
+        'Confirm Batch Reversal',
+        'Create a reversal entry for the entire batch? This will add new reversing rows to the journal.',
+        function() {
+          doReverseJournalBatch(batchId);
+        },
+        'Reverse'
+      );
     }
 
     function doDeleteJournal(rowId) {
@@ -7343,6 +7475,42 @@
           showAlert('Failed to delete: ' + (error.message || 'Unknown error'), 'error');
         })
         .deleteJournalBatch(batchId);
+    }
+
+    function doReverseJournalRow(rowId) {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showAlert('Google Apps Script not available', 'error');
+        return;
+      }
+      showAlert('Reversing entry...', 'info');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          closeEditModal();
+          showAlert('Reversal created (' + (result ? result.count : 0) + ' row).', 'success');
+          setTimeout(() => runSearch(), 500);
+        })
+        .withFailureHandler(function(error) {
+          showAlert(error.message || 'Failed to reverse transaction.', 'error');
+        })
+        .reverseJournalRow(rowId);
+    }
+
+    function doReverseJournalBatch(batchId) {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showAlert('Google Apps Script not available', 'error');
+        return;
+      }
+      showAlert('Reversing batch...', 'info');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          closeEditModal();
+          showAlert('Batch reversal created (' + (result ? result.count : 0) + ' rows).', 'success');
+          setTimeout(() => runSearch(), 500);
+        })
+        .withFailureHandler(function(error) {
+          showAlert(error.message || 'Failed to reverse batch.', 'error');
+        })
+        .reverseJournalBatch(batchId);
     }
 
     function undoJournalAction() {

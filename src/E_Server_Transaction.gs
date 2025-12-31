@@ -2,6 +2,17 @@
  * Payment modal backend helpers.
  */
 function getDropdownData() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'dropdownData_v2';
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (error) {
+      Logger.log('Cache parse error: ' + error.toString());
+    }
+  }
+
   const payload = {
     accounts: [],
     payees: [],
@@ -61,6 +72,7 @@ function getDropdownData() {
   payload.categories = _uniqueSorted_(payload.categories);
   payload.financialYears = _uniqueSorted_(payload.financialYears);
 
+  cache.put(cacheKey, JSON.stringify(payload), 300);
   return payload;
 }
 
@@ -677,6 +689,30 @@ function updateJournal(payload) {
 
   sheet.getRange(row, 1, 1, lastCol).setValues([updated]);
 
+  const applyToBatch = !!payload.applyToBatch;
+  const batchId = String(payload.batchId || '').trim();
+  if (applyToBatch && batchId && cols.batchId) {
+    const lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+      let touched = false;
+      const newDate = _parseDate_(payload.date);
+      data.forEach(function(rowValues) {
+        const rowBatch = String(rowValues[cols.batchId - 1] || '').trim();
+        if (rowBatch !== batchId) return;
+        _setIfPresent_(rowValues, cols.date, newDate || rowValues[cols.date - 1]);
+        _setIfPresent_(rowValues, cols.financialYear, payload.financialYear || rowValues[cols.financialYear - 1] || '');
+        _setIfPresent_(rowValues, cols.payee, payload.payee || rowValues[cols.payee - 1] || '');
+        _setIfPresent_(rowValues, cols.refNo, payload.refNo || rowValues[cols.refNo - 1] || '');
+        _setIfPresent_(rowValues, cols.bankRef, payload.bankRef || rowValues[cols.bankRef - 1] || '');
+        touched = true;
+      });
+      if (touched) {
+        sheet.getRange(2, 1, lastRow - 1, lastCol).setValues(data);
+      }
+    }
+  }
+
   try {
     const user = getCurrentUser();
     const actor = user && user.authenticated ? user.email : 'system';
@@ -752,6 +788,91 @@ function deleteJournalBatch(batchId) {
   }
 
   return rowsToDelete.length;
+}
+
+function reverseJournalRow(rowId) {
+  const row = Number(rowId);
+  if (!row || row < 2) throw new Error('Invalid row.');
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const existing = sheet.getRange(row, 1, 1, lastCol).getValues()[0];
+  const reversalBatchId = 'REV-' + new Date().getTime();
+  const dateValue = new Date();
+
+  const reversed = _buildReversalRow_(existing, cols, reversalBatchId, dateValue);
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, lastCol).setValues([reversed]);
+
+  const actor = _resolveActorEmail_();
+  logSystemEvent(actor, 'REVERSE_JOURNAL_ROW', String(reversed[cols.uuid - 1] || ''), 'Row ' + row);
+  return { count: 1, batchId: reversalBatchId };
+}
+
+function reverseJournalBatch(batchId) {
+  const batch = String(batchId || '').trim();
+  if (!batch) throw new Error('Invalid batch.');
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) throw new Error('No rows to reverse.');
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const matching = data.filter(row => String(row[cols.batchId - 1] || '').trim() === batch);
+  if (!matching.length) throw new Error('Batch not found.');
+
+  const reversalBatchId = 'REV-' + new Date().getTime();
+  const dateValue = new Date();
+  const reversedRows = matching.map(row => _buildReversalRow_(row, cols, reversalBatchId, dateValue));
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, reversedRows.length, lastCol).setValues(reversedRows);
+
+  const actor = _resolveActorEmail_();
+  logSystemEvent(actor, 'REVERSE_JOURNAL_BATCH', reversalBatchId, 'Source ' + batch + ', Rows ' + reversedRows.length);
+  return { count: reversedRows.length, batchId: reversalBatchId };
+}
+
+function _buildReversalRow_(row, cols, reversalBatchId, dateValue) {
+  const reversed = new Array(row.length).fill('');
+  if (cols.uuid) reversed[cols.uuid - 1] = Utilities.getUuid();
+  if (cols.batchId) reversed[cols.batchId - 1] = reversalBatchId;
+  if (cols.date) reversed[cols.date - 1] = dateValue;
+  if (cols.financialYear) reversed[cols.financialYear - 1] = row[cols.financialYear - 1] || '';
+  if (cols.accountCode) reversed[cols.accountCode - 1] = row[cols.accountCode - 1] || '';
+  if (cols.payee) reversed[cols.payee - 1] = row[cols.payee - 1] || '';
+  if (cols.refNo) {
+    const refNo = String(row[cols.refNo - 1] || '').trim();
+    reversed[cols.refNo - 1] = refNo ? 'REV-' + refNo : 'REV-' + reversalBatchId;
+  }
+  if (cols.bankRef) {
+    const bankRef = String(row[cols.bankRef - 1] || '').trim();
+    reversed[cols.bankRef - 1] = bankRef ? 'REV-' + bankRef : '';
+  }
+  if (cols.particulars) reversed[cols.particulars - 1] = row[cols.particulars - 1] || '';
+  if (cols.subCategory) reversed[cols.subCategory - 1] = row[cols.subCategory - 1] || '';
+  if (cols.category) reversed[cols.category - 1] = row[cols.category - 1] || '';
+  if (cols.description) {
+    const desc = String(row[cols.description - 1] || '').trim();
+    reversed[cols.description - 1] = desc ? 'Reversal: ' + desc : 'Reversal entry';
+  }
+  if (cols.debit) reversed[cols.debit - 1] = Number(row[cols.credit - 1] || 0);
+  if (cols.credit) reversed[cols.credit - 1] = Number(row[cols.debit - 1] || 0);
+  if (cols.accountType) reversed[cols.accountType - 1] = row[cols.accountType - 1] || '';
+  if (cols.reportMapping) reversed[cols.reportMapping - 1] = row[cols.reportMapping - 1] || '';
+  if (cols.reconStatus) {
+    const hasAccount = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+    reversed[cols.reconStatus - 1] = hasAccount ? 'Pending' : '';
+  }
+  if (cols.receiptUrl) reversed[cols.receiptUrl - 1] = row[cols.receiptUrl - 1] || '';
+  return reversed;
 }
 
 function undoLastJournalAction() {

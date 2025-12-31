@@ -84,9 +84,10 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
 
-  .modal-content > div:not(.form-header) {
-    padding: 16px 20px;
+  .form-body {
+    padding: 12px;
     overflow-y: auto;
+    flex: 1;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -134,6 +135,11 @@
 
   .submodal-card > div {
     padding: 16px 20px;
+  }
+
+  .submodal-card > div:not(.submodal-header):not(.submodal-actions) {
+    overflow-y: auto;
+    flex: 1;
   }
 
   .submodal-header {
@@ -228,6 +234,9 @@
 
   .form-body {
     padding: 14px 18px;
+    overflow-y: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
   }
 
   .grid {
@@ -567,11 +576,6 @@
       padding: 14px 16px;
     }
 
-    .modal-content > div:not(.form-header) {
-      padding: 16px;
-      flex: 1;
-    }
-
     .submodal-card {
       width: 95%;
       max-width: 380px;
@@ -595,29 +599,29 @@
     }
 
     .input-field {
-      padding: 12px 14px;
-      font-size: 16px;
-      min-height: 48px;
-      border-radius: 10px;
+      padding: 6px 8px;
+      font-size: 12px;
+      min-height: 32px;
+      border-radius: 8px;
       -webkit-appearance: none;
     }
 
     .form-header {
-      padding: 16px;
-      font-size: 17px;
+      padding: 10px 12px;
+      font-size: 14px;
       position: sticky;
       top: 0;
       z-index: 10;
     }
 
     .form-body {
-      padding: 16px;
+      padding: 10px 12px;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
 
     .form-footer {
-      padding: 16px;
+      padding: 10px 12px;
       position: sticky;
       bottom: 0;
       background: #ffffff;
@@ -631,28 +635,29 @@
     }
 
     .total-amount {
-      font-size: 18px;
+      font-size: 14px;
     }
 
     .btn {
-      padding: 14px 20px;
-      font-size: 15px;
-      min-height: 48px;
-      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 11px;
+      min-height: 32px;
+      border-radius: 8px;
     }
 
     .btn-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
     }
 
     .select-field {
-      padding: 12px 14px;
-      font-size: 16px;
-      min-height: 48px;
-      border-radius: 10px;
+      padding: 6px 8px;
+      font-size: 12px;
+      min-height: 32px;
+      border-radius: 8px;
       -webkit-appearance: none;
+    }
     }
 
     .split-table td {
@@ -675,18 +680,19 @@
   /* Extra small devices */
   @media (max-width: 380px) {
     .form-header {
-      padding: 14px 12px;
-      font-size: 15px;
+      padding: 8px 10px;
+      font-size: 13px;
     }
 
     .form-body,
     .form-footer {
-      padding: 12px;
+      padding: 8px 10px;
     }
 
     .btn {
-      padding: 12px 16px;
-      font-size: 14px;
+      padding: 6px 10px;
+      font-size: 11px;
+      min-height: 30px;
     }
   }
 </style>
