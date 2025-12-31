@@ -1674,9 +1674,9 @@ function getCashFlowReport(currentYear, comparativeYear) {
   const netIncreaseCurrent = netOperatingCurrent + investingCurrent + financingCurrent;
   const netIncreaseComparative = netOperatingComparative + investingComparative + financingComparative;
   const cashOpeningCurrent = cashNote ? Number(cashNote.totalComparative || 0) : 0;
-  const cashClosingCurrent = cashNote ? Number(cashNote.totalCurrent || 0) : 0;
+  const cashClosingCurrent = cashNote ? Number(cashNote.totalCurrent || 0) : (cashOpeningCurrent + netIncreaseCurrent);
   const cashOpeningComparative = 0;
-  const cashClosingComparative = cashNote ? Number(cashNote.totalComparative || 0) : 0;
+  const cashClosingComparative = cashNote ? Number(cashNote.totalComparative || 0) : (cashOpeningComparative + netIncreaseComparative);
 
   return {
     currentYear: notes.currentYear || String(currentYear || '').trim(),
@@ -1809,14 +1809,14 @@ function getPositionReport(currentYear, comparativeYear) {
       opening: 0,
       revaluationGain: 0,
       transfer: 0,
-      surplus: netAssetsComparative,
+      surplus: surplusComparative,
       closing: netAssetsComparative
     },
     current: {
       opening: 0,
       revaluationGain: 0,
       transfer: 0,
-      surplus: netAssetsCurrent,
+      surplus: surplusCurrent,
       closing: netAssetsCurrent
     }
   };
@@ -2711,12 +2711,12 @@ function _resolveNotesAmount_(bucket, particulars, accountType) {
   const debit = bucket.debit[particulars] || 0;
   const credit = bucket.credit[particulars] || 0;
   const accountTypeValue = String(accountType || '').toLowerCase();
-  if (accountTypeValue.includes('income') || accountTypeValue.includes('revenue')) return credit;
-  if (accountTypeValue.includes('liabil')) return credit;
-  if (accountTypeValue.includes('equity') || accountTypeValue.includes('capital')) return credit;
-  if (accountTypeValue.includes('expense')) return debit;
-  if (accountTypeValue.includes('asset')) return debit;
-  return credit > debit ? credit : debit;
+  if (accountTypeValue.includes('income') || accountTypeValue.includes('revenue')) return credit - debit;
+  if (accountTypeValue.includes('liabil')) return credit - debit;
+  if (accountTypeValue.includes('equity') || accountTypeValue.includes('capital')) return credit - debit;
+  if (accountTypeValue.includes('expense')) return debit - credit;
+  if (accountTypeValue.includes('asset')) return debit - credit;
+  return credit - debit;
 }
 
 function _classifyCashFlowLine_(reportMapping, accountType, debit, credit) {
