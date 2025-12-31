@@ -1034,12 +1034,27 @@ function getBudgetSubCategoryCatalog() {
     const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
     const catalogMap = new Map();
 
+    const excludedParticulars = new Set([
+      'advance',
+      'advances',
+      'account payable',
+      'accounts payable',
+      'revaluation reserve'
+    ]);
+
+    const normalizeParticulars = (value) => String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
     data.forEach(row => {
       const particulars = String(row[particularsIndex] || '').trim();
       const subCategory = String(row[subIndex] || '').trim();
       const category = String(row[categoryIndex] || '').trim();
       const accountType = accountTypeIndex >= 0 ? String(row[accountTypeIndex] || '').trim() : '';
       if (!particulars) return;
+      const normalized = normalizeParticulars(particulars);
+      if (excludedParticulars.has(normalized)) return;
       if (!catalogMap.has(particulars)) {
         catalogMap.set(particulars, {
           particulars: particulars,
@@ -1087,6 +1102,55 @@ function getBudgetSubCategoryCatalog() {
   } catch (error) {
     Logger.log('Error in getBudgetSubCategoryCatalog: ' + error.toString());
     return [];
+  }
+}
+
+/**
+ * Get current budget amounts (Original + Reallocation + Supplementary) for particulars.
+ * @param {string} financialYear
+ * @param {Array} particularsList
+ * @returns {Object} { year, amounts }
+ */
+function getBudgetCurrentAmounts(financialYear, particularsList) {
+  try {
+    const year = String(financialYear || '').trim();
+    const targets = Array.isArray(particularsList) ? particularsList : [];
+    const normalizedTargets = targets.map(item => String(item || '').trim()).filter(Boolean);
+    if (!year || !normalizedTargets.length) return { year: year, amounts: {} };
+
+    const ss = _getOrCreateSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
+    if (!sheet) return { year: year, amounts: {} };
+
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow < 2 || lastCol < 1) return { year: year, amounts: {} };
+
+    const headerMap = _getBudgetHeaderMap(sheet);
+    _ensureBudgetHeaders(headerMap);
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    const targetSet = new Set(normalizedTargets);
+    const amounts = {};
+
+    normalizedTargets.forEach(item => {
+      amounts[item] = 0;
+    });
+
+    data.forEach(row => {
+      const rowYear = String(row[headerMap.Financial_Year] || '').trim();
+      if (rowYear !== year) return;
+      const particulars = String(row[headerMap.Particulars] || '').trim();
+      if (!targetSet.has(particulars)) return;
+      const original = Number(row[headerMap.Original_Budget] || 0);
+      const reallocation = Number(row[headerMap.Reallocation] || 0);
+      const supplementary = Number(row[headerMap.Supplementary] || 0);
+      amounts[particulars] = (amounts[particulars] || 0) + original + reallocation + supplementary;
+    });
+
+    return { year: year, amounts: amounts };
+  } catch (error) {
+    Logger.log('Error in getBudgetCurrentAmounts: ' + error.toString());
+    return { year: String(financialYear || '').trim(), amounts: {} };
   }
 }
 

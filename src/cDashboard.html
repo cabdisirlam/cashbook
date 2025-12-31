@@ -2280,11 +2280,12 @@
           link.href = url;
           link.download = result.filename || 'cash_book_export.csv';
           document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          if (status) status.textContent = 'Export ready. Download started.';
-        })
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            if (status) status.textContent = 'Export ready. Download started.';
+            showAlert('Download started.', 'success');
+          })
         .withFailureHandler(function(error) {
           if (status) status.textContent = error.message || 'Export failed.';
         })
@@ -2902,6 +2903,7 @@
             <div class="form-group" id="supplementarySection">
               <label for="adjustSubCategory">Particulars</label>
               <select id="adjustSubCategory"></select>
+              <div id="supplementaryPreview" style="margin-top:8px;padding:10px;border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;font-size:12px;color:#475569;"></div>
             </div>
 
             <div class="form-row" id="reallocationSection" style="display:none;">
@@ -2914,6 +2916,7 @@
                 <select id="reallocToSubCategory"></select>
               </div>
             </div>
+            <div id="reallocationPreview" style="margin:8px 0 4px;padding:10px;border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;font-size:12px;color:#475569;display:none;"></div>
 
             <div class="form-row">
               <div class="form-group">
@@ -2994,6 +2997,7 @@
       ensureBudgetCatalog(populateBudgetAdjustmentSelects);
       loadBudgetYears();
       handleBudgetAdjustmentTypeChange();
+      bindBudgetAdjustmentPreview();
     }
 
     function openBudgetYearModal() {
@@ -3017,8 +3021,120 @@
       const type = document.getElementById('adjustmentType').value;
       const supplementary = document.getElementById('supplementarySection');
       const reallocation = document.getElementById('reallocationSection');
+      const reallocationPreview = document.getElementById('reallocationPreview');
       if (supplementary) supplementary.style.display = type === 'Supplementary' ? 'block' : 'none';
       if (reallocation) reallocation.style.display = type === 'Reallocation' ? 'grid' : 'none';
+      if (reallocationPreview) {
+        reallocationPreview.style.display = type === 'Reallocation' ? 'block' : 'none';
+      }
+      scheduleBudgetAdjustmentPreview();
+    }
+
+    let budgetAdjustmentPreviewTimer;
+
+    function bindBudgetAdjustmentPreview() {
+      const ids = [
+        'adjustAmount',
+        'adjustFinancialYear',
+        'adjustmentType',
+        'adjustSubCategory',
+        'reallocFromSubCategory',
+        'reallocToSubCategory'
+      ];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.onchange = scheduleBudgetAdjustmentPreview;
+        if (id === 'adjustAmount') {
+          el.oninput = scheduleBudgetAdjustmentPreview;
+        }
+      });
+      scheduleBudgetAdjustmentPreview();
+    }
+
+    function scheduleBudgetAdjustmentPreview() {
+      if (budgetAdjustmentPreviewTimer) {
+        clearTimeout(budgetAdjustmentPreviewTimer);
+      }
+      budgetAdjustmentPreviewTimer = setTimeout(updateBudgetAdjustmentPreview, 200);
+    }
+
+    function updateBudgetAdjustmentPreview() {
+      const year = document.getElementById('adjustFinancialYear')?.value.trim();
+      const type = document.getElementById('adjustmentType')?.value;
+      const amountValue = document.getElementById('adjustAmount')?.value.trim() || '';
+      const amount = Number(amountValue);
+      const validAmount = Number.isFinite(amount) ? amount : 0;
+      const supplementaryPreview = document.getElementById('supplementaryPreview');
+      const reallocationPreview = document.getElementById('reallocationPreview');
+
+      if (!year) {
+        if (supplementaryPreview) supplementaryPreview.textContent = 'Select a financial year to view current totals.';
+        if (reallocationPreview) reallocationPreview.textContent = 'Select a financial year to view current totals.';
+        return;
+      }
+
+      if (type === 'Supplementary') {
+        const particulars = document.getElementById('adjustSubCategory')?.value;
+        if (!supplementaryPreview) return;
+        if (!particulars) {
+          supplementaryPreview.textContent = 'Select particulars to view the current amount.';
+          return;
+        }
+        loadBudgetCurrentAmounts(year, [particulars], function(amounts) {
+          const current = Number(amounts[particulars] || 0);
+          const updated = current + validAmount;
+          supplementaryPreview.innerHTML = `
+            <div style="font-weight:600;margin-bottom:4px;">Current amount: Ksh ${formatAmount(current)}</div>
+            <div>After supplementary: Ksh ${formatAmount(updated)}</div>
+          `;
+        });
+        return;
+      }
+
+      const fromParticulars = document.getElementById('reallocFromSubCategory')?.value;
+      const toParticulars = document.getElementById('reallocToSubCategory')?.value;
+      if (!reallocationPreview) return;
+      if (!fromParticulars || !toParticulars) {
+        reallocationPreview.textContent = 'Select from/to particulars to view the change.';
+        return;
+      }
+
+      loadBudgetCurrentAmounts(year, [fromParticulars, toParticulars], function(amounts) {
+        const fromCurrent = Number(amounts[fromParticulars] || 0);
+        const toCurrent = Number(amounts[toParticulars] || 0);
+        const fromUpdated = fromCurrent - validAmount;
+        const toUpdated = toCurrent + validAmount;
+        reallocationPreview.innerHTML = `
+          <div style="font-weight:600;margin-bottom:4px;">Reallocation impact</div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <div>From ${fromParticulars}: Ksh ${formatAmount(fromCurrent)} -> Ksh ${formatAmount(fromUpdated)}</div>
+            <div>To ${toParticulars}: Ksh ${formatAmount(toCurrent)} -> Ksh ${formatAmount(toUpdated)}</div>
+          </div>
+        `;
+      });
+    }
+
+    function loadBudgetCurrentAmounts(financialYear, particulars, callback) {
+      const year = String(financialYear || '').trim();
+      const list = Array.isArray(particulars) ? particulars.filter(Boolean) : [];
+      if (!year || !list.length) {
+        if (typeof callback === 'function') callback({});
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        if (typeof callback === 'function') callback({});
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(payload) {
+          const amounts = payload && payload.amounts ? payload.amounts : {};
+          if (typeof callback === 'function') callback(amounts || {});
+        })
+        .withFailureHandler(function() {
+          if (typeof callback === 'function') callback({});
+        })
+        .getBudgetCurrentAmounts(year, list);
     }
 
     function loadBudgetCatalog() {
@@ -5107,7 +5223,8 @@
           ]);
         });
         const safeName = String(data.payee || 'statement').replace(/[^\w\-]+/g, '_');
-        downloadRowsAsCsv(rows, `${title.toLowerCase()}_${safeName}.csv`);
+          downloadRowsAsCsv(rows, `${title.toLowerCase()}_${safeName}.csv`);
+          showAlert('Download started.', 'success');
       });
     }
 
@@ -5529,6 +5646,7 @@
       }
       const rows = buildNotesDownloadRows(lastNotesResult);
       downloadRowsAsCsv(rows, 'notes_report.csv');
+      showNotesAlert('Download started.', 'success');
     }
 
     function downloadNotesXlsx() {
@@ -5539,7 +5657,9 @@
       const rows = buildNotesDownloadRows(lastNotesResult);
       if (!downloadRowsAsXlsx(rows, 'notes_report.xlsx', 'Notes')) {
         showNotesAlert('XLSX library not available. Use CSV download instead.', 'error');
+        return;
       }
+      showNotesAlert('Download started.', 'success');
     }
 
     function downloadPerformanceCsv() {
@@ -5549,6 +5669,7 @@
       }
       const rows = buildPerformanceDownloadRows(lastPerformanceResult);
       downloadRowsAsCsv(rows, 'performance_report.csv');
+      showPerformanceAlert('Download started.', 'success');
     }
 
     function downloadPerformanceXlsx() {
@@ -5559,7 +5680,9 @@
       const rows = buildPerformanceDownloadRows(lastPerformanceResult);
       if (!downloadRowsAsXlsx(rows, 'performance_report.xlsx', 'Performance')) {
         showPerformanceAlert('XLSX library not available. Use CSV download instead.', 'error');
+        return;
       }
+      showPerformanceAlert('Download started.', 'success');
     }
 
     function downloadCashFlowCsv() {
@@ -5569,6 +5692,7 @@
       }
       const rows = buildCashFlowDownloadRows(lastCashFlowResult);
       downloadRowsAsCsv(rows, 'cash_flow_report.csv');
+      showCashFlowAlert('Download started.', 'success');
     }
 
     function downloadCashFlowXlsx() {
@@ -5579,7 +5703,9 @@
       const rows = buildCashFlowDownloadRows(lastCashFlowResult);
       if (!downloadRowsAsXlsx(rows, 'cash_flow_report.xlsx', 'Cash Flow')) {
         showCashFlowAlert('XLSX library not available. Use CSV download instead.', 'error');
+        return;
       }
+      showCashFlowAlert('Download started.', 'success');
     }
 
     function downloadPositionCsv() {
@@ -5589,6 +5715,7 @@
       }
       const rows = buildPositionDownloadRows(lastPositionResult);
       downloadRowsAsCsv(rows, 'position_report.csv');
+      showPositionAlert('Download started.', 'success');
     }
 
     function downloadPositionXlsx() {
@@ -5599,7 +5726,9 @@
       const rows = buildPositionDownloadRows(lastPositionResult);
       if (!downloadRowsAsXlsx(rows, 'position_report.xlsx', 'Position')) {
         showPositionAlert('XLSX library not available. Use CSV download instead.', 'error');
+        return;
       }
+      showPositionAlert('Download started.', 'success');
     }
 
     function downloadReceivablesSummaryCsv() {
@@ -5609,6 +5738,7 @@
       }
       const rows = buildStatementSummaryRows(lastReceivablesResult, 'Receivables');
       downloadRowsAsCsv(rows, 'receivables_summary.csv');
+      showReceivablesAlert('Download started.', 'success');
     }
 
     function downloadPayablesSummaryCsv() {
@@ -5618,6 +5748,7 @@
       }
       const rows = buildStatementSummaryRows(lastPayablesResult, 'Payables');
       downloadRowsAsCsv(rows, 'payables_summary.csv');
+      showPayablesAlert('Download started.', 'success');
     }
 
     function downloadAssetPurchasesCsv() {
@@ -5634,6 +5765,7 @@
         ]);
       });
       downloadRowsAsCsv(rows, 'asset_purchases_summary.csv');
+      showAssetPurchasesAlert('Download started.', 'success');
     }
 
     function downloadNetAssetsCsv() {
@@ -5647,6 +5779,7 @@
         return;
       }
       downloadRowsAsCsv(rows, 'net_assets_report.csv');
+      showNetAssetsAlert('Download started.', 'success');
     }
 
     function downloadNetAssetsXlsx() {
@@ -5661,7 +5794,9 @@
       }
       if (!downloadRowsAsXlsx(rows, 'net_assets_report.xlsx', 'Net Assets')) {
         showNetAssetsAlert('XLSX library not available. Use CSV download instead.', 'error');
+        return;
       }
+      showNetAssetsAlert('Download started.', 'success');
     }
 
     function showPerformanceAlert(message, type = 'success', duration = 6000) {
@@ -6600,6 +6735,7 @@
           link.click();
           document.body.removeChild(link);
           URL.revokeObjectURL(url);
+          showBudgetVsActualAlert('Download started.', 'success');
         })
         .withFailureHandler(function(error) {
           showBudgetVsActualAlert(error.message || 'Failed to export report.', 'error');
@@ -7278,16 +7414,17 @@
       }
 
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
-        alert('App runtime missing.');
+        showAlert('App runtime missing.', 'error');
         return;
       }
 
+      showAlert('Saving settings...', 'info');
       google.script.run
         .withSuccessHandler(function() {
-          alert('Settings saved.');
+          showAlert('Settings saved.', 'success');
         })
         .withFailureHandler(function(error) {
-          alert(error.message || 'Failed to save settings.');
+          showAlert(error.message || 'Failed to save settings.', 'error');
           console.error('Failed to save settings:', error);
         })
         .saveSystemSettings(payload);
@@ -7554,17 +7691,19 @@
       const action = payload.rowId ? 'updateUser' : 'addUser';
 
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
-        alert('App runtime missing.');
+        showAlert('App runtime missing.', 'error');
         return;
       }
 
+      showAlert('Saving user...', 'info');
       google.script.run
         .withSuccessHandler(function() {
           closeUserModal();
           loadUsers();
+          showAlert('User saved.', 'success');
         })
         .withFailureHandler(function(error) {
-          alert(error.message || 'Failed to save user.');
+          showAlert(error.message || 'Failed to save user.', 'error');
           console.error('Failed to save user:', error);
         })
         [action](payload);
