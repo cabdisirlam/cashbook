@@ -1615,15 +1615,19 @@ function getNotesReport(currentYear, comparativeYear, options) {
     if (name.includes('expense') || accountTypes.some(v => v.includes('expense')) || mappings.some(v => v.includes('operating expense'))) {
       return 1;
     }
-    if (name.includes('cash and cash equivalent')) return 2;
+    if (name.includes('receivable') || name.includes('debtors')) return 2;
+    if (name.includes('inventory') || name.includes('inventories') || name.includes('stock')) return 3;
+    if (name.includes('property, plant') || name.includes('property plant') || name.includes('property and equipment') || name.includes('ppe')) return 4;
+    if (name.includes('intangible')) return 5;
+    if (name.includes('cash and cash equivalent')) return 6;
     if (name.includes('non current asset') || name.includes('non-current asset') || mappings.some(v => v.includes('non-current asset') || v.includes('non current asset'))) {
-      return 3;
+      return 7;
     }
     if (name.includes('asset') || accountTypes.some(v => v.includes('asset')) || mappings.some(v => v.includes('current asset'))) {
-      return 4;
+      return 8;
     }
     if (name.includes('liabil') || accountTypes.some(v => v.includes('liabil')) || mappings.some(v => v.includes('liability'))) {
-      return 5;
+      return 9;
     }
     return 99;
   };
@@ -2103,6 +2107,77 @@ function getPositionReport(currentYear, comparativeYear) {
     },
     changesInNetAssets: changesInNetAssets
   };
+}
+
+function getReceivablePayableSummary(type, criteria) {
+  const kind = String(type || '').toLowerCase();
+  const isReceivable = kind.includes('receivable');
+  const financialYear = String(criteria && criteria.financialYear || '').trim();
+  const startDate = _parseDate_(criteria && criteria.startDate);
+  const endDate = _parseDate_(criteria && criteria.endDate);
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return { rows: [] };
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const summaries = {};
+
+  data.forEach(function(row) {
+    if (!cols.payee || !cols.particulars) return;
+    const payee = String(row[cols.payee - 1] || '').trim();
+    if (!payee) return;
+    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+    if (accountCode) return;
+
+    const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
+    const dateCell = cols.date ? row[cols.date - 1] : '';
+    const rowDate = dateCell instanceof Date ? dateCell : _parseDate_(dateCell);
+    if (endDate && rowDate && rowDate > endDate) return;
+
+    const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
+    const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
+    const mappingLower = reportMapping.toLowerCase();
+    const categoryLower = category.toLowerCase();
+
+    const matches = isReceivable
+      ? (mappingLower.includes('receivable') || categoryLower.includes('receivable'))
+      : (mappingLower.includes('payable') || categoryLower.includes('payable'));
+    if (!matches) return;
+
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+    const increase = isReceivable ? debit : credit;
+    const decrease = isReceivable ? credit : debit;
+
+    const isBeforeStart = startDate && rowDate && rowDate < startDate;
+    const isYearMatch = !financialYear || (rowYear && rowYear === financialYear);
+    const isOpening = isBeforeStart || (financialYear && !isYearMatch);
+
+    if (!summaries[payee]) {
+      summaries[payee] = { payee: payee, opening: 0, additions: 0, payments: 0, closing: 0 };
+    }
+    if (isOpening) {
+      summaries[payee].opening += increase - decrease;
+    } else {
+      summaries[payee].additions += increase;
+      summaries[payee].payments += decrease;
+    }
+  });
+
+  const rows = Object.values(summaries).map(function(item) {
+    item.closing = item.opening + item.additions - item.payments;
+    return item;
+  }).filter(item => Math.abs(item.closing) > 0.01)
+    .sort((a, b) => String(a.payee || '').localeCompare(String(b.payee || '')));
+
+  return { rows: rows };
 }
 
 function saveBankStatementUpload(payload) {
@@ -2972,7 +3047,7 @@ function _classifyCashFlowLine_(reportMapping, accountType, debit, credit) {
     return { section: 'operating', direction: direction };
   }
 
-  if (mapping.includes('non-current asset') || mapping.includes('non current asset')) {
+  if (mapping.includes('non-current asset') || mapping.includes('non current asset') || mapping.includes('ppe') || mapping.includes('property, plant') || mapping.includes('property plant') || mapping.includes('property and equipment')) {
     return { section: 'investing', direction: direction };
   }
 
@@ -3034,7 +3109,7 @@ function _classifyCashFlowCategory_(categoryName, accountTypes, reportMappings) 
     return 'operating_payment';
   }
 
-  if (mappingValues.some(value => value.includes('non-current asset') || value.includes('non current asset'))) {
+  if (mappingValues.some(value => value.includes('non-current asset') || value.includes('non current asset') || value.includes('ppe') || value.includes('property, plant') || value.includes('property plant') || value.includes('property and equipment'))) {
     return 'investing';
   }
 

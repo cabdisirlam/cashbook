@@ -1476,6 +1476,16 @@
         return;
       }
 
+      if (label === 'Receivables Statements') {
+        renderReceivablesStatementsContent();
+        return;
+      }
+
+      if (label === 'Payables Statements') {
+        renderPayablesStatementsContent();
+        return;
+      }
+
       if (label === 'Add/Edit Budget') {
         renderBudgetManagerContent();
         return;
@@ -3522,6 +3532,94 @@
       loadNetAssetsYears();
     }
 
+    function renderReceivablesStatementsContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="receivablesAlert"></div>
+        ${renderSectionHero('Receivables', 'Summary by payee for amounts owed to you.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Receivables Statements</h2>
+              <p style="color:#6b7280;font-size:13px;">Select a financial year or date range, then run the summary.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderReceivablesStatementsContent()">Refresh</button>
+              <button class="btn btn-secondary" onclick="downloadReceivablesSummaryCsv()">Download CSV</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="receivablesFinancialYear">Financial Year</label>
+              <select id="receivablesFinancialYear"></select>
+            </div>
+            <div class="form-group">
+              <label for="receivablesStartDate">Start Date</label>
+              <input type="date" id="receivablesStartDate">
+            </div>
+            <div class="form-group">
+              <label for="receivablesEndDate">End Date</label>
+              <input type="date" id="receivablesEndDate">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="refreshReceivablesStatements()">Run</button>
+            </div>
+          </div>
+
+          <div id="receivablesStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="receivablesReport"></div>
+        </div>
+      `;
+
+      loadReceivablesYears();
+    }
+
+    function renderPayablesStatementsContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="payablesAlert"></div>
+        ${renderSectionHero('Payables', 'Summary by payee for amounts you owe.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Payables Statements</h2>
+              <p style="color:#6b7280;font-size:13px;">Select a financial year or date range, then run the summary.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderPayablesStatementsContent()">Refresh</button>
+              <button class="btn btn-secondary" onclick="downloadPayablesSummaryCsv()">Download CSV</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="payablesFinancialYear">Financial Year</label>
+              <select id="payablesFinancialYear"></select>
+            </div>
+            <div class="form-group">
+              <label for="payablesStartDate">Start Date</label>
+              <input type="date" id="payablesStartDate">
+            </div>
+            <div class="form-group">
+              <label for="payablesEndDate">End Date</label>
+              <input type="date" id="payablesEndDate">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="refreshPayablesStatements()">Run</button>
+            </div>
+          </div>
+
+          <div id="payablesStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="payablesReport"></div>
+        </div>
+      `;
+
+      loadPayablesYears();
+    }
+
     function renderNotesContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
@@ -3651,6 +3749,46 @@
         })
         .withFailureHandler(function(error) {
           showNetAssetsAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function loadReceivablesYears() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showReceivablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const years = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptionsWithDefault('receivablesFinancialYear', years, 'All years');
+          if (years.length) {
+            const currentSelect = document.getElementById('receivablesFinancialYear');
+            if (currentSelect) currentSelect.value = years[years.length - 1];
+          }
+        })
+        .withFailureHandler(function(error) {
+          showReceivablesAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function loadPayablesYears() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showPayablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const years = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptionsWithDefault('payablesFinancialYear', years, 'All years');
+          if (years.length) {
+            const currentSelect = document.getElementById('payablesFinancialYear');
+            if (currentSelect) currentSelect.value = years[years.length - 1];
+          }
+        })
+        .withFailureHandler(function(error) {
+          showPayablesAlert(error.message || 'Failed to load financial years.', 'error');
         })
         .getDropdownData();
     }
@@ -3789,6 +3927,56 @@
         .getPositionReport(currentYear, comparativeYear);
 
       fireNotesCache(currentYear, comparativeYear);
+    }
+
+    function refreshReceivablesStatements() {
+      const financialYear = document.getElementById('receivablesFinancialYear').value.trim();
+      const startDate = document.getElementById('receivablesStartDate').value;
+      const endDate = document.getElementById('receivablesEndDate').value;
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showReceivablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      const status = document.getElementById('receivablesStatus');
+      if (status) status.textContent = 'Loading statements...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          lastReceivablesResult = result || { rows: [] };
+          renderReceivablesStatements(lastReceivablesResult);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showReceivablesAlert(error.message || 'Failed to load statements.', 'error');
+        })
+        .getReceivablePayableSummary('receivable', { financialYear: financialYear, startDate: startDate, endDate: endDate });
+    }
+
+    function refreshPayablesStatements() {
+      const financialYear = document.getElementById('payablesFinancialYear').value.trim();
+      const startDate = document.getElementById('payablesStartDate').value;
+      const endDate = document.getElementById('payablesEndDate').value;
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showPayablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      const status = document.getElementById('payablesStatus');
+      if (status) status.textContent = 'Loading statements...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          lastPayablesResult = result || { rows: [] };
+          renderPayablesStatements(lastPayablesResult);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showPayablesAlert(error.message || 'Failed to load statements.', 'error');
+        })
+        .getReceivablePayableSummary('payable', { financialYear: financialYear, startDate: startDate, endDate: endDate });
     }
 
     function renderPerformanceReport(result) {
@@ -4384,11 +4572,104 @@
       `;
     }
 
+    function renderReceivablesStatements(result) {
+      const container = document.getElementById('receivablesReport');
+      if (!container) return;
+      const rows = result && result.rows ? result.rows : [];
+      if (!rows.length) {
+        container.innerHTML = '<div class="card"><p>No receivables found for the selected period.</p></div>';
+        return;
+      }
+
+      const body = rows.map(row => `
+        <tr>
+          <td data-label="Payee">${row.payee || ''}</td>
+          <td data-label="Opening">${formatPerformanceAmount(row.opening)}</td>
+          <td data-label="Additions">${formatPerformanceAmount(row.additions)}</td>
+          <td data-label="Payments">${formatPerformanceAmount(row.payments)}</td>
+          <td data-label="Closing">${formatPerformanceAmount(row.closing)}</td>
+          <td data-label="Action">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-secondary" type="button" onclick="printStatementRow('receivable', '${escapeHtml(row.payee || '')}')">Print</button>
+              <button class="btn btn-secondary" type="button" onclick="downloadStatementRowCsv('receivable', '${escapeHtml(row.payee || '')}')">Download</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Payee</th>
+              <th>Opening</th>
+              <th>Additions</th>
+              <th>Payments</th>
+              <th>Closing</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      `;
+    }
+
+    function renderPayablesStatements(result) {
+      const container = document.getElementById('payablesReport');
+      if (!container) return;
+      const rows = result && result.rows ? result.rows : [];
+      if (!rows.length) {
+        container.innerHTML = '<div class="card"><p>No payables found for the selected period.</p></div>';
+        return;
+      }
+
+      const body = rows.map(row => `
+        <tr>
+          <td data-label="Payee">${row.payee || ''}</td>
+          <td data-label="Opening">${formatPerformanceAmount(row.opening)}</td>
+          <td data-label="Additions">${formatPerformanceAmount(row.additions)}</td>
+          <td data-label="Payments">${formatPerformanceAmount(row.payments)}</td>
+          <td data-label="Closing">${formatPerformanceAmount(row.closing)}</td>
+          <td data-label="Action">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-secondary" type="button" onclick="printStatementRow('payable', '${escapeHtml(row.payee || '')}')">Print</button>
+              <button class="btn btn-secondary" type="button" onclick="downloadStatementRowCsv('payable', '${escapeHtml(row.payee || '')}')">Download</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Payee</th>
+              <th>Opening</th>
+              <th>Additions</th>
+              <th>Payments</th>
+              <th>Closing</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      `;
+    }
+
     function formatPerformanceAmount(value) {
       const amount = Number(value || 0);
       if (!Number.isFinite(amount)) return '';
       const formatted = Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       return amount < 0 ? '(' + formatted + ')' : formatted;
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     function getFinancialYearRange(label) {
@@ -4425,6 +4706,101 @@
         return `30 June ${range.endYear}`;
       }
       return label || '';
+    }
+
+    function buildStatementSummaryRows(result, title) {
+      const rows = [];
+      const rowsData = result && result.rows ? result.rows : [];
+      rows.push([`${title} Statement Summary`]);
+      rows.push(['Payee', 'Opening', 'Additions', 'Payments', 'Closing']);
+      rowsData.forEach(row => {
+        rows.push([
+          row.payee || '',
+          formatPerformanceAmount(row.opening),
+          formatPerformanceAmount(row.additions),
+          formatPerformanceAmount(row.payments),
+          formatPerformanceAmount(row.closing)
+        ]);
+      });
+      return rows;
+    }
+
+    function printStatementRow(kind, payee) {
+      const data = getStatementRowData(kind, payee);
+      if (!data) {
+        showAlert('Statement not found for selected payee.', 'error');
+        return;
+      }
+      const title = kind === 'payable' ? 'Payables' : 'Receivables';
+      const content = `
+        <html>
+          <head>
+            <title>${title} Statement</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h2 { margin-bottom: 12px; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            </style>
+          </head>
+          <body>
+            <h2>${title} Statement - ${data.payee}</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Opening</th>
+                  <th>Additions</th>
+                  <th>Payments</th>
+                  <th>Closing</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>${formatPerformanceAmount(data.opening)}</td>
+                  <td>${formatPerformanceAmount(data.additions)}</td>
+                  <td>${formatPerformanceAmount(data.payments)}</td>
+                  <td>${formatPerformanceAmount(data.closing)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `;
+      const win = window.open('', '_blank', 'width=900,height=700');
+      if (win) {
+        win.document.write(content);
+        win.document.close();
+        win.focus();
+        win.print();
+      }
+    }
+
+    function downloadStatementRowCsv(kind, payee) {
+      const data = getStatementRowData(kind, payee);
+      if (!data) {
+        showAlert('Statement not found for selected payee.', 'error');
+        return;
+      }
+      const title = kind === 'payable' ? 'Payables' : 'Receivables';
+      const rows = [
+        [`${title} Statement - ${data.payee}`],
+        ['Opening', 'Additions', 'Payments', 'Closing'],
+        [
+          formatPerformanceAmount(data.opening),
+          formatPerformanceAmount(data.additions),
+          formatPerformanceAmount(data.payments),
+          formatPerformanceAmount(data.closing)
+        ]
+      ];
+      const safeName = String(data.payee || 'statement').replace(/[^\w\-]+/g, '_');
+      downloadRowsAsCsv(rows, `${title.toLowerCase()}_${safeName}.csv`);
+    }
+
+    function getStatementRowData(kind, payee) {
+      const list = kind === 'payable'
+        ? (lastPayablesResult && lastPayablesResult.rows ? lastPayablesResult.rows : [])
+        : (lastReceivablesResult && lastReceivablesResult.rows ? lastReceivablesResult.rows : []);
+      return list.find(row => row.payee === payee) || null;
     }
 
     function downloadRowsAsCsv(rows, filename) {
@@ -4893,6 +5269,24 @@
       }
     }
 
+    function downloadReceivablesSummaryCsv() {
+      if (!lastReceivablesResult || !lastReceivablesResult.rows || !lastReceivablesResult.rows.length) {
+        showReceivablesAlert('Run the summary first.', 'error');
+        return;
+      }
+      const rows = buildStatementSummaryRows(lastReceivablesResult, 'Receivables');
+      downloadRowsAsCsv(rows, 'receivables_summary.csv');
+    }
+
+    function downloadPayablesSummaryCsv() {
+      if (!lastPayablesResult || !lastPayablesResult.rows || !lastPayablesResult.rows.length) {
+        showPayablesAlert('Run the summary first.', 'error');
+        return;
+      }
+      const rows = buildStatementSummaryRows(lastPayablesResult, 'Payables');
+      downloadRowsAsCsv(rows, 'payables_summary.csv');
+    }
+
     function downloadNetAssetsCsv() {
       if (!lastNetAssetsResult) {
         showNetAssetsAlert('Run the statement first.', 'error');
@@ -5001,6 +5395,58 @@
 
     function showNetAssetsAlert(message, type = 'success', duration = 6000) {
       const container = document.getElementById('netAssetsAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function showReceivablesAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('receivablesAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function showPayablesAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('payablesAlert');
       if (!container) {
         showAlert(message, type, duration);
         return;
@@ -5490,6 +5936,8 @@
     let lastCashFlowResult = null;
     let lastPositionResult = null;
     let lastNetAssetsResult = null;
+    let lastReceivablesResult = null;
+    let lastPayablesResult = null;
     let currentBatchRows = [];
     let currentBatchId = '';
 
