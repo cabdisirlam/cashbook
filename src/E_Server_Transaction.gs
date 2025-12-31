@@ -1034,7 +1034,7 @@ function getBudgetVsActual(financialYear) {
       const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
       if (batchId && !cashBatchIds.has(batchId)) return;
       const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
-      if (!accountCode) return;
+      if (accountCode) return;
 
       const particulars = String(row[cols.particulars - 1] || '').trim();
       if (!particulars) return;
@@ -1423,11 +1423,7 @@ function getNotesReport(currentYear, comparativeYear, options) {
       const rowYear = String(row[cols.financialYear - 1] || '').trim();
       if (rowYear !== year && rowYear !== compare) return;
       const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
-      if (useCashBasis) {
-        if (!accountCode) return;
-      } else if (accountCode) {
-        return;
-      }
+      if (accountCode) return;
       const particulars = String(row[cols.particulars - 1] || '').trim();
       if (!particulars) return;
 
@@ -1728,6 +1724,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
     const journalData = journal.getRange(2, 1, journalLastRow - 1, journalLastCol).getValues();
     const cashBatchCurrent = new Set();
     const cashBatchComparative = new Set();
+    const bankDirectionByBatch = {};
 
     journalData.forEach(row => {
       if (!cols.financialYear || !cols.accountCode || !cols.batchId) return;
@@ -1736,6 +1733,10 @@ function getCashFlowReport(currentYear, comparativeYear) {
       const accountCode = String(row[cols.accountCode - 1] || '').trim();
       const batchId = String(row[cols.batchId - 1] || '').trim();
       if (!accountCode || !batchId) return;
+      const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+      const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+      const direction = debit > 0 ? 'receipt' : (credit > 0 ? 'payment' : '');
+      if (direction) bankDirectionByBatch[batchId] = direction;
       if (rowYear === notes.currentYear) {
         cashBatchCurrent.add(batchId);
       } else {
@@ -1752,7 +1753,9 @@ function getCashFlowReport(currentYear, comparativeYear) {
       if (rowYear === notes.comparativeYear && !cashBatchComparative.has(batchId)) return;
 
       const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
-      if (!accountCode) return;
+      if (accountCode) return;
+      const bankDirection = bankDirectionByBatch[batchId];
+      if (!bankDirection) return;
 
       const particulars = String(row[cols.particulars - 1] || '').trim();
       if (!particulars) return;
@@ -1764,20 +1767,32 @@ function getCashFlowReport(currentYear, comparativeYear) {
       const amount = credit > 0 ? credit : debit;
       if (!amount) return;
 
-      const classification = _classifyCashFlowLine_(reportMapping, accountType, debit, credit);
+      const mappingLower = String(reportMapping || '').toLowerCase();
+      const isNetAssets = mappingLower.includes('net asset');
+      let classification = null;
+      let lineCategory = category;
+      let lineNote = noteNumberByCategory[category] || '';
+      if (isNetAssets) {
+        classification = { section: 'financing', direction: bankDirection };
+        lineCategory = 'Prior year adjustment';
+        lineNote = '';
+      } else {
+        const classDebit = bankDirection === 'payment' ? amount : 0;
+        const classCredit = bankDirection === 'receipt' ? amount : 0;
+        classification = _classifyCashFlowLine_(reportMapping, accountType, classDebit, classCredit);
+      }
       if (!classification) return;
-      const note = noteNumberByCategory[category] || '';
       const targetYear = rowYear === notes.currentYear ? 'current' : 'comparative';
 
       if (classification.section === 'operating') {
         if (classification.direction === 'receipt') {
-          operatingReceipts[category] = operatingReceipts[category] || { description: category, note: note, currentAmount: 0, comparativeAmount: 0 };
-          operatingReceipts[category][targetYear + 'Amount'] += amount;
+          operatingReceipts[lineCategory] = operatingReceipts[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
+          operatingReceipts[lineCategory][targetYear + 'Amount'] += amount;
           if (targetYear === 'current') receiptsCurrent += amount;
           else receiptsComparative += amount;
         } else {
-          operatingPayments[category] = operatingPayments[category] || { description: category, note: note, currentAmount: 0, comparativeAmount: 0 };
-          operatingPayments[category][targetYear + 'Amount'] += amount;
+          operatingPayments[lineCategory] = operatingPayments[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
+          operatingPayments[lineCategory][targetYear + 'Amount'] += amount;
           if (targetYear === 'current') paymentsCurrent += amount;
           else paymentsComparative += amount;
         }
@@ -1785,18 +1800,18 @@ function getCashFlowReport(currentYear, comparativeYear) {
       }
 
       if (classification.section === 'investing') {
-        investing[category] = investing[category] || { description: category, note: note, currentAmount: 0, comparativeAmount: 0 };
+        investing[lineCategory] = investing[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
         const signedAmount = classification.direction === 'receipt' ? amount : -Math.abs(amount);
-        investing[category][targetYear + 'Amount'] += signedAmount;
+        investing[lineCategory][targetYear + 'Amount'] += signedAmount;
         if (targetYear === 'current') investingCurrent += signedAmount;
         else investingComparative += signedAmount;
         return;
       }
 
       if (classification.section === 'financing') {
-        financing[category] = financing[category] || { description: category, note: note, currentAmount: 0, comparativeAmount: 0 };
+        financing[lineCategory] = financing[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
         const signedAmount = classification.direction === 'receipt' ? amount : -Math.abs(amount);
-        financing[category][targetYear + 'Amount'] += signedAmount;
+        financing[lineCategory][targetYear + 'Amount'] += signedAmount;
         if (targetYear === 'current') financingCurrent += signedAmount;
         else financingComparative += signedAmount;
       }
@@ -1877,6 +1892,10 @@ function getPositionReport(currentYear, comparativeYear) {
   let totalEquity = 0;
   let totalEquityComparative = 0;
 
+  const ss = _getOrCreateSpreadsheet();
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) throw new Error('DB_JOURNAL not found.');
+
   categories.forEach(category => {
     if (!category || !category.category) return;
     const section = _classifyPositionCategory_(
@@ -1942,36 +1961,90 @@ function getPositionReport(currentYear, comparativeYear) {
   const performance = getPerformanceReport(currentYear, comparativeYear);
   const surplusCurrent = performance && performance.surplus ? Number(performance.surplus.current || 0) : 0;
   const surplusComparative = performance && performance.surplus ? Number(performance.surplus.comparative || 0) : 0;
-  const previousOpening = 0;
-  const previousClosing = previousOpening + surplusComparative;
-  const currentOpening = previousClosing;
-  const currentClosing = currentOpening + surplusCurrent;
+  const journalLastRow = journal.getLastRow();
+  const journalLastCol = journal.getLastColumn();
+  let movementsCurrent = { accumulated: 0, revaluation: 0 };
+  let movementsComparative = { accumulated: 0, revaluation: 0 };
+  if (journalLastRow >= 2) {
+    const journalHeaders = journal.getRange(1, 1, 1, journalLastCol).getValues()[0].map(_normalizeHeader_);
+    const cols = _getJournalColumns_(journalHeaders);
+    const data = journal.getRange(2, 1, journalLastRow - 1, journalLastCol).getValues();
+
+    const sumMovements = function(targetYear) {
+      const totals = { accumulated: 0, revaluation: 0 };
+      data.forEach(function(row) {
+        if (!cols.financialYear || !cols.particulars) return;
+        const rowYear = String(row[cols.financialYear - 1] || '').trim();
+        if (rowYear !== targetYear) return;
+        const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+        if (accountCode) return;
+        const particulars = String(row[cols.particulars - 1] || '').trim().toLowerCase();
+        if (!particulars) return;
+        const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+        const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+        const movement = credit - debit;
+        if (particulars === 'accumulated fund') {
+          totals.accumulated += movement;
+        }
+        if (particulars === 'revaluation reserve' || particulars === 'revaluation surplus') {
+          totals.revaluation += movement;
+        }
+      });
+      return totals;
+    };
+
+    movementsCurrent = sumMovements(notes.currentYear || String(currentYear || '').trim());
+    movementsComparative = sumMovements(notes.comparativeYear || String(comparativeYear || '').trim());
+  }
+
+  const previousOpeningAccumulated = 0;
+  const previousOpeningRevaluation = 0;
+  const previousOtherAccumulated = movementsComparative.accumulated;
+  const previousOtherRevaluation = movementsComparative.revaluation;
+  const previousClosingAccumulated = previousOpeningAccumulated + previousOtherAccumulated + surplusComparative;
+  const previousClosingRevaluation = previousOpeningRevaluation + previousOtherRevaluation;
+  const currentOpeningAccumulated = previousClosingAccumulated;
+  const currentOpeningRevaluation = previousClosingRevaluation;
+  const currentOtherAccumulated = movementsCurrent.accumulated;
+  const currentOtherRevaluation = movementsCurrent.revaluation;
+  const currentClosingAccumulated = currentOpeningAccumulated + currentOtherAccumulated + surplusCurrent;
+  const currentClosingRevaluation = currentOpeningRevaluation + currentOtherRevaluation;
   const changesInNetAssets = {
     titleYear: notes.currentYear || String(currentYear || '').trim(),
     previousYear: notes.comparativeYear || String(comparativeYear || '').trim(),
     previous: {
-      opening: previousOpening,
+      openingAccumulated: previousOpeningAccumulated,
+      openingRevaluation: previousOpeningRevaluation,
       revaluationGain: 0,
       transfer: 0,
+      otherChangesAccumulated: previousOtherAccumulated,
+      otherChangesRevaluation: previousOtherRevaluation,
       surplus: surplusComparative,
-      closing: previousClosing
+      closingAccumulated: previousClosingAccumulated,
+      closingRevaluation: previousClosingRevaluation
     },
     current: {
-      opening: currentOpening,
+      openingAccumulated: currentOpeningAccumulated,
+      openingRevaluation: currentOpeningRevaluation,
       revaluationGain: 0,
       transfer: 0,
+      otherChangesAccumulated: currentOtherAccumulated,
+      otherChangesRevaluation: currentOtherRevaluation,
       surplus: surplusCurrent,
-      closing: currentClosing
+      closingAccumulated: currentClosingAccumulated,
+      closingRevaluation: currentClosingRevaluation
     }
   };
 
-  const accumulatedCurrent = changesInNetAssets.current.closing;
-  const accumulatedComparative = changesInNetAssets.previous.closing;
+  const accumulatedCurrent = changesInNetAssets.current.closingAccumulated;
+  const accumulatedComparative = changesInNetAssets.previous.closingAccumulated;
+  const revaluationCurrent = changesInNetAssets.current.closingRevaluation;
+  const revaluationComparative = changesInNetAssets.previous.closingRevaluation;
   const revaluationReserveRow = {
     description: 'Revaluation Reserve',
     note: '',
-    currentAmount: 0,
-    comparativeAmount: 0
+    currentAmount: revaluationCurrent,
+    comparativeAmount: revaluationComparative
   };
   const accumulatedRow = {
     description: 'Accumulated Fund',
@@ -2967,6 +3040,11 @@ function _classifyPositionCategory_(categoryName, accountTypes, reportMappings) 
   const mappingValues = (reportMappings || []).map(value => String(value || '').toLowerCase());
 
   if (name.includes('cash and cash equivalent')) return 'current_asset';
+  if (name.includes('ppe') || name.includes('property, plant') || name.includes('property plant') || name.includes('property and equipment')) {
+    return 'non_current_asset';
+  }
+  if (name.includes('receivable') || name.includes('debtors')) return 'current_asset';
+  if (name.includes('payable') || name.includes('creditors')) return 'current_liability';
   if (mappingValues.some(value => value.includes('current asset'))) return 'current_asset';
   if (mappingValues.some(value => value.includes('non-current asset') || value.includes('non current asset'))) {
     return 'non_current_asset';

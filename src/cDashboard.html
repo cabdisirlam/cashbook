@@ -111,12 +111,14 @@
     }
 
     .menu-section {
-      margin-bottom: 6px;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
     }
 
     .menu-section-title {
-      padding: 8px 14px 4px;
-      font-size: 10px;
+      padding: 10px 14px 6px;
+      font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.8px;
       text-transform: uppercase;
@@ -151,15 +153,15 @@
 
     .menu-item {
       margin: 0 10px 2px;
-      padding: 8px 12px;
+      padding: 9px 12px;
       color: #cbd5e1;
       cursor: pointer;
       transition: var(--transition);
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 13px;
-      font-weight: 500;
+      font-size: 14px;
+      font-weight: 600;
       border-radius: 6px;
       position: relative;
     }
@@ -4365,16 +4367,18 @@
             </tr>
           </thead>
           <tbody>
-            ${buildRow(previousStartLabel, 0, prev.opening || 0)}
+            ${buildRow(previousStartLabel, prev.openingRevaluation || 0, prev.openingAccumulated || 0)}
             ${buildRow('Revaluation gain', prev.revaluationGain || 0, 0)}
             ${buildRow('Transfer of excess depreciation on revaluation', prev.transfer || 0, prev.transfer || 0)}
+            ${buildRow('Other changes during the year', prev.otherChangesRevaluation || 0, prev.otherChangesAccumulated || 0)}
             ${buildRow('Surplus/(deficit) for the year', 0, prev.surplus || 0)}
-            ${buildRow(previousEndLabel, 0, prev.closing || 0)}
-            ${buildRow(currentStartLabel, 0, curr.opening || 0)}
+            ${buildRow(previousEndLabel, prev.closingRevaluation || 0, prev.closingAccumulated || 0)}
+            ${buildRow(currentStartLabel, curr.openingRevaluation || 0, curr.openingAccumulated || 0)}
             ${buildRow('Revaluation gain', curr.revaluationGain || 0, 0)}
             ${buildRow('Transfer of excess depreciation on revaluation', curr.transfer || 0, curr.transfer || 0)}
+            ${buildRow('Other changes during the year', curr.otherChangesRevaluation || 0, curr.otherChangesAccumulated || 0)}
             ${buildRow('Surplus/(deficit) for the year', 0, curr.surplus || 0)}
-            ${buildRow(currentEndLabel, 0, curr.closing || 0)}
+            ${buildRow(currentEndLabel, curr.closingRevaluation || 0, curr.closingAccumulated || 0)}
           </tbody>
         </table>
       `;
@@ -4792,17 +4796,19 @@
         rows.push([label, formatPerformanceAmount(rev), formatPerformanceAmount(acc), formatPerformanceAmount((rev || 0) + (acc || 0))]);
       };
 
-      pushChangeRow(previousStartLabel, 0, prev.opening || 0);
+      pushChangeRow(previousStartLabel, prev.openingRevaluation || 0, prev.openingAccumulated || 0);
       pushChangeRow('Revaluation gain', prev.revaluationGain || 0, 0);
       pushChangeRow('Transfer of excess depreciation on revaluation', prev.transfer || 0, prev.transfer || 0);
+      pushChangeRow('Other changes during the year', prev.otherChangesRevaluation || 0, prev.otherChangesAccumulated || 0);
       pushChangeRow('Surplus/(deficit) for the year', 0, prev.surplus || 0);
-      pushChangeRow(previousEndLabel, 0, prev.closing || 0);
+      pushChangeRow(previousEndLabel, prev.closingRevaluation || 0, prev.closingAccumulated || 0);
 
-      pushChangeRow(currentStartLabel, 0, curr.opening || 0);
+      pushChangeRow(currentStartLabel, curr.openingRevaluation || 0, curr.openingAccumulated || 0);
       pushChangeRow('Revaluation gain', curr.revaluationGain || 0, 0);
       pushChangeRow('Transfer of excess depreciation on revaluation', curr.transfer || 0, curr.transfer || 0);
+      pushChangeRow('Other changes during the year', curr.otherChangesRevaluation || 0, curr.otherChangesAccumulated || 0);
       pushChangeRow('Surplus/(deficit) for the year', 0, curr.surplus || 0);
-      pushChangeRow(currentEndLabel, 0, curr.closing || 0);
+      pushChangeRow(currentEndLabel, curr.closingRevaluation || 0, curr.closingAccumulated || 0);
 
       return rows;
     }
