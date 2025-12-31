@@ -115,6 +115,52 @@
   </div>
 
   <div class="menu-section collapsible">
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">Receivables</div>
+    <div class="menu-section-body">
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Staff Imprests" onclick="navigateTo(this, 'Staff Imprests')">
+        <span class="menu-item-icon">-</span>
+        <span>Staff Imprests</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Customer Invoices" onclick="navigateTo(this, 'Customer Invoices')">
+        <span class="menu-item-icon">-</span>
+        <span>Customer Invoices</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="View Receivables Statement" onclick="navigateTo(this, 'View Receivables Statement')">
+        <span class="menu-item-icon">-</span>
+        <span>View Statement</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu-section collapsible">
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">Payables</div>
+    <div class="menu-section-body">
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Supplier Bills" onclick="navigateTo(this, 'Supplier Bills')">
+        <span class="menu-item-icon">-</span>
+        <span>Supplier Bills</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="View Payables Statement" onclick="navigateTo(this, 'View Payables Statement')">
+        <span class="menu-item-icon">-</span>
+        <span>View Statement</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu-section collapsible">
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">Fixed Assets</div>
+    <div class="menu-section-body">
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Asset Register" onclick="navigateTo(this, 'Asset Register')">
+        <span class="menu-item-icon">-</span>
+        <span>Asset Register</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Add New Asset" onclick="navigateTo(this, 'Add New Asset')">
+        <span class="menu-item-icon">-</span>
+        <span>Add New Asset</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu-section collapsible">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">Banking</div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter" data-label="Import Statement" onclick="navigateTo(this, 'Import Statement')">

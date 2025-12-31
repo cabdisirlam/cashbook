@@ -166,6 +166,13 @@ function saveTransaction(data) {
   });
 
   const bankMeta = accountMeta[accountCode] || {};
+  const fallbackRow = cleanedRows[0] || {};
+  const bankParticulars = fallbackRow.particulars || '';
+  const bankSubCategory = fallbackRow.subCategory || '';
+  const bankCategory = fallbackRow.category || '';
+  const bankDescription = fallbackRow.description || 'Bank entry';
+  const bankAccountType = fallbackRow.accountType || bankMeta.accountType || '';
+  const bankReportMapping = fallbackRow.reportMapping || bankMeta.reportMapping || '';
   const bankDebit = isReceipt ? total : 0;
   const bankCredit = isReceipt ? 0 : total;
   entries.push([
@@ -177,14 +184,14 @@ function saveTransaction(data) {
     payee,
     refNo,
     bankRef,
-    '',
-    '',
-    '',
-    'Bank entry',
+    bankParticulars,
+    bankSubCategory,
+    bankCategory,
+    bankDescription,
     bankDebit,
     bankCredit,
-    bankMeta.accountType || '',
-    bankMeta.reportMapping || '',
+    bankAccountType,
+    bankReportMapping,
     'Unreconciled',
     ''
   ]);
@@ -328,6 +335,8 @@ function saveJournalEntry(payload) {
     throw new Error('Journal entry is out of balance.');
   }
 
+  const fallbackDetail = cleanedRows.find(row => !row.accountCode) || null;
+
   let refNo = String(header.refNo || '').trim();
   if (!refNo) {
     refNo = getNextJournalRef();
@@ -335,6 +344,13 @@ function saveJournalEntry(payload) {
 
   const batchId = 'JRN-' + new Date().getTime();
   const entries = cleanedRows.map(function(row) {
+    const useFallback = row.accountCode && fallbackDetail;
+    const entryParticulars = useFallback ? fallbackDetail.particulars : row.particulars;
+    const entrySubCategory = useFallback ? fallbackDetail.subCategory : row.subCategory;
+    const entryCategory = useFallback ? fallbackDetail.category : row.category;
+    const entryDescription = useFallback ? (fallbackDetail.description || row.description) : row.description;
+    const entryAccountType = useFallback ? (fallbackDetail.accountType || '') : row.accountType;
+    const entryReportMapping = useFallback ? (fallbackDetail.reportMapping || '') : row.reportMapping;
     return [
       Utilities.getUuid(),
       batchId,
@@ -344,14 +360,14 @@ function saveJournalEntry(payload) {
       payee,
       refNo,
       '',
-      row.particulars,
-      row.subCategory,
-      row.category,
-      row.description,
+      entryParticulars,
+      entrySubCategory,
+      entryCategory,
+      entryDescription,
       row.debit,
       row.credit,
-      row.accountType,
-      row.reportMapping,
+      entryAccountType,
+      entryReportMapping,
       row.reconStatus || '',
       ''
     ];
@@ -1017,6 +1033,9 @@ function getBudgetVsActual(financialYear) {
       if (rowYear !== year) return;
       const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
       if (batchId && !cashBatchIds.has(batchId)) return;
+      const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+      if (!accountCode) return;
+
       const particulars = String(row[cols.particulars - 1] || '').trim();
       if (!particulars) return;
       const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
@@ -1403,6 +1422,12 @@ function getNotesReport(currentYear, comparativeYear, options) {
       if (!cols.particulars || !cols.financialYear) return;
       const rowYear = String(row[cols.financialYear - 1] || '').trim();
       if (rowYear !== year && rowYear !== compare) return;
+      const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+      if (useCashBasis) {
+        if (!accountCode) return;
+      } else if (accountCode) {
+        return;
+      }
       const particulars = String(row[cols.particulars - 1] || '').trim();
       if (!particulars) return;
 
@@ -1725,6 +1750,9 @@ function getCashFlowReport(currentYear, comparativeYear) {
       const batchId = String(row[cols.batchId - 1] || '').trim();
       if (rowYear === notes.currentYear && !cashBatchCurrent.has(batchId)) return;
       if (rowYear === notes.comparativeYear && !cashBatchComparative.has(batchId)) return;
+
+      const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+      if (!accountCode) return;
 
       const particulars = String(row[cols.particulars - 1] || '').trim();
       if (!particulars) return;
