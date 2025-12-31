@@ -1279,10 +1279,10 @@ function getNotesReport(currentYear, comparativeYear, options) {
       if (accountCode && batchId) {
         if (rowYear === year) {
           cashBatchCurrent.add(batchId);
-          bankNetCurrent[accountCode] = (bankNetCurrent[accountCode] || 0) + (credit - debit);
+          bankNetCurrent[accountCode] = (bankNetCurrent[accountCode] || 0) + (debit - credit);
         } else {
           cashBatchComparative.add(batchId);
-          bankNetComparative[accountCode] = (bankNetComparative[accountCode] || 0) + (credit - debit);
+          bankNetComparative[accountCode] = (bankNetComparative[accountCode] || 0) + (debit - credit);
         }
       }
     });
@@ -1802,8 +1802,10 @@ function getPositionReport(currentYear, comparativeYear) {
   const performance = getPerformanceReport(currentYear, comparativeYear);
   const surplusCurrent = performance && performance.surplus ? Number(performance.surplus.current || 0) : 0;
   const surplusComparative = performance && performance.surplus ? Number(performance.surplus.comparative || 0) : 0;
-  const previousOpening = netAssetsComparative - surplusComparative;
-  const currentOpening = netAssetsCurrent - surplusCurrent;
+  const previousOpening = 0;
+  const previousClosing = previousOpening + surplusComparative;
+  const currentOpening = previousClosing;
+  const currentClosing = currentOpening + surplusCurrent;
   const changesInNetAssets = {
     titleYear: notes.currentYear || String(currentYear || '').trim(),
     previousYear: notes.comparativeYear || String(comparativeYear || '').trim(),
@@ -1812,14 +1814,14 @@ function getPositionReport(currentYear, comparativeYear) {
       revaluationGain: 0,
       transfer: 0,
       surplus: surplusComparative,
-      closing: previousOpening + surplusComparative
+      closing: previousClosing
     },
     current: {
       opening: currentOpening,
       revaluationGain: 0,
       transfer: 0,
       surplus: surplusCurrent,
-      closing: currentOpening + surplusCurrent
+      closing: currentClosing
     }
   };
 

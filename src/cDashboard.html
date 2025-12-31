@@ -3736,6 +3736,7 @@
       const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
       const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
       const titleYear = result.currentYear || '';
+      const yearEndLabel = getFinancialYearEndLabel(titleYear);
 
       let rows = '';
 
@@ -3828,7 +3829,7 @@
       `;
 
       container.innerHTML = `
-        <div style="font-weight:700;margin-bottom:8px;">Statement of Financial Performance for the year ended ${titleYear}</div>
+        <div style="font-weight:700;margin-bottom:8px;">Statement of Financial Performance for the year ended ${yearEndLabel}</div>
         <table class="table">
           <thead>
             <tr>
@@ -3866,6 +3867,7 @@
       const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
       const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
       const titleYear = result.currentYear || '';
+      const yearEndLabel = getFinancialYearEndLabel(titleYear);
 
       let rows = '';
 
@@ -4016,7 +4018,7 @@
       `;
 
       container.innerHTML = `
-        <div style="font-weight:700;margin-bottom:8px;">Statement of Cash Flows for the year ended ${titleYear}</div>
+        <div style="font-weight:700;margin-bottom:8px;">Statement of Cash Flows for the year ended ${yearEndLabel}</div>
         <table class="table">
           <thead>
             <tr>
@@ -4055,6 +4057,7 @@
       const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
       const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
       const titleYear = result.currentYear || '';
+      const yearEndLabel = getFinancialYearEndLabel(titleYear);
 
       let rows = '';
 
@@ -4222,7 +4225,7 @@
       `;
 
       container.innerHTML = `
-        <div style="font-weight:700;margin-bottom:8px;">Statement of Financial Position as at ${titleYear}</div>
+        <div style="font-weight:700;margin-bottom:8px;">Statement of Financial Position as at ${yearEndLabel}</div>
         <table class="table">
           <thead>
             <tr>
@@ -4257,6 +4260,7 @@
       const previousYear = changes.previousYear || result.comparativeYear || '';
       const prev = changes.previous || {};
       const curr = changes.current || {};
+      const yearEndLabel = getFinancialYearEndLabel(titleYear);
 
       const buildRow = (label, rev, acc) => `
         <tr>
@@ -4267,8 +4271,15 @@
         </tr>
       `;
 
+      const previousRange = getFinancialYearRange(previousYear);
+      const currentRange = getFinancialYearRange(titleYear);
+      const previousStartLabel = previousRange.startYear ? `As at July 1, ${previousRange.startYear}` : `As at July 1 (${previousYear || 'Previous FY'})`;
+      const previousEndLabel = previousRange.endYear ? `As at June 30, ${previousRange.endYear}` : `As at June 30 (${previousYear || 'Previous FY'})`;
+      const currentStartLabel = currentRange.startYear ? `As at July 1, ${currentRange.startYear}` : `As at July 1 (${titleYear || 'Current FY'})`;
+      const currentEndLabel = currentRange.endYear ? `As at June 30, ${currentRange.endYear}` : `As at June 30 (${titleYear || 'Current FY'})`;
+
       container.innerHTML = `
-        <div style="font-weight:700;margin-bottom:8px;">Statement of Net Assets for the year ended ${titleYear}</div>
+        <div style="font-weight:700;margin-bottom:8px;">Statement of Net Assets for the year ended ${yearEndLabel}</div>
         <table class="table">
           <thead>
             <tr>
@@ -4285,16 +4296,16 @@
             </tr>
           </thead>
           <tbody>
-            ${buildRow(`As at July 1 (${previousYear || 'Previous FY'})`, 0, prev.opening || 0)}
+            ${buildRow(previousStartLabel, 0, prev.opening || 0)}
             ${buildRow('Revaluation gain', prev.revaluationGain || 0, 0)}
             ${buildRow('Transfer of excess depreciation on revaluation', prev.transfer || 0, prev.transfer || 0)}
             ${buildRow('Surplus/(deficit) for the year', 0, prev.surplus || 0)}
-            ${buildRow(`As at June 30 (${previousYear || 'Previous FY'})`, 0, prev.closing || 0)}
-            ${buildRow(`As at July 1 (${titleYear || 'Current FY'})`, 0, curr.opening || 0)}
+            ${buildRow(previousEndLabel, 0, prev.closing || 0)}
+            ${buildRow(currentStartLabel, 0, curr.opening || 0)}
             ${buildRow('Revaluation gain', curr.revaluationGain || 0, 0)}
             ${buildRow('Transfer of excess depreciation on revaluation', curr.transfer || 0, curr.transfer || 0)}
             ${buildRow('Surplus/(deficit) for the year', 0, curr.surplus || 0)}
-            ${buildRow(`As at June 30 (${titleYear || 'Current FY'})`, 0, curr.closing || 0)}
+            ${buildRow(currentEndLabel, 0, curr.closing || 0)}
           </tbody>
         </table>
       `;
@@ -4305,6 +4316,42 @@
       if (!Number.isFinite(amount)) return '';
       const formatted = Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       return amount < 0 ? '(' + formatted + ')' : formatted;
+    }
+
+    function getFinancialYearRange(label) {
+      const text = String(label || '').trim();
+      if (!text) return { startYear: null, endYear: null };
+
+      const rangeMatch = text.match(/(\d{4})\s*[\/-]\s*(\d{2,4})/);
+      if (rangeMatch) {
+        const start = parseInt(rangeMatch[1], 10);
+        const endRaw = rangeMatch[2];
+        const end = endRaw.length === 2 ? parseInt(String(start).slice(0, 2) + endRaw, 10) : parseInt(endRaw, 10);
+        return { startYear: Number.isFinite(start) ? start : null, endYear: Number.isFinite(end) ? end : null };
+      }
+
+      const yearMatches = text.match(/\d{4}/g) || [];
+      if (yearMatches.length >= 2) {
+        const start = parseInt(yearMatches[0], 10);
+        const end = parseInt(yearMatches[1], 10);
+        return { startYear: Number.isFinite(start) ? start : null, endYear: Number.isFinite(end) ? end : null };
+      }
+
+      if (yearMatches.length === 1) {
+        const end = parseInt(yearMatches[0], 10);
+        const start = end - 1;
+        return { startYear: Number.isFinite(start) ? start : null, endYear: Number.isFinite(end) ? end : null };
+      }
+
+      return { startYear: null, endYear: null };
+    }
+
+    function getFinancialYearEndLabel(label) {
+      const range = getFinancialYearRange(label);
+      if (range.endYear) {
+        return `30 June ${range.endYear}`;
+      }
+      return label || '';
     }
 
     function downloadRowsAsCsv(rows, filename) {
@@ -4368,7 +4415,8 @@
       const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
       const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
       const titleYear = result.currentYear || '';
-      rows.push([`Statement of Financial Performance for the year ended ${titleYear}`]);
+      const yearEndLabel = getFinancialYearEndLabel(titleYear);
+      rows.push([`Statement of Financial Performance for the year ended ${yearEndLabel}`]);
       rows.push(['Description', 'Notes', currentLabel, comparativeLabel]);
 
       const revenueRows = (result.revenue && result.revenue.rows) ? result.revenue.rows : [];
@@ -4438,7 +4486,8 @@
       const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
       const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
       const titleYear = result.currentYear || '';
-      rows.push([`Statement of Cash Flows for the year ended ${titleYear}`]);
+      const yearEndLabel = getFinancialYearEndLabel(titleYear);
+      rows.push([`Statement of Cash Flows for the year ended ${yearEndLabel}`]);
       rows.push(['Description', 'Notes', currentLabel, comparativeLabel]);
 
       rows.push(['Cash flows from operating activities', '', '', '']);
@@ -4542,7 +4591,8 @@
       const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
       const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
       const titleYear = result.currentYear || '';
-      rows.push([`Statement of Financial Position as at ${titleYear}`]);
+      const yearEndLabel = getFinancialYearEndLabel(titleYear);
+      rows.push([`Statement of Financial Position as at ${yearEndLabel}`]);
       rows.push(['Description', 'Notes', currentLabel, comparativeLabel]);
 
       rows.push(['Assets', '', '', '']);
@@ -4656,8 +4706,16 @@
       const previousYear = changes.previousYear || result.comparativeYear || '';
       const prev = changes.previous || {};
       const curr = changes.current || {};
+      const yearEndLabel = getFinancialYearEndLabel(titleYear);
 
-      rows.push([`Statement of Net Assets for the year ended ${titleYear}`]);
+      const previousRange = getFinancialYearRange(previousYear);
+      const currentRange = getFinancialYearRange(titleYear);
+      const previousStartLabel = previousRange.startYear ? `As at July 1, ${previousRange.startYear}` : `As at July 1 (${previousYear || 'Previous FY'})`;
+      const previousEndLabel = previousRange.endYear ? `As at June 30, ${previousRange.endYear}` : `As at June 30 (${previousYear || 'Previous FY'})`;
+      const currentStartLabel = currentRange.startYear ? `As at July 1, ${currentRange.startYear}` : `As at July 1 (${titleYear || 'Current FY'})`;
+      const currentEndLabel = currentRange.endYear ? `As at June 30, ${currentRange.endYear}` : `As at June 30 (${titleYear || 'Current FY'})`;
+
+      rows.push([`Statement of Net Assets for the year ended ${yearEndLabel}`]);
       rows.push(['Description', 'Revaluation Reserve', 'Accumulated Fund', 'Total']);
       rows.push(['', 'Kshs', 'Kshs', 'Kshs']);
 
@@ -4665,17 +4723,17 @@
         rows.push([label, formatPerformanceAmount(rev), formatPerformanceAmount(acc), formatPerformanceAmount((rev || 0) + (acc || 0))]);
       };
 
-      pushChangeRow(`As at July 1 (${previousYear || 'Previous FY'})`, 0, prev.opening || 0);
+      pushChangeRow(previousStartLabel, 0, prev.opening || 0);
       pushChangeRow('Revaluation gain', prev.revaluationGain || 0, 0);
       pushChangeRow('Transfer of excess depreciation on revaluation', prev.transfer || 0, prev.transfer || 0);
       pushChangeRow('Surplus/(deficit) for the year', 0, prev.surplus || 0);
-      pushChangeRow(`As at June 30 (${previousYear || 'Previous FY'})`, 0, prev.closing || 0);
+      pushChangeRow(previousEndLabel, 0, prev.closing || 0);
 
-      pushChangeRow(`As at July 1 (${titleYear || 'Current FY'})`, 0, curr.opening || 0);
+      pushChangeRow(currentStartLabel, 0, curr.opening || 0);
       pushChangeRow('Revaluation gain', curr.revaluationGain || 0, 0);
       pushChangeRow('Transfer of excess depreciation on revaluation', curr.transfer || 0, curr.transfer || 0);
       pushChangeRow('Surplus/(deficit) for the year', 0, curr.surplus || 0);
-      pushChangeRow(`As at June 30 (${titleYear || 'Current FY'})`, 0, curr.closing || 0);
+      pushChangeRow(currentEndLabel, 0, curr.closing || 0);
 
       return rows;
     }
