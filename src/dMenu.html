@@ -21,6 +21,60 @@
     justify-content: space-between;
   }
 
+  .menu-section-title .menu-section-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .menu-section-icon {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+    background-color: #64748b;
+    -webkit-mask-size: 12px 12px;
+    mask-size: 12px 12px;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+
+  .menu-section-icon[data-icon="transactions"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 6h16v3H4zm0 5h16v3H4zm0 5h10v3H4z'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 6h16v3H4zm0 5h16v3H4zm0 5h10v3H4z'/></svg>");
+  }
+
+  .menu-section-icon[data-icon="receivables"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8l10 5 10-5z'/><path d='M4 12v6l8 4 8-4v-6' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8l10 5 10-5z'/><path d='M4 12v6l8 4 8-4v-6' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-section-icon[data-icon="payables"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h16v10H4z'/><path d='M7 12h10' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h16v10H4z'/><path d='M7 12h10' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-section-icon[data-icon="assets"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 10h18v8H3z'/><path d='M6 10V6h12v4' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 10h18v8H3z'/><path d='M6 10V6h12v4' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-section-icon[data-icon="banking"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8h20z'/><path d='M4 11h16v8H4z'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8h20z'/><path d='M4 11h16v8H4z'/></svg>");
+  }
+
+  .menu-section-icon[data-icon="reports"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 20h16v2H4z'/><path d='M6 18V8h3v10zm5 0V5h3v13zm5 0v-7h3v7z'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 20h16v2H4z'/><path d='M6 18V8h3v10zm5 0V5h3v13zm5 0v-7h3v7z'/></svg>");
+  }
+
+  .menu-section-icon[data-icon="admin"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z'/></svg>");
+  }
+
   .menu-section.collapsible .menu-section-title::after {
     content: '›';
     font-size: 14px;
@@ -188,7 +242,12 @@
   </div>
 
   <div class="menu-section collapsible">
-    <div class="menu-section-title" onclick="toggleMenuSection(this)">Transactions</div>
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">
+      <span class="menu-section-label">
+        <span class="menu-section-icon" data-icon="transactions"></span>
+        Transactions
+      </span>
+    </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter" data-label="New Journal" onclick="navigateTo(this, 'New Journal')">
         <span class="menu-item-icon" data-icon="journal"></span>
@@ -214,7 +273,12 @@
   </div>
 
   <div class="menu-section collapsible">
-    <div class="menu-section-title" onclick="toggleMenuSection(this)">Receivables</div>
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">
+      <span class="menu-section-label">
+        <span class="menu-section-icon" data-icon="receivables"></span>
+        Receivables
+      </span>
+    </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Receivables Statements" onclick="navigateTo(this, 'Receivables Statements')">
         <span class="menu-item-icon" data-icon="receivable"></span>
@@ -224,7 +288,12 @@
   </div>
 
   <div class="menu-section collapsible">
-    <div class="menu-section-title" onclick="toggleMenuSection(this)">Payables</div>
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">
+      <span class="menu-section-label">
+        <span class="menu-section-icon" data-icon="payables"></span>
+        Payables
+      </span>
+    </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Payables Statements" onclick="navigateTo(this, 'Payables Statements')">
         <span class="menu-item-icon" data-icon="payable"></span>
@@ -234,7 +303,12 @@
   </div>
 
   <div class="menu-section collapsible">
-    <div class="menu-section-title" onclick="toggleMenuSection(this)">Fixed Assets</div>
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">
+      <span class="menu-section-label">
+        <span class="menu-section-icon" data-icon="assets"></span>
+        Fixed Assets
+      </span>
+    </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Asset Purchases" onclick="navigateTo(this, 'Asset Purchases')">
         <span class="menu-item-icon" data-icon="asset"></span>
@@ -244,7 +318,12 @@
   </div>
 
   <div class="menu-section collapsible">
-    <div class="menu-section-title" onclick="toggleMenuSection(this)">Banking</div>
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">
+      <span class="menu-section-label">
+        <span class="menu-section-icon" data-icon="banking"></span>
+        Banking
+      </span>
+    </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter" data-label="Import Statement" onclick="navigateTo(this, 'Import Statement')">
         <span class="menu-item-icon" data-icon="bank"></span>
@@ -258,7 +337,12 @@
   </div>
 
   <div class="menu-section collapsible">
-    <div class="menu-section-title" onclick="toggleMenuSection(this)">Reports</div>
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">
+      <span class="menu-section-label">
+        <span class="menu-section-icon" data-icon="reports"></span>
+        Reports
+      </span>
+    </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Performance" onclick="navigateTo(this, 'Performance')">
         <span class="menu-item-icon" data-icon="chart"></span>
@@ -288,7 +372,12 @@
   </div>
 
   <div class="menu-section collapsible">
-    <div class="menu-section-title" onclick="toggleMenuSection(this)">Admin</div>
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">
+      <span class="menu-section-label">
+        <span class="menu-section-icon" data-icon="admin"></span>
+        Admin
+      </span>
+    </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin" data-label="Users" onclick="navigateTo(this, 'Users')">
         <span class="menu-item-icon" data-icon="users"></span>
