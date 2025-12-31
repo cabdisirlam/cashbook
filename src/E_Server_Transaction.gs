@@ -84,6 +84,7 @@ function saveTransaction(data) {
 
   const payee = String(header.payee || '').trim();
   const refNo = String(header.refNo || '').trim();
+  const bankRef = String(header.bankRef || '').trim();
 
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -102,6 +103,7 @@ function saveTransaction(data) {
     ? master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues()
     : [];
   const particularMeta = _buildParticularMeta_(masterData, masterCols);
+  const accountMeta = _buildAccountMeta_(masterData, masterCols);
 
   const cleanedRows = rows.map(function(row) {
     const amount = Number(row.amount || 0);
@@ -146,9 +148,10 @@ function saveTransaction(data) {
       batchId,
       dateValue,
       financialYear,
-      accountCode,
+      '',
       payee,
       refNo,
+      bankRef,
       row.particulars,
       row.subCategory,
       row.category,
@@ -162,6 +165,30 @@ function saveTransaction(data) {
     ];
   });
 
+  const bankMeta = accountMeta[accountCode] || {};
+  const bankDebit = isReceipt ? total : 0;
+  const bankCredit = isReceipt ? 0 : total;
+  entries.push([
+    Utilities.getUuid(),
+    batchId,
+    dateValue,
+    financialYear,
+    accountCode,
+    payee,
+    refNo,
+    bankRef,
+    '',
+    '',
+    '',
+    'Bank entry',
+    bankDebit,
+    bankCredit,
+    bankMeta.accountType || '',
+    bankMeta.reportMapping || '',
+    'Unreconciled',
+    ''
+  ]);
+
   const startRow = journal.getLastRow() + 1;
   journal.getRange(startRow, 1, entries.length, entries[0].length).setValues(entries);
 
@@ -172,6 +199,151 @@ function saveTransaction(data) {
   );
 
   return 'Success';
+}
+
+function getNextJournalRef() {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return 'J1000001';
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  if (!cols.refNo) return 'J1000001';
+
+  const values = sheet.getRange(2, cols.refNo, lastRow - 1, 1).getValues();
+  let maxNumber = 1000000;
+  values.forEach(function(row) {
+    const value = String(row[0] || '').trim().toUpperCase();
+    const match = /^J(\d{7})$/.exec(value);
+    if (!match) return;
+    const numeric = Number(match[1]);
+    if (Number.isFinite(numeric) && numeric > maxNumber) {
+      maxNumber = numeric;
+    }
+  });
+
+  return 'J' + String(maxNumber + 1).padStart(7, '0');
+}
+
+function saveJournalEntry(payload) {
+  if (!payload || !payload.header || !payload.rows || !payload.rows.length) {
+    throw new Error('Missing journal data.');
+  }
+
+  const header = payload.header;
+  const rows = payload.rows;
+  const dateValue = header.date ? new Date(header.date) : new Date();
+  if (Number.isNaN(dateValue.getTime())) throw new Error('Invalid date.');
+
+  const financialYear = String(header.financialYear || '').trim();
+  if (!financialYear) throw new Error('Financial year is required.');
+
+  const ss = _getOrCreateSpreadsheet();
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) throw new Error('DB_JOURNAL not found.');
+
+  const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+  if (!master) throw new Error('MASTER_DATA not found.');
+
+  const masterLastRow = master.getLastRow();
+  const masterLastCol = master.getLastColumn();
+  const masterHeaders = masterLastRow >= 1
+    ? master.getRange(1, 1, 1, masterLastCol).getValues()[0].map(_normalizeHeader_)
+    : [];
+  const masterCols = _getMasterColumns_(masterHeaders);
+  const masterData = masterLastRow > 1
+    ? master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues()
+    : [];
+  const particularMeta = _buildParticularMeta_(masterData, masterCols);
+
+  const cleanedRows = rows.map(function(row) {
+    const particulars = String(row.particulars || '').trim();
+    const description = String(row.description || '').trim();
+    const debitValue = Number(row.debit || 0);
+    const creditValue = Number(row.credit || 0);
+
+    if (!particulars) throw new Error('Each line needs particulars.');
+    if (debitValue < 0 || creditValue < 0) throw new Error('Debit and Credit must be positive.');
+    if (debitValue === 0 && creditValue === 0) {
+      throw new Error('Each line needs a debit or credit value.');
+    }
+    if (debitValue > 0 && creditValue > 0) {
+      throw new Error('Each line can only have a debit or credit amount.');
+    }
+
+    const meta = particularMeta[particulars];
+    if (!meta || !meta.subCategory || !meta.category) {
+      throw new Error('Particulars not found: ' + particulars + '.');
+    }
+
+    return {
+      particulars: particulars,
+      subCategory: meta.subCategory,
+      category: meta.category,
+      description: description,
+      debit: debitValue,
+      credit: creditValue,
+      accountType: meta.accountType || '',
+      reportMapping: meta.reportMapping || ''
+    };
+  });
+
+  const totals = cleanedRows.reduce(function(acc, row) {
+    acc.debit += row.debit;
+    acc.credit += row.credit;
+    return acc;
+  }, { debit: 0, credit: 0 });
+
+  if (totals.debit <= 0 || totals.credit <= 0) {
+    throw new Error('Journal entries must have both debit and credit totals.');
+  }
+  if (Math.abs(totals.debit - totals.credit) > 0.01) {
+    throw new Error('Journal entry is out of balance.');
+  }
+
+  let refNo = String(header.refNo || '').trim();
+  if (!refNo) {
+    refNo = getNextJournalRef();
+  }
+
+  const batchId = 'JRN-' + new Date().getTime();
+  const entries = cleanedRows.map(function(row) {
+    return [
+      Utilities.getUuid(),
+      batchId,
+      dateValue,
+      financialYear,
+      '',
+      '',
+      refNo,
+      '',
+      row.particulars,
+      row.subCategory,
+      row.category,
+      row.description,
+      row.debit,
+      row.credit,
+      row.accountType,
+      row.reportMapping,
+      'Unreconciled',
+      ''
+    ];
+  });
+
+  const startRow = journal.getLastRow() + 1;
+  journal.getRange(startRow, 1, entries.length, entries[0].length).setValues(entries);
+
+  logSystemEventSafe(
+    'CREATE_JOURNAL',
+    batchId,
+    'Type: Journal, Ref: ' + refNo + ', Rows: ' + entries.length
+  );
+
+  return { success: true, refNo: refNo };
 }
 
 function getRecentTransactionsByType(type, limit) {
@@ -193,6 +365,8 @@ function getRecentTransactionsByType(type, limit) {
 
   for (let i = data.length - 1; i >= 0 && results.length < maxRows; i--) {
     const row = data[i];
+    const particulars = cols.particulars ? String(row[cols.particulars - 1]).trim() : '';
+    if (!particulars) continue;
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
     const isReceipt = credit > 0 && debit === 0;
@@ -257,7 +431,8 @@ function searchJournal(criteria) {
 
     const uuid = cols.uuid ? String(row[cols.uuid - 1]).trim() : '';
     const refNo = cols.refNo ? String(row[cols.refNo - 1]).trim() : '';
-    if (refOrId && !(uuid.toLowerCase().includes(refOrId) || refNo.toLowerCase().includes(refOrId))) return;
+    const bankRef = cols.bankRef ? String(row[cols.bankRef - 1]).trim() : '';
+    if (refOrId && !(uuid.toLowerCase().includes(refOrId) || refNo.toLowerCase().includes(refOrId) || bankRef.toLowerCase().includes(refOrId))) return;
 
     const haystack = [
       cols.accountCode ? row[cols.accountCode - 1] : '',
@@ -266,7 +441,8 @@ function searchJournal(criteria) {
       particulars,
       cols.subCategory ? row[cols.subCategory - 1] : '',
       cols.description ? row[cols.description - 1] : '',
-      refNo
+      refNo,
+      bankRef
     ].map(String).join(' ').toLowerCase();
 
     if (query && !haystack.includes(query)) return;
@@ -279,6 +455,7 @@ function searchJournal(criteria) {
       accountCode: cols.accountCode ? row[cols.accountCode - 1] : '',
       payee: payee,
       refNo: refNo,
+      bankRef: cols.bankRef ? row[cols.bankRef - 1] : '',
       particulars: cols.particulars ? row[cols.particulars - 1] : '',
       subCategory: cols.subCategory ? row[cols.subCategory - 1] : '',
       category: category,
@@ -318,6 +495,7 @@ function getJournalRow(rowId) {
     accountCode: values[cols.accountCode - 1] || '',
     payee: values[cols.payee - 1] || '',
     refNo: values[cols.refNo - 1] || '',
+    bankRef: cols.bankRef ? values[cols.bankRef - 1] || '' : '',
     particulars: cols.particulars ? values[cols.particulars - 1] || '' : '',
     subCategory: values[cols.subCategory - 1] || '',
     category: values[cols.category - 1] || '',
@@ -353,6 +531,7 @@ function updateJournal(payload) {
   _setIfPresent_(updated, cols.accountCode, payload.accountCode || '');
   _setIfPresent_(updated, cols.payee, payload.payee || '');
   _setIfPresent_(updated, cols.refNo, payload.refNo || '');
+  _setIfPresent_(updated, cols.bankRef, payload.bankRef || '');
   _setIfPresent_(updated, cols.particulars, payload.particulars || '');
   if (payload.particulars && (!payload.subCategory || !payload.category)) {
     const details = getDetailsForParticulars(String(payload.particulars || '').trim());
@@ -2350,6 +2529,8 @@ function _getMasterColumns_(headers) {
 }
 
 function _getJournalColumns_(headers) {
+  const hasBankRef = headers.indexOf('bank_ref') >= 0;
+  const offset = hasBankRef ? 1 : 0;
   return {
     uuid: _resolveColumn_(headers, ['uuid'], 1),
     batchId: _resolveColumn_(headers, ['batch_id'], 2),
@@ -2358,16 +2539,17 @@ function _getJournalColumns_(headers) {
     accountCode: _resolveColumn_(headers, ['account_code'], 5),
     payee: _resolveColumn_(headers, ['payee'], 6),
     refNo: _resolveColumn_(headers, ['ref_no'], 7),
-    particulars: _resolveColumn_(headers, ['particulars', 'particular'], 8),
-    subCategory: _resolveColumn_(headers, ['sub_category'], 9),
-    category: _resolveColumn_(headers, ['category'], 10),
-    description: _resolveColumn_(headers, ['description'], 11),
-    debit: _resolveColumn_(headers, ['debit'], 12),
-    credit: _resolveColumn_(headers, ['credit'], 13),
-    accountType: _resolveColumn_(headers, ['account_type'], 14),
-    reportMapping: _resolveColumn_(headers, ['report_mapping'], 15),
-    reconStatus: _resolveColumn_(headers, ['recon_status'], 16),
-    receiptUrl: _resolveColumn_(headers, ['receipt_url'], 17)
+    bankRef: _resolveColumn_(headers, ['bank_ref'], hasBankRef ? 8 : 0),
+    particulars: _resolveColumn_(headers, ['particulars', 'particular'], 8 + offset),
+    subCategory: _resolveColumn_(headers, ['sub_category'], 9 + offset),
+    category: _resolveColumn_(headers, ['category'], 10 + offset),
+    description: _resolveColumn_(headers, ['description'], 11 + offset),
+    debit: _resolveColumn_(headers, ['debit'], 12 + offset),
+    credit: _resolveColumn_(headers, ['credit'], 13 + offset),
+    accountType: _resolveColumn_(headers, ['account_type'], 14 + offset),
+    reportMapping: _resolveColumn_(headers, ['report_mapping'], 15 + offset),
+    reconStatus: _resolveColumn_(headers, ['recon_status'], 16 + offset),
+    receiptUrl: _resolveColumn_(headers, ['receipt_url'], 17 + offset)
   };
 }
 
@@ -2560,6 +2742,19 @@ function _buildParticularMeta_(data, cols) {
     meta[particulars] = {
       subCategory: cols.subCategory ? String(row[cols.subCategory - 1]).trim() : '',
       category: cols.category ? String(row[cols.category - 1]).trim() : '',
+      accountType: cols.accountType ? String(row[cols.accountType - 1]).trim() : '',
+      reportMapping: cols.reportMapping ? String(row[cols.reportMapping - 1]).trim() : ''
+    };
+  });
+  return meta;
+}
+
+function _buildAccountMeta_(data, cols) {
+  const meta = {};
+  data.forEach(function(row) {
+    const accountCode = cols.accountCodes ? String(row[cols.accountCodes - 1]).trim() : '';
+    if (!accountCode) return;
+    meta[accountCode] = {
       accountType: cols.accountType ? String(row[cols.accountType - 1]).trim() : '',
       reportMapping: cols.reportMapping ? String(row[cols.reportMapping - 1]).trim() : ''
     };

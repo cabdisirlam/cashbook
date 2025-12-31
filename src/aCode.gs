@@ -104,7 +104,7 @@ function cleanupSheetHeaders() {
   let sheet = ss.getSheetByName(CONFIG.SHEETS.VIEW_LEDGER);
   if (sheet) {
     const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
-                     'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Bank_Ref', 'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
@@ -116,7 +116,7 @@ function cleanupSheetHeaders() {
   sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (sheet) {
     const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
-                     'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Bank_Ref', 'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
@@ -267,7 +267,7 @@ function _initializeViewLedgerSheet(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.VIEW_LEDGER);
     const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
-                     'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Bank_Ref', 'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);
@@ -309,7 +309,7 @@ function _initializeDbJournalSheet(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.DB_JOURNAL);
     const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
-                     'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+                     'Bank_Ref', 'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                      'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     _formatHeaderRow(sheet, headers.length);

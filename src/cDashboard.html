@@ -1377,6 +1377,11 @@
         return;
       }
 
+      if (label === 'New Journal') {
+        renderJournalLauncher();
+        return;
+      }
+
       if (label === 'Search / Edit') {
         renderSearchEditContent();
         return;
@@ -1642,7 +1647,7 @@
             </div>
             <div class="form-group">
               <label for="searchRef">ID / Ref</label>
-              <input type="text" id="searchRef" placeholder="UUID or Ref_No">
+              <input type="text" id="searchRef" placeholder="UUID, Ref_No, or Bank_Ref">
             </div>
           </div>
 
@@ -1725,60 +1730,66 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label for="editRefNo">Ref No</label>
+              <label for="editRefNo">Ref No (Invoice / Doc No)</label>
               <input type="text" id="editRefNo">
+              <div class="status-text">Invoice or document number for the bill.</div>
             </div>
+            <div class="form-group">
+              <label for="editBankRef">Bank Ref (Payment Ref)</label>
+              <input type="text" id="editBankRef">
+              <div class="status-text">Payment reference from the bank statement.</div>
+            </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editParticulars">Particulars</label>
               <input list="editParticularList" id="editParticulars">
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label for="editSubCategory">Sub-Category</label>
               <input type="text" id="editSubCategory" readonly>
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editCategory">Category</label>
               <input type="text" id="editCategory" readonly>
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label for="editDescription">Description</label>
               <input type="text" id="editDescription">
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editDebit">Debit</label>
               <input type="number" id="editDebit" step="0.01">
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label for="editCredit">Credit</label>
               <input type="number" id="editCredit" step="0.01">
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editAccountType">Account Type</label>
               <input type="text" id="editAccountType">
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label for="editReportMapping">Report Mapping</label>
               <input type="text" id="editReportMapping">
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="editReconStatus">Recon Status</label>
               <input type="text" id="editReconStatus">
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label for="editReceiptUrl">Receipt URL</label>
               <input type="text" id="editReceiptUrl">
@@ -5484,6 +5495,7 @@
           <td data-label="Debit">${item.debit || ''}</td>
           <td data-label="Credit">${item.credit || ''}</td>
           <td data-label="Ref No">${item.refNo || ''}</td>
+          <td data-label="Bank Ref">${item.bankRef || ''}</td>
           <td data-label="Action">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="btn btn-secondary edit-transaction-btn" data-row-id="${item.rowId}">Edit</button>
@@ -5505,6 +5517,7 @@
               <th>Debit</th>
               <th>Credit</th>
               <th>Ref No</th>
+              <th>Bank Ref</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -5617,6 +5630,7 @@
           document.getElementById('editAccountCode').value = row.accountCode || '';
           document.getElementById('editPayee').value = row.payee || '';
           document.getElementById('editRefNo').value = row.refNo || '';
+          document.getElementById('editBankRef').value = row.bankRef || '';
           document.getElementById('editParticulars').value = row.particulars || '';
           document.getElementById('editSubCategory').value = row.subCategory || '';
           document.getElementById('editCategory').value = row.category || '';
@@ -5658,6 +5672,7 @@
         accountCode: document.getElementById('editAccountCode').value.trim(),
         payee: document.getElementById('editPayee').value.trim(),
         refNo: document.getElementById('editRefNo').value.trim(),
+        bankRef: document.getElementById('editBankRef').value.trim(),
         particulars: document.getElementById('editParticulars').value.trim(),
         subCategory: document.getElementById('editSubCategory').value.trim(),
         category: document.getElementById('editCategory').value.trim(),
@@ -5804,6 +5819,25 @@
         </div>
       `;
       loadRecentReceipts();
+    }
+
+    function renderJournalLauncher() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('New Journal', 'Record balanced journal entries with multiple lines.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">New Journal</h2>
+              <p style="color:#6b7280;font-size:13px;">Open the journal entry form.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderJournalLauncher()">Refresh</button>
+              <button class="btn btn-primary" onclick="openJournalModal()">Journal</button>
+            </div>
+          </div>
+        </div>
+      `;
     }
 
     function ensureDashboardLoaded() {

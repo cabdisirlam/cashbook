@@ -452,6 +452,48 @@
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   }
 
+  .journal-footer {
+    gap: 12px;
+  }
+
+  .journal-totals {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .status-badge--ok {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+  }
+
+  .status-badge--bad {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+  }
+
+  .btn[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+
   .total-amount {
     font-size: 16px;
     font-weight: 700;
@@ -590,8 +632,14 @@
           </div>
         </div>
         <div>
-          <label class="form-label" for="refNo">Ref No</label>
-          <input type="text" id="refNo" class="input-field" placeholder="Cheque 001 / Mpesa Ref">
+          <label class="form-label" for="refNo">Ref No (Invoice / Doc No)</label>
+          <input type="text" id="refNo" class="input-field" placeholder="INV-001">
+          <div class="status-text">Invoice or document number for the bill.</div>
+        </div>
+        <div>
+          <label class="form-label" for="bankRef">Bank Ref (Payment Ref)</label>
+          <input type="text" id="bankRef" class="input-field" placeholder="CHQ-999 / Mpesa Ref">
+          <div class="status-text">Payment reference from the bank statement.</div>
         </div>
       </div>
 
@@ -621,6 +669,70 @@
       <div style="display:flex; gap:10px;">
         <button class="btn btn-secondary" type="button" onclick="closePaymentModal()">Cancel</button>
         <button class="btn btn-primary" type="button" onclick="saveTransaction()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="journalModal">
+  <div class="modal-content">
+    <div class="form-header">
+      <span>Record Journal Entry</span>
+      <button class="close-btn" type="button" onclick="closeJournalModal()">X</button>
+    </div>
+
+    <div class="form-body">
+      <div class="grid">
+        <div>
+          <label class="form-label" for="journalDate">Date</label>
+          <input type="date" id="journalDate" class="input-field" required>
+        </div>
+        <div>
+          <label class="form-label" for="journalFinancialYear">Financial Year</label>
+          <div class="input-action">
+            <input list="financialYearList" id="journalFinancialYear" class="input-field" placeholder="FY 2024/2025" required>
+            <button class="btn-icon" type="button" onclick="openAddFinancialYearModal()">+</button>
+          </div>
+        </div>
+        <div>
+          <label class="form-label" for="journalRefNo">Journal Ref #</label>
+          <input type="text" id="journalRefNo" class="input-field" readonly>
+        </div>
+      </div>
+
+      <table class="split-table">
+        <thead>
+          <tr>
+            <th>Particulars</th>
+            <th>Sub-Category</th>
+            <th>Category</th>
+            <th>Details</th>
+            <th>Debit</th>
+            <th>Credit</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="journalBody"></tbody>
+      </table>
+
+      <div class="table-actions">
+        <button class="btn btn-secondary" type="button" onclick="addJournalLine()">Add Line</button>
+      </div>
+
+      <div class="status-text" id="journalStatusText"></div>
+    </div>
+
+    <div class="form-footer journal-footer">
+      <div class="journal-totals">
+        <div>Total Debit: <span id="journalDebitTotal">0.00</span></div>
+        <div>Total Credit: <span id="journalCreditTotal">0.00</span></div>
+      </div>
+      <div>
+        <span id="journalBalanceStatus" class="status-badge status-badge--bad">Out of Balance</span>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-secondary" type="button" onclick="closeJournalModal()">Cancel</button>
+        <button class="btn btn-primary" id="saveJournalBtn" type="button" onclick="saveJournalEntry()" disabled>Save</button>
       </div>
     </div>
   </div>
@@ -961,7 +1073,8 @@
       financialYear: document.getElementById('txnFinancialYear').value.trim(),
       accountCode: document.getElementById('accountCode').value.trim(),
       payee: document.getElementById('payee').value.trim(),
-      refNo: document.getElementById('refNo').value.trim()
+      refNo: document.getElementById('refNo').value.trim(),
+      bankRef: document.getElementById('bankRef').value.trim()
     };
 
     const rows = [];
@@ -1033,6 +1146,7 @@
     document.getElementById('accountCode').value = '';
     document.getElementById('payee').value = '';
     document.getElementById('refNo').value = '';
+    document.getElementById('bankRef').value = '';
     document.getElementById('txnFinancialYear').value = '';
     document.getElementById('totalAmount').textContent = '0.00';
     setDefaultDate();
@@ -1040,6 +1154,234 @@
 
   function setStatus(message) {
     document.getElementById('statusText').textContent = message || '';
+  }
+
+  function openJournalModal() {
+    transactionMode = 'Journal';
+    document.getElementById('journalModal').style.display = 'flex';
+    setJournalDefaultDate();
+    loadDropdowns();
+    applyParticularFilter();
+    if (!document.getElementById('journalBody').children.length) {
+      addJournalLine();
+    }
+    fetchNextJournalRef();
+    updateJournalTotals();
+  }
+
+  function closeJournalModal() {
+    document.getElementById('journalModal').style.display = 'none';
+  }
+
+  function setJournalDefaultDate() {
+    document.getElementById('journalDate').value = new Date().toISOString().split('T')[0];
+  }
+
+  function fetchNextJournalRef() {
+    if (!google || !google.script || !google.script.run) {
+      setJournalStatus('App runtime missing. Open via the deployed URL.');
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(refNo) {
+        document.getElementById('journalRefNo').value = refNo || '';
+      })
+      .withFailureHandler(function(error) {
+        setJournalStatus(error.message || 'Failed to load journal ref.');
+      })
+      .getNextJournalRef();
+  }
+
+  function addJournalLine() {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td data-label="Particulars">
+        <div class="input-action">
+          <input list="particularList" class="input-field journal-particular-input" placeholder="Particulars">
+          <button class="btn-icon" type="button" onclick="openAddParticularModal()">+</button>
+        </div>
+      </td>
+      <td data-label="Sub-Category"><input type="text" class="input-field journal-subcat-input" readonly></td>
+      <td data-label="Category"><input type="text" class="input-field journal-category-input" readonly></td>
+      <td data-label="Details"><input type="text" class="input-field journal-desc-input" placeholder="Details"></td>
+      <td data-label="Debit"><input type="number" class="input-field journal-debit-input" min="0" step="0.01" placeholder="0.00"></td>
+      <td data-label="Credit"><input type="number" class="input-field journal-credit-input" min="0" step="0.01" placeholder="0.00"></td>
+      <td data-label="Action"><button class="btn btn-danger" type="button" onclick="removeJournalLine(this)">🗑</button></td>
+    `;
+
+    const particularsInput = row.querySelector('.journal-particular-input');
+    const subcatInput = row.querySelector('.journal-subcat-input');
+    const categoryInput = row.querySelector('.journal-category-input');
+    const debitInput = row.querySelector('.journal-debit-input');
+    const creditInput = row.querySelector('.journal-credit-input');
+
+    particularsInput.addEventListener('change', function() {
+      const particulars = this.value.trim();
+      const meta = paymentState.particularMeta[particulars] || {};
+      if (!meta.subCategory || !meta.category) {
+        subcatInput.value = '';
+        categoryInput.value = '';
+        if (particulars) setJournalStatus('Particulars not found in master data.');
+        return;
+      }
+      subcatInput.value = meta.subCategory || '';
+      categoryInput.value = meta.category || '';
+    });
+
+    debitInput.addEventListener('input', function() {
+      const value = parseFloat(this.value);
+      if (!isNaN(value) && value > 0) {
+        creditInput.value = '0';
+        creditInput.disabled = true;
+      } else {
+        creditInput.disabled = false;
+      }
+      updateJournalTotals();
+    });
+
+    creditInput.addEventListener('input', function() {
+      const value = parseFloat(this.value);
+      if (!isNaN(value) && value > 0) {
+        debitInput.value = '0';
+        debitInput.disabled = true;
+      } else {
+        debitInput.disabled = false;
+      }
+      updateJournalTotals();
+    });
+
+    document.getElementById('journalBody').appendChild(row);
+  }
+
+  function removeJournalLine(button) {
+    const row = button.closest('tr');
+    if (row) row.remove();
+    updateJournalTotals();
+  }
+
+  function updateJournalTotals() {
+    let debitTotal = 0;
+    let creditTotal = 0;
+
+    document.querySelectorAll('#journalBody tr').forEach(function(row) {
+      const debitValue = parseFloat(row.querySelector('.journal-debit-input').value);
+      const creditValue = parseFloat(row.querySelector('.journal-credit-input').value);
+      if (!isNaN(debitValue)) debitTotal += debitValue;
+      if (!isNaN(creditValue)) creditTotal += creditValue;
+    });
+
+    document.getElementById('journalDebitTotal').textContent = formatJournalAmount(debitTotal);
+    document.getElementById('journalCreditTotal').textContent = formatJournalAmount(creditTotal);
+
+    const badge = document.getElementById('journalBalanceStatus');
+    const saveBtn = document.getElementById('saveJournalBtn');
+    const balanced = debitTotal > 0 && Math.abs(debitTotal - creditTotal) <= 0.01;
+
+    if (balanced) {
+      badge.textContent = 'Balanced';
+      badge.classList.remove('status-badge--bad');
+      badge.classList.add('status-badge--ok');
+      saveBtn.disabled = false;
+    } else {
+      badge.textContent = 'Out of Balance';
+      badge.classList.remove('status-badge--ok');
+      badge.classList.add('status-badge--bad');
+      saveBtn.disabled = true;
+    }
+  }
+
+  function saveJournalEntry() {
+    if (!google || !google.script || !google.script.run) {
+      setJournalStatus('App runtime missing. Open via the deployed URL.');
+      return;
+    }
+
+    const header = {
+      date: document.getElementById('journalDate').value,
+      financialYear: document.getElementById('journalFinancialYear').value.trim(),
+      refNo: document.getElementById('journalRefNo').value.trim()
+    };
+
+    if (!header.date || !header.financialYear) {
+      setJournalStatus('Date and Financial Year are required.');
+      return;
+    }
+
+    const rows = [];
+    let hasInvalid = false;
+    document.querySelectorAll('#journalBody tr').forEach(function(row) {
+      const particulars = row.querySelector('.journal-particular-input').value.trim();
+      const description = row.querySelector('.journal-desc-input').value.trim();
+      const debit = parseFloat(row.querySelector('.journal-debit-input').value) || 0;
+      const credit = parseFloat(row.querySelector('.journal-credit-input').value) || 0;
+
+      if (!particulars && debit === 0 && credit === 0 && !description) return;
+      if (!particulars) {
+        hasInvalid = true;
+        return;
+      }
+      if (debit > 0 && credit > 0) {
+        hasInvalid = true;
+        return;
+      }
+      if (debit === 0 && credit === 0) {
+        hasInvalid = true;
+        return;
+      }
+
+      rows.push({
+        particulars: particulars,
+        description: description,
+        debit: debit,
+        credit: credit
+      });
+    });
+
+    if (hasInvalid) {
+      setJournalStatus('Each line needs particulars and either debit or credit.');
+      return;
+    }
+
+    if (!rows.length) {
+      setJournalStatus('Add at least one journal line.');
+      return;
+    }
+
+    setJournalStatus('Saving journal...');
+    google.script.run
+      .withSuccessHandler(function(result) {
+        const refNo = result && result.refNo ? result.refNo : header.refNo;
+        setJournalStatus('Journal saved: ' + (refNo || ''));
+        resetJournalForm();
+        closeJournalModal();
+      })
+      .withFailureHandler(function(error) {
+        setJournalStatus(error.message || 'Failed to save journal.');
+      })
+      .saveJournalEntry({ header: header, rows: rows });
+  }
+
+  function resetJournalForm() {
+    document.getElementById('journalBody').innerHTML = '';
+    document.getElementById('journalFinancialYear').value = '';
+    document.getElementById('journalRefNo').value = '';
+    document.getElementById('journalDebitTotal').textContent = '0.00';
+    document.getElementById('journalCreditTotal').textContent = '0.00';
+    document.getElementById('saveJournalBtn').disabled = true;
+    setJournalDefaultDate();
+    fetchNextJournalRef();
+  }
+
+  function setJournalStatus(message) {
+    const status = document.getElementById('journalStatusText');
+    if (status) status.textContent = message || '';
+  }
+
+  function formatJournalAmount(value) {
+    const amount = Number(value || 0);
+    if (!Number.isFinite(amount)) return '0.00';
+    return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function isIncomeMappedParticular(meta) {
