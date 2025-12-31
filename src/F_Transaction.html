@@ -695,6 +695,13 @@
           </div>
         </div>
         <div>
+          <label class="form-label" for="journalPayee">Payee</label>
+          <div class="input-action">
+            <input list="payeeList" id="journalPayee" class="input-field" placeholder="Select payee">
+            <button class="btn-icon" type="button" onclick="openAddPayeeModal()">+</button>
+          </div>
+        </div>
+        <div>
           <label class="form-label" for="journalRefNo">Journal Ref #</label>
           <input type="text" id="journalRefNo" class="input-field" readonly>
         </div>
@@ -1300,6 +1307,7 @@
     const header = {
       date: document.getElementById('journalDate').value,
       financialYear: document.getElementById('journalFinancialYear').value.trim(),
+      payee: document.getElementById('journalPayee').value.trim(),
       refNo: document.getElementById('journalRefNo').value.trim()
     };
 
@@ -1365,6 +1373,7 @@
   function resetJournalForm() {
     document.getElementById('journalBody').innerHTML = '';
     document.getElementById('journalFinancialYear').value = '';
+    document.getElementById('journalPayee').value = '';
     document.getElementById('journalRefNo').value = '';
     document.getElementById('journalDebitTotal').textContent = '0.00';
     document.getElementById('journalCreditTotal').textContent = '0.00';
