@@ -1674,9 +1674,9 @@ function getCashFlowReport(currentYear, comparativeYear) {
   const netIncreaseCurrent = netOperatingCurrent + investingCurrent + financingCurrent;
   const netIncreaseComparative = netOperatingComparative + investingComparative + financingComparative;
   const cashOpeningCurrent = cashNote ? Number(cashNote.totalComparative || 0) : 0;
-  const cashClosingCurrent = cashNote ? Number(cashNote.totalCurrent || 0) : (cashOpeningCurrent + netIncreaseCurrent);
+  const cashClosingCurrent = cashOpeningCurrent + netIncreaseCurrent;
   const cashOpeningComparative = 0;
-  const cashClosingComparative = cashNote ? Number(cashNote.totalComparative || 0) : (cashOpeningComparative + netIncreaseComparative);
+  const cashClosingComparative = cashOpeningComparative + netIncreaseComparative;
 
   return {
     currentYear: notes.currentYear || String(currentYear || '').trim(),
@@ -1802,35 +1802,45 @@ function getPositionReport(currentYear, comparativeYear) {
   const performance = getPerformanceReport(currentYear, comparativeYear);
   const surplusCurrent = performance && performance.surplus ? Number(performance.surplus.current || 0) : 0;
   const surplusComparative = performance && performance.surplus ? Number(performance.surplus.comparative || 0) : 0;
+  const previousOpening = netAssetsComparative - surplusComparative;
+  const currentOpening = netAssetsCurrent - surplusCurrent;
   const changesInNetAssets = {
     titleYear: notes.currentYear || String(currentYear || '').trim(),
     previousYear: notes.comparativeYear || String(comparativeYear || '').trim(),
     previous: {
-      opening: 0,
+      opening: previousOpening,
       revaluationGain: 0,
       transfer: 0,
       surplus: surplusComparative,
-      closing: netAssetsComparative
+      closing: previousOpening + surplusComparative
     },
     current: {
-      opening: 0,
+      opening: currentOpening,
       revaluationGain: 0,
       transfer: 0,
       surplus: surplusCurrent,
-      closing: netAssetsCurrent
+      closing: currentOpening + surplusCurrent
     }
   };
 
   const accumulatedCurrent = changesInNetAssets.current.closing;
   const accumulatedComparative = changesInNetAssets.previous.closing;
+  const revaluationReserveRow = {
+    description: 'Revaluation Reserve',
+    note: '',
+    currentAmount: 0,
+    comparativeAmount: 0
+  };
   const accumulatedRow = {
     description: 'Accumulated Fund',
     note: '',
     currentAmount: accumulatedCurrent,
     comparativeAmount: accumulatedComparative
   };
-  const equityTotalsCurrent = accumulatedCurrent;
-  const equityTotalsComparative = accumulatedComparative;
+  equityRows.length = 0;
+  equityRows.push(revaluationReserveRow, accumulatedRow);
+  const equityTotalsCurrent = revaluationReserveRow.currentAmount + accumulatedCurrent;
+  const equityTotalsComparative = revaluationReserveRow.comparativeAmount + accumulatedComparative;
 
   return {
     currentYear: notes.currentYear || String(currentYear || '').trim(),
