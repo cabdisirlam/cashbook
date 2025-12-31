@@ -1552,11 +1552,6 @@ function getNotesReport(currentYear, comparativeYear, options) {
     if (!categoryTotalCurrent && !categoryTotalComparative) return;
 
     const categoryLower = String(categoryName || '').toLowerCase();
-    if (categoryLower === 'accumulated fund' || categoryLower === 'revaluation reserve' || categoryLower === 'revaluation surplus') {
-      return;
-    }
-
-    const categoryLower = String(categoryName || '').toLowerCase();
     const categoryMappings = Object.keys(categoryReportMappings[categoryName] || {}).map(value => String(value || '').toLowerCase());
     if (categoryLower === 'accumulated fund' || categoryLower === 'revaluation reserve' || categoryLower === 'revaluation surplus') {
       return;
