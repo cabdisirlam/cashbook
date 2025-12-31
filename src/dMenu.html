@@ -12,6 +12,32 @@
     color: #64748b;
   }
 
+  .menu-section.collapsible .menu-section-title {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .menu-section.collapsible .menu-section-title::after {
+    content: '›';
+    font-size: 14px;
+    color: #94a3b8;
+    transition: transform 0.2s ease;
+  }
+
+  .menu-section.collapsible.collapsed .menu-section-title::after {
+    transform: rotate(-90deg);
+  }
+
+  .menu-section.collapsible .menu-section-body {
+    display: block;
+  }
+
+  .menu-section.collapsible.collapsed .menu-section-body {
+    display: none;
+  }
+
   .menu-item {
     margin: 0 10px 2px;
     padding: 8px 12px;
@@ -62,79 +88,87 @@
     </div>
   </div>
 
-  <div class="menu-section">
-    <div class="menu-section-title">Transactions</div>
-    <div class="menu-item" data-role="admin,inputter" data-label="New Journal" onclick="navigateTo(this, 'New Journal')">
-      <span class="menu-item-icon">+</span>
-      <span>New Journal</span>
-    </div>
-    <div class="menu-item" data-role="admin,inputter" data-label="New Payment" onclick="navigateTo(this, 'New Payment')">
-      <span class="menu-item-icon">+</span>
-      <span>New Payment</span>
-    </div>
-    <div class="menu-item" data-role="admin,inputter" data-label="New Receipt" onclick="navigateTo(this, 'New Receipt')">
-      <span class="menu-item-icon">+</span>
-      <span>New Receipt</span>
-    </div>
-    <div class="menu-item" data-role="admin,inputter,viewer" data-label="Search / Edit" onclick="navigateTo(this, 'Search / Edit')">
-      <span class="menu-item-icon">-</span>
-      <span>Search / Edit</span>
-    </div>
-    <div class="menu-item" data-role="admin,inputter,viewer" data-label="Add/Edit Budget" onclick="navigateTo(this, 'Add/Edit Budget')">
-      <span class="menu-item-icon">-</span>
-      <span>Add/Edit Budget</span>
-    </div>
-  </div>
-
-  <div class="menu-section">
-    <div class="menu-section-title">Banking</div>
-    <div class="menu-item" data-role="admin,inputter" data-label="Import Statement" onclick="navigateTo(this, 'Import Statement')">
-      <span class="menu-item-icon">-</span>
-      <span>Import Statement</span>
-    </div>
-    <div class="menu-item" data-role="admin,inputter" data-label="Reconciliation" onclick="navigateTo(this, 'Reconciliation')">
-      <span class="menu-item-icon">-</span>
-      <span>Reconciliation</span>
+  <div class="menu-section collapsible">
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">Transactions</div>
+    <div class="menu-section-body">
+      <div class="menu-item" data-role="admin,inputter" data-label="New Journal" onclick="navigateTo(this, 'New Journal')">
+        <span class="menu-item-icon">+</span>
+        <span>New Journal</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="New Payment" onclick="navigateTo(this, 'New Payment')">
+        <span class="menu-item-icon">+</span>
+        <span>New Payment</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="New Receipt" onclick="navigateTo(this, 'New Receipt')">
+        <span class="menu-item-icon">+</span>
+        <span>New Receipt</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Search / Edit" onclick="navigateTo(this, 'Search / Edit')">
+        <span class="menu-item-icon">-</span>
+        <span>Search / Edit</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Add/Edit Budget" onclick="navigateTo(this, 'Add/Edit Budget')">
+        <span class="menu-item-icon">-</span>
+        <span>Add/Edit Budget</span>
+      </div>
     </div>
   </div>
 
-  <div class="menu-section">
-    <div class="menu-section-title">Reports</div>
-    <div class="menu-item" data-role="admin,inputter,viewer" data-label="Performance" onclick="navigateTo(this, 'Performance')">
-      <span class="menu-item-icon">-</span>
-      <span>Performance</span>
-    </div>
-    <div class="menu-item" data-role="admin,inputter,viewer" data-label="Cash Flow" onclick="navigateTo(this, 'Cash Flow')">
-      <span class="menu-item-icon">-</span>
-      <span>Cash Flow</span>
-    </div>
-    <div class="menu-item" data-role="admin,inputter,viewer" data-label="Position" onclick="navigateTo(this, 'Position')">
-      <span class="menu-item-icon">-</span>
-      <span>Position</span>
-    </div>
-    <div class="menu-item" data-role="admin,inputter,viewer" data-label="Net Assets" onclick="navigateTo(this, 'Net Assets')">
-      <span class="menu-item-icon">-</span>
-      <span>Net Assets</span>
-    </div>
-    <div class="menu-item" data-role="admin,inputter,viewer" data-label="Budget vs Actual" onclick="navigateTo(this, 'Budget vs Actual')">
-      <span class="menu-item-icon">-</span>
-      <span>Budget vs Actual</span>
-    </div>
-    <div class="menu-item" data-role="admin,inputter,viewer" data-label="Notes" onclick="navigateTo(this, 'Notes')">
-      <span class="menu-item-icon">-</span>
-      <span>Notes</span>
+  <div class="menu-section collapsible">
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">Banking</div>
+    <div class="menu-section-body">
+      <div class="menu-item" data-role="admin,inputter" data-label="Import Statement" onclick="navigateTo(this, 'Import Statement')">
+        <span class="menu-item-icon">-</span>
+        <span>Import Statement</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="Reconciliation" onclick="navigateTo(this, 'Reconciliation')">
+        <span class="menu-item-icon">-</span>
+        <span>Reconciliation</span>
+      </div>
     </div>
   </div>
 
-  <div class="menu-section">
-    <div class="menu-section-title">Admin</div>
-    <div class="menu-item" data-role="admin" data-label="Users" onclick="navigateTo(this, 'Users')">
-      <span class="menu-item-icon">*</span>
-      <span>Users</span>
+  <div class="menu-section collapsible">
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">Reports</div>
+    <div class="menu-section-body">
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Performance" onclick="navigateTo(this, 'Performance')">
+        <span class="menu-item-icon">-</span>
+        <span>Performance</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Cash Flow" onclick="navigateTo(this, 'Cash Flow')">
+        <span class="menu-item-icon">-</span>
+        <span>Cash Flow</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Position" onclick="navigateTo(this, 'Position')">
+        <span class="menu-item-icon">-</span>
+        <span>Position</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Net Assets" onclick="navigateTo(this, 'Net Assets')">
+        <span class="menu-item-icon">-</span>
+        <span>Net Assets</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Budget vs Actual" onclick="navigateTo(this, 'Budget vs Actual')">
+        <span class="menu-item-icon">-</span>
+        <span>Budget vs Actual</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Notes" onclick="navigateTo(this, 'Notes')">
+        <span class="menu-item-icon">-</span>
+        <span>Notes</span>
+      </div>
     </div>
-    <div class="menu-item" data-role="admin" data-label="Settings" onclick="navigateTo(this, 'Settings')">
-      <span class="menu-item-icon">*</span>
-      <span>Settings</span>
+  </div>
+
+  <div class="menu-section collapsible">
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">Admin</div>
+    <div class="menu-section-body">
+      <div class="menu-item" data-role="admin" data-label="Users" onclick="navigateTo(this, 'Users')">
+        <span class="menu-item-icon">*</span>
+        <span>Users</span>
+      </div>
+      <div class="menu-item" data-role="admin" data-label="Settings" onclick="navigateTo(this, 'Settings')">
+        <span class="menu-item-icon">*</span>
+        <span>Settings</span>
+      </div>
     </div>
   </div>
 </div>

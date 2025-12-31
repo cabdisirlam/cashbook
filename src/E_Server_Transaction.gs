@@ -260,14 +260,16 @@ function saveJournalEntry(payload) {
     ? master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues()
     : [];
   const particularMeta = _buildParticularMeta_(masterData, masterCols);
+  const accountMeta = _buildAccountMeta_(masterData, masterCols);
 
   const cleanedRows = rows.map(function(row) {
+    const lineType = String(row.lineType || '').trim().toLowerCase();
     const particulars = String(row.particulars || '').trim();
+    const accountCode = String(row.accountCode || '').trim();
     const description = String(row.description || '').trim();
     const debitValue = Number(row.debit || 0);
     const creditValue = Number(row.credit || 0);
 
-    if (!particulars) throw new Error('Each line needs particulars.');
     if (debitValue < 0 || creditValue < 0) throw new Error('Debit and Credit must be positive.');
     if (debitValue === 0 && creditValue === 0) {
       throw new Error('Each line needs a debit or credit value.');
@@ -276,12 +278,31 @@ function saveJournalEntry(payload) {
       throw new Error('Each line can only have a debit or credit amount.');
     }
 
+    if (lineType === 'bank' || accountCode) {
+      if (!accountCode) throw new Error('Bank account is required for bank lines.');
+      const bankMeta = accountMeta[accountCode] || {};
+      return {
+        accountCode: accountCode,
+        particulars: '',
+        subCategory: '',
+        category: '',
+        description: description,
+        debit: debitValue,
+        credit: creditValue,
+        accountType: bankMeta.accountType || '',
+        reportMapping: bankMeta.reportMapping || '',
+        reconStatus: 'Unreconciled'
+      };
+    }
+
+    if (!particulars) throw new Error('Each line needs particulars.');
     const meta = particularMeta[particulars];
     if (!meta || !meta.subCategory || !meta.category) {
       throw new Error('Particulars not found: ' + particulars + '.');
     }
 
     return {
+      accountCode: '',
       particulars: particulars,
       subCategory: meta.subCategory,
       category: meta.category,
@@ -289,7 +310,8 @@ function saveJournalEntry(payload) {
       debit: debitValue,
       credit: creditValue,
       accountType: meta.accountType || '',
-      reportMapping: meta.reportMapping || ''
+      reportMapping: meta.reportMapping || '',
+      reconStatus: ''
     };
   });
 
@@ -318,7 +340,7 @@ function saveJournalEntry(payload) {
       batchId,
       dateValue,
       financialYear,
-      '',
+      row.accountCode || '',
       payee,
       refNo,
       '',
@@ -330,7 +352,7 @@ function saveJournalEntry(payload) {
       row.credit,
       row.accountType,
       row.reportMapping,
-      '',
+      row.reconStatus || '',
       ''
     ];
   });
@@ -548,6 +570,55 @@ function getJournalRow(rowId) {
   };
 }
 
+function getJournalBatch(batchId) {
+  const batch = String(batchId || '').trim();
+  if (!batch) throw new Error('Invalid batch.');
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return [];
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const results = [];
+
+  data.forEach(function(row, index) {
+    const rowBatch = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
+    if (rowBatch !== batch) return;
+
+    const rowIndex = index + 2;
+    const dateValue = row[cols.date - 1];
+
+    results.push({
+      rowId: rowIndex,
+      uuid: row[cols.uuid - 1] || '',
+      batchId: rowBatch,
+      date: dateValue instanceof Date ? _formatDate_(dateValue) : '',
+      financialYear: cols.financialYear ? row[cols.financialYear - 1] : '',
+      accountCode: cols.accountCode ? row[cols.accountCode - 1] : '',
+      payee: cols.payee ? row[cols.payee - 1] : '',
+      refNo: cols.refNo ? row[cols.refNo - 1] : '',
+      bankRef: cols.bankRef ? row[cols.bankRef - 1] || '' : '',
+      particulars: cols.particulars ? row[cols.particulars - 1] || '' : '',
+      subCategory: cols.subCategory ? row[cols.subCategory - 1] || '' : '',
+      category: cols.category ? row[cols.category - 1] || '' : '',
+      description: cols.description ? row[cols.description - 1] || '' : '',
+      debit: cols.debit ? row[cols.debit - 1] || '' : '',
+      credit: cols.credit ? row[cols.credit - 1] || '' : '',
+      accountType: cols.accountType ? row[cols.accountType - 1] || '' : '',
+      reportMapping: cols.reportMapping ? row[cols.reportMapping - 1] || '' : '',
+      reconStatus: cols.reconStatus ? row[cols.reconStatus - 1] || '' : '',
+      receiptUrl: cols.receiptUrl ? row[cols.receiptUrl - 1] || '' : ''
+    });
+  });
+
+  return results;
+}
+
 function updateJournal(payload) {
   if (!payload) throw new Error('Missing payload.');
   const row = Number(payload.rowId);
@@ -624,6 +695,47 @@ function deleteJournal(rowId) {
   }
 
   return true;
+}
+
+function deleteJournalBatch(batchId) {
+  const batch = String(batchId || '').trim();
+  if (!batch) throw new Error('Invalid batch.');
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return 0;
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const rowsToDelete = [];
+
+  data.forEach(function(row, index) {
+    const rowBatch = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
+    if (rowBatch === batch) {
+      rowsToDelete.push({ rowIndex: index + 2, values: row });
+    }
+  });
+
+  if (!rowsToDelete.length) return 0;
+
+  rowsToDelete.sort((a, b) => b.rowIndex - a.rowIndex).forEach(function(entry) {
+    _storeUndoAction_('delete', entry.rowIndex, entry.values);
+    sheet.deleteRow(entry.rowIndex);
+  });
+
+  try {
+    const user = getCurrentUser();
+    const actor = user && user.authenticated ? user.email : 'system';
+    logSystemEvent(actor, 'DELETE_JOURNAL_BATCH', batch, 'Rows ' + rowsToDelete.length);
+  } catch (error) {
+    Logger.log('Log failure: ' + error.toString());
+  }
+
+  return rowsToDelete.length;
 }
 
 function undoLastJournalAction() {

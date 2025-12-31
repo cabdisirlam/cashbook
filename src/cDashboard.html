@@ -123,6 +123,32 @@
       color: #64748b;
     }
 
+    .menu-section.collapsible .menu-section-title {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .menu-section.collapsible .menu-section-title::after {
+      content: '›';
+      font-size: 14px;
+      color: #94a3b8;
+      transition: transform 0.2s ease;
+    }
+
+    .menu-section.collapsible.collapsed .menu-section-title::after {
+      transform: rotate(-90deg);
+    }
+
+    .menu-section.collapsible .menu-section-body {
+      display: block;
+    }
+
+    .menu-section.collapsible.collapsed .menu-section-body {
+      display: none;
+    }
+
     .menu-item {
       margin: 0 10px 2px;
       padding: 8px 12px;
@@ -1321,6 +1347,7 @@
 
     function initializeMenuForRole(role) {
       filterMenuByRole(role);
+      initializeMenuSections();
       renderContent('Dashboard');
       setActiveMenu('Dashboard');
     }
@@ -1335,6 +1362,31 @@
       });
     }
 
+    function initializeMenuSections() {
+      collapseAllMenuSections();
+      const activeItem = document.querySelector('.menu-item.active');
+      const activeSection = activeItem ? activeItem.closest('.menu-section.collapsible') : null;
+      if (activeSection) {
+        activeSection.classList.remove('collapsed');
+      }
+    }
+
+    function collapseAllMenuSections() {
+      document.querySelectorAll('.menu-section.collapsible').forEach(section => {
+        section.classList.add('collapsed');
+      });
+    }
+
+    function toggleMenuSection(titleEl) {
+      const section = titleEl ? titleEl.closest('.menu-section.collapsible') : null;
+      if (!section) return;
+      const shouldOpen = section.classList.contains('collapsed');
+      collapseAllMenuSections();
+      if (shouldOpen) {
+        section.classList.remove('collapsed');
+      }
+    }
+
     function setActiveMenu(label) {
       document.querySelectorAll('.menu-item').forEach(item => {
         item.classList.remove('active');
@@ -1347,6 +1399,11 @@
     function navigateTo(element, label) {
       document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
       element.classList.add('active');
+      const section = element.closest('.menu-section.collapsible');
+      if (section) {
+        collapseAllMenuSections();
+        section.classList.remove('collapsed');
+      }
       renderContent(label);
       closeSidebar();
     }
@@ -1713,6 +1770,17 @@
 
           <div class="form-row">
             <div class="form-group">
+              <label for="editBatchLine">Batch Line</label>
+              <select id="editBatchLine"></select>
+            </div>
+            <div class="form-group">
+              <label for="editBatchCount">Lines in Batch</label>
+              <input type="text" id="editBatchCount" readonly>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
               <label for="editDate">Date</label>
               <input type="date" id="editDate">
             </div>
@@ -1806,6 +1874,7 @@
 
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line);">
             <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+            <button class="btn btn-danger" onclick="deleteBatch()">Delete Batch</button>
             <button class="btn btn-primary" onclick="updateJournal()">Save Changes</button>
           </div>
           </div>
@@ -5415,6 +5484,8 @@
     let lastCashFlowResult = null;
     let lastPositionResult = null;
     let lastNetAssetsResult = null;
+    let currentBatchRows = [];
+    let currentBatchId = '';
 
     function bindSearchHandlers() {
       ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchParticulars', 'searchPayee']
@@ -5775,8 +5846,8 @@
 
       google.script.run
         .withSuccessHandler(function(results) {
-          renderSearchResults(results || []);
-          if (status) status.textContent = 'Found ' + (results ? results.length : 0) + ' result(s).';
+          const count = renderSearchResults(results || []);
+          if (status) status.textContent = 'Found ' + count + ' result(s).';
         })
         .withFailureHandler(function(error) {
           if (status) status.textContent = error.message || 'Search failed.';
@@ -5786,27 +5857,33 @@
 
     function renderSearchResults(results) {
       const container = document.getElementById('searchResults');
-      if (!container) return;
+      if (!container) return 0;
       if (!results.length) {
         container.innerHTML = '<div class="card"><p>No results found.</p></div>';
-        return;
+        return 0;
       }
 
-      const rows = results.map(item => `
+      const grouped = groupSearchResults(results);
+      if (!grouped.length) {
+        container.innerHTML = '<div class="card"><p>No results found.</p></div>';
+        return 0;
+      }
+
+      const rows = grouped.map(item => `
         <tr>
           <td data-label="Date">${item.date || ''}</td>
           <td data-label="Payee">${item.payee || ''}</td>
           <td data-label="Category">${item.category || ''}</td>
           <td data-label="Particulars">${item.particulars || ''}</td>
           <td data-label="Sub-Category">${item.subCategory || ''}</td>
-          <td data-label="Debit">${item.debit || ''}</td>
-          <td data-label="Credit">${item.credit || ''}</td>
+          <td data-label="Debit">${item.totalDebit || item.debit || ''}</td>
+          <td data-label="Credit">${item.totalCredit || item.credit || ''}</td>
           <td data-label="Ref No">${item.refNo || ''}</td>
           <td data-label="Bank Ref">${item.bankRef || ''}</td>
           <td data-label="Action">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn btn-secondary edit-transaction-btn" data-row-id="${item.rowId}">Edit</button>
-              <button class="btn btn-danger delete-transaction-btn" data-row-id="${item.rowId}">Delete</button>
+              <button class="btn btn-secondary edit-transaction-btn" data-batch-id="${item.batchId || ''}" data-row-id="${item.rowId}">Edit</button>
+              <button class="btn btn-danger delete-transaction-btn" data-batch-id="${item.batchId || ''}" data-row-id="${item.rowId}">Delete</button>
             </div>
           </td>
         </tr>
@@ -5833,6 +5910,7 @@
       `;
 
       bindResultActions();
+      return grouped.length;
     }
 
     function bindResultActions() {
@@ -5842,6 +5920,11 @@
       container.onclick = function(event) {
         const editBtn = event.target.closest('.edit-transaction-btn');
         if (editBtn) {
+          const batchId = String(editBtn.dataset.batchId || '').trim();
+          if (batchId) {
+            loadJournalBatch(batchId);
+            return;
+          }
           const rowId = Number(editBtn.dataset.rowId);
           if (!rowId) {
             showAlert('Invalid transaction row.', 'error');
@@ -5853,6 +5936,11 @@
 
         const deleteBtn = event.target.closest('.delete-transaction-btn');
         if (deleteBtn) {
+          const batchId = String(deleteBtn.dataset.batchId || '').trim();
+          if (batchId) {
+            confirmDeleteBatch(batchId);
+            return;
+          }
           const rowId = Number(deleteBtn.dataset.rowId);
           if (!rowId) {
             showAlert('Invalid transaction row.', 'error');
@@ -5861,6 +5949,39 @@
           confirmDelete(rowId);
         }
       };
+    }
+
+    function groupSearchResults(results) {
+      const groups = {};
+      results.forEach(item => {
+        const key = String(item.batchId || '').trim() || String(item.rowId || '').trim();
+        if (!key) return;
+        if (!groups[key]) {
+          groups[key] = { batchId: item.batchId || '', items: [], rowIds: [], totalDebit: 0, totalCredit: 0 };
+        }
+        const debit = Number(item.debit || 0) || 0;
+        const credit = Number(item.credit || 0) || 0;
+        groups[key].items.push(item);
+        groups[key].rowIds.push(item.rowId);
+        groups[key].totalDebit += debit;
+        groups[key].totalCredit += credit;
+      });
+
+      return Object.values(groups).map(group => {
+        const items = group.items;
+        const preferred = items.find(entry => !String(entry.accountCode || '').trim()) || items[0] || {};
+        const refNo = items.find(entry => String(entry.refNo || '').trim()) || preferred;
+        const bankRef = items.find(entry => String(entry.bankRef || '').trim()) || preferred;
+        return Object.assign({}, preferred, {
+          batchId: group.batchId || preferred.batchId || '',
+          rowId: preferred.rowId,
+          refNo: refNo ? refNo.refNo : '',
+          bankRef: bankRef ? bankRef.bankRef : '',
+          totalDebit: formatAmount(group.totalDebit),
+          totalCredit: formatAmount(group.totalCredit),
+          lineCount: items.length
+        });
+      }).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
     }
 
     function showAlert(message, type = 'success', duration = 6000) {
@@ -5929,6 +6050,9 @@
             showAlert('Transaction not found', 'error');
             return;
           }
+          currentBatchRows = [row];
+          currentBatchId = row.batchId || '';
+          fillBatchLineSelect(currentBatchRows);
           selectedRowId = row.rowId;
           document.getElementById('editUuid').value = row.uuid || '';
           document.getElementById('editBatchId').value = row.batchId || '';
@@ -5954,6 +6078,72 @@
           showAlert(error.message || 'Failed to load transaction', 'error');
         })
         .getJournalRow(rowId);
+    }
+
+    function loadJournalBatch(batchId) {
+      showAlert('Loading transaction...', 'info');
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showAlert('App runtime missing. Open via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(rows) {
+          if (!rows || !rows.length) {
+            showAlert('Transaction not found', 'error');
+            return;
+          }
+          currentBatchRows = rows;
+          currentBatchId = String(batchId || '');
+          fillBatchLineSelect(rows);
+          applyBatchRowToEditForm(rows[0]);
+          openEditModal();
+        })
+        .withFailureHandler(function(error) {
+          showAlert(error.message || 'Failed to load transaction', 'error');
+        })
+        .getJournalBatch(batchId);
+    }
+
+    function fillBatchLineSelect(rows) {
+      const select = document.getElementById('editBatchLine');
+      const countField = document.getElementById('editBatchCount');
+      if (countField) countField.value = String(rows.length || 0);
+      if (!select) return;
+      select.innerHTML = rows.map((row, index) => {
+        const labelPart = row.particulars || row.accountCode || 'Line';
+        const debit = formatAmount(row.debit || 0);
+        const credit = formatAmount(row.credit || 0);
+        return `<option value="${index}">${labelPart} (Dr ${debit} / Cr ${credit})</option>`;
+      }).join('');
+      select.onchange = function() {
+        const idx = Number(select.value);
+        const row = rows[idx];
+        if (row) applyBatchRowToEditForm(row);
+      };
+      select.value = '0';
+    }
+
+    function applyBatchRowToEditForm(row) {
+      if (!row) return;
+      selectedRowId = row.rowId;
+      document.getElementById('editUuid').value = row.uuid || '';
+      document.getElementById('editBatchId').value = row.batchId || '';
+      document.getElementById('editDate').value = row.date || '';
+      document.getElementById('editFinancialYear').value = row.financialYear || '';
+      document.getElementById('editAccountCode').value = row.accountCode || '';
+      document.getElementById('editPayee').value = row.payee || '';
+      document.getElementById('editRefNo').value = row.refNo || '';
+      document.getElementById('editBankRef').value = row.bankRef || '';
+      document.getElementById('editParticulars').value = row.particulars || '';
+      document.getElementById('editSubCategory').value = row.subCategory || '';
+      document.getElementById('editCategory').value = row.category || '';
+      document.getElementById('editDescription').value = row.description || '';
+      document.getElementById('editDebit').value = row.debit || '';
+      document.getElementById('editCredit').value = row.credit || '';
+      document.getElementById('editAccountType').value = row.accountType || '';
+      document.getElementById('editReportMapping').value = row.reportMapping || '';
+      document.getElementById('editReconStatus').value = row.reconStatus || '';
+      document.getElementById('editReceiptUrl').value = row.receiptUrl || '';
     }
 
     function updateJournal() {
@@ -6021,10 +6211,25 @@
       confirmDelete(selectedRowId);
     }
 
+    function deleteBatch() {
+      if (!currentBatchId) {
+        showAlert('Please select a batch to delete', 'error');
+        return;
+      }
+      confirmDeleteBatch(currentBatchId);
+    }
+
     function confirmDelete(rowId) {
       showAlert('Preparing delete...', 'info');
       openConfirmModal('Confirm Delete', 'Are you sure you want to delete this record? This action cannot be undone.', function() {
         doDeleteJournal(rowId);
+      });
+    }
+
+    function confirmDeleteBatch(batchId) {
+      showAlert('Preparing delete...', 'info');
+      openConfirmModal('Confirm Delete', 'Delete all rows in this transaction batch? This action cannot be undone.', function() {
+        doDeleteJournalBatch(batchId);
       });
     }
 
@@ -6052,6 +6257,34 @@
           showAlert('Failed to delete: ' + (error.message || 'Unknown error'), 'error');
         })
         .deleteJournal(rowId);
+    }
+
+    function doDeleteJournalBatch(batchId) {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showAlert('Google Apps Script not available', 'error');
+        return;
+      }
+
+      console.log('Deleting journal batch:', batchId);
+      showAlert('Deleting...', 'info');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          console.log('Batch delete successful:', result);
+          hideAlert();
+          closeEditModal();
+          showAlert('Transaction batch deleted successfully.', 'success');
+          selectedRowId = null;
+          currentBatchRows = [];
+          currentBatchId = '';
+          setTimeout(() => runSearch(), 500);
+        })
+        .withFailureHandler(function(error) {
+          console.error('Batch delete failed:', error);
+          hideAlert();
+          showAlert('Failed to delete: ' + (error.message || 'Unknown error'), 'error');
+        })
+        .deleteJournalBatch(batchId);
     }
 
     function undoJournalAction() {
