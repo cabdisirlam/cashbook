@@ -1340,6 +1340,7 @@ function getNotesReport(currentYear, comparativeYear, options) {
   const particularsMeta = {};
   const categoryAccountTypes = {};
   const categoryReportMappings = {};
+  const isNetAssetMapping = (value) => String(value || '').toLowerCase().includes('net asset');
 
   if (masterLastRow >= 2) {
     const headers = master.getRange(1, 1, 1, masterLastCol).getValues()[0].map(_normalizeHeader_);
@@ -1354,6 +1355,7 @@ function getNotesReport(currentYear, comparativeYear, options) {
       const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
       const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
       if (!category) return;
+      if (isNetAssetMapping(reportMapping)) return;
 
       particularsMeta[particulars] = {
         category: category,
@@ -1474,6 +1476,7 @@ function getNotesReport(currentYear, comparativeYear, options) {
       reportMapping = reportMapping || details.reportMapping || '';
     }
 
+    if (isNetAssetMapping(reportMapping)) return;
     if (!category) category = 'Uncategorized';
     if (!subCategory) subCategory = 'Other';
 
@@ -1547,6 +1550,20 @@ function getNotesReport(currentYear, comparativeYear, options) {
     });
 
     if (!categoryTotalCurrent && !categoryTotalComparative) return;
+
+    const categoryLower = String(categoryName || '').toLowerCase();
+    if (categoryLower === 'accumulated fund' || categoryLower === 'revaluation reserve' || categoryLower === 'revaluation surplus') {
+      return;
+    }
+
+    const categoryLower = String(categoryName || '').toLowerCase();
+    const categoryMappings = Object.keys(categoryReportMappings[categoryName] || {}).map(value => String(value || '').toLowerCase());
+    if (categoryLower === 'accumulated fund' || categoryLower === 'revaluation reserve' || categoryLower === 'revaluation surplus') {
+      return;
+    }
+    if (categoryMappings.some(value => value.includes('net asset'))) {
+      return;
+    }
 
     results.push({
       category: categoryName,
