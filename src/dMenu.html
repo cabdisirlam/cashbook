@@ -69,23 +69,120 @@
   }
 
   .menu-item-icon {
-    font-size: 14px;
-    width: 16px;
-    text-align: center;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    background-color: currentColor;
     color: #94a3b8;
     transition: all 0.2s ease;
+    -webkit-mask-size: 18px 18px;
+    mask-size: 18px 18px;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
   }
 
   .menu-item:hover .menu-item-icon,
   .menu-item.active .menu-item-icon {
     color: #3b82f6;
   }
+
+  .menu-item-icon[data-icon="home"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 11.5 12 5l8 6.5v7a1 1 0 0 1-1 1h-5v-5H10v5H5a1 1 0 0 1-1-1z'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 11.5 12 5l8 6.5v7a1 1 0 0 1-1 1h-5v-5H10v5H5a1 1 0 0 1-1-1z'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="journal"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1v4h4'/><path d='M8 11h8M8 15h8M8 19h6' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1v4h4'/><path d='M8 11h8M8 15h8M8 19h6' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="payment"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 6h18a2 2 0 0 1 2 2v2H1V8a2 2 0 0 1 2-2zm-2 6h22v4a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2z'/><path d='M6 15h4' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 6h18a2 2 0 0 1 2 2v2H1V8a2 2 0 0 1 2-2zm-2 6h22v4a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2z'/><path d='M6 15h4' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="receipt"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 2h12v20l-3-2-3 2-3-2-3 2z'/><path d='M8 8h8M8 12h8M8 16h5' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 2h12v20l-3-2-3 2-3-2-3 2z'/><path d='M8 8h8M8 12h8M8 16h5' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="search"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M10 4a6 6 0 1 1 0 12A6 6 0 0 1 10 4zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'/><path d='m14 14 6 6-2 2-6-6z'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M10 4a6 6 0 1 1 0 12A6 6 0 0 1 10 4zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'/><path d='m14 14 6 6-2 2-6-6z'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="budget"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 4h16v16H4z'/><path d='M4 9h16M9 4v16' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 4h16v16H4z'/><path d='M4 9h16M9 4v16' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="receivable"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8l10 5 10-5z'/><path d='M4 12v6l8 4 8-4v-6' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8l10 5 10-5z'/><path d='M4 12v6l8 4 8-4v-6' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="payable"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h16v10H4z'/><path d='M8 7V5h8v2' stroke='black' stroke-width='2' fill='none'/><path d='M7 12h10' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h16v10H4z'/><path d='M8 7V5h8v2' stroke='black' stroke-width='2' fill='none'/><path d='M7 12h10' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="asset"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 10h18v8H3z'/><path d='M6 10V6h12v4' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 10h18v8H3z'/><path d='M6 10V6h12v4' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="bank"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 9h18v2H3z'/><path d='M4 11h16v8H4z'/><path d='M12 3 2 8h20z'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 9h18v2H3z'/><path d='M4 11h16v8H4z'/><path d='M12 3 2 8h20z'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="reconcile"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 5h16v4H4z'/><path d='M4 11h16v8H4z'/><path d='M8 15l2 2 4-4' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 5h16v4H4z'/><path d='M4 11h16v8H4z'/><path d='M8 15l2 2 4-4' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="chart"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 20h16v2H4z'/><path d='M6 18V8h3v10zm5 0V5h3v13zm5 0v-7h3v7z'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 20h16v2H4z'/><path d='M6 18V8h3v10zm5 0V5h3v13zm5 0v-7h3v7z'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="flow"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h10v4H4z'/><path d='M10 13h10v4H10z'/><path d='M9 9v6' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h10v4H4z'/><path d='M10 13h10v4H10z'/><path d='M9 9v6' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="position"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M5 4h14v4H5z'/><path d='M5 10h14v4H5z'/><path d='M5 16h14v4H5z'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M5 4h14v4H5z'/><path d='M5 10h14v4H5z'/><path d='M5 16h14v4H5z'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="net"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 6h16v12H4z'/><path d='M7 9h10M7 12h10M7 15h6' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 6h16v12H4z'/><path d='M7 9h10M7 12h10M7 15h6' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="notes"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h12v18H6z'/><path d='M8 7h8M8 11h8M8 15h5' stroke='black' stroke-width='2' fill='none'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h12v18H6z'/><path d='M8 7h8M8 11h8M8 15h5' stroke='black' stroke-width='2' fill='none'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="users"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm10-1a3 3 0 1 1 0-6 3 3 0 0 1 0 6z'/><path d='M2 20a5 5 0 0 1 10 0zm11 0a4 4 0 0 1 8 0' fill='black'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm10-1a3 3 0 1 1 0-6 3 3 0 0 1 0 6z'/><path d='M2 20a5 5 0 0 1 10 0zm11 0a4 4 0 0 1 8 0' fill='black'/></svg>");
+  }
+
+  .menu-item-icon[data-icon="settings"] {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm8.5 4.5-1.8-.5a7.2 7.2 0 0 0-.7-1.6l1-1.6-1.4-1.4-1.6 1a7.2 7.2 0 0 0-1.6-.7l-.5-1.8h-2l-.5 1.8a7.2 7.2 0 0 0-1.6.7l-1.6-1-1.4 1.4 1 1.6a7.2 7.2 0 0 0-.7 1.6l-1.8.5v2l1.8.5a7.2 7.2 0 0 0 .7 1.6l-1 1.6 1.4 1.4 1.6-1a7.2 7.2 0 0 0 1.6.7l.5 1.8h2l.5-1.8a7.2 7.2 0 0 0 1.6-.7l1.6 1 1.4-1.4-1-1.6a7.2 7.2 0 0 0 .7-1.6l1.8-.5z'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm8.5 4.5-1.8-.5a7.2 7.2 0 0 0-.7-1.6l1-1.6-1.4-1.4-1.6 1a7.2 7.2 0 0 0-1.6-.7l-.5-1.8h-2l-.5 1.8a7.2 7.2 0 0 0-1.6.7l-1.6-1-1.4 1.4 1 1.6a7.2 7.2 0 0 0-.7 1.6l-1.8.5v2l1.8.5a7.2 7.2 0 0 0 .7 1.6l-1 1.6 1.4 1.4 1.6-1a7.2 7.2 0 0 0 1.6.7l.5 1.8h2l.5-1.8a7.2 7.2 0 0 0 1.6-.7l1.6 1 1.4-1.4-1-1.6a7.2 7.2 0 0 0 .7-1.6l1.8-.5z'/></svg>");
+  }
 </style>
 
 <div id="financialMenu">
   <div class="menu-section">
     <div class="menu-item active" data-label="Dashboard" onclick="navigateTo(this, 'Dashboard')">
-      <span class="menu-item-icon">-</span>
+      <span class="menu-item-icon" data-icon="home"></span>
       <span>Dashboard</span>
     </div>
   </div>
@@ -94,23 +191,23 @@
     <div class="menu-section-title" onclick="toggleMenuSection(this)">Transactions</div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter" data-label="New Journal" onclick="navigateTo(this, 'New Journal')">
-        <span class="menu-item-icon">+</span>
+        <span class="menu-item-icon" data-icon="journal"></span>
         <span>New Journal</span>
       </div>
       <div class="menu-item" data-role="admin,inputter" data-label="New Payment" onclick="navigateTo(this, 'New Payment')">
-        <span class="menu-item-icon">+</span>
+        <span class="menu-item-icon" data-icon="payment"></span>
         <span>New Payment</span>
       </div>
       <div class="menu-item" data-role="admin,inputter" data-label="New Receipt" onclick="navigateTo(this, 'New Receipt')">
-        <span class="menu-item-icon">+</span>
+        <span class="menu-item-icon" data-icon="receipt"></span>
         <span>New Receipt</span>
       </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Search / Edit" onclick="navigateTo(this, 'Search / Edit')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="search"></span>
         <span>Search / Edit</span>
       </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Add/Edit Budget" onclick="navigateTo(this, 'Add/Edit Budget')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="budget"></span>
         <span>Add/Edit Budget</span>
       </div>
     </div>
@@ -120,7 +217,7 @@
     <div class="menu-section-title" onclick="toggleMenuSection(this)">Receivables</div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Receivables Statements" onclick="navigateTo(this, 'Receivables Statements')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="receivable"></span>
         <span>View Statements</span>
       </div>
     </div>
@@ -130,7 +227,7 @@
     <div class="menu-section-title" onclick="toggleMenuSection(this)">Payables</div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Payables Statements" onclick="navigateTo(this, 'Payables Statements')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="payable"></span>
         <span>View Statements</span>
       </div>
     </div>
@@ -139,13 +236,9 @@
   <div class="menu-section collapsible">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">Fixed Assets</div>
     <div class="menu-section-body">
-      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Asset Register" onclick="navigateTo(this, 'Asset Register')">
-        <span class="menu-item-icon">-</span>
-        <span>Asset Register</span>
-      </div>
-      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Add New Asset" onclick="navigateTo(this, 'Add New Asset')">
-        <span class="menu-item-icon">-</span>
-        <span>Add New Asset</span>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Asset Purchases" onclick="navigateTo(this, 'Asset Purchases')">
+        <span class="menu-item-icon" data-icon="asset"></span>
+        <span>Asset Purchases</span>
       </div>
     </div>
   </div>
@@ -154,11 +247,11 @@
     <div class="menu-section-title" onclick="toggleMenuSection(this)">Banking</div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter" data-label="Import Statement" onclick="navigateTo(this, 'Import Statement')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="bank"></span>
         <span>Import Statement</span>
       </div>
       <div class="menu-item" data-role="admin,inputter" data-label="Reconciliation" onclick="navigateTo(this, 'Reconciliation')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="reconcile"></span>
         <span>Reconciliation</span>
       </div>
     </div>
@@ -168,27 +261,27 @@
     <div class="menu-section-title" onclick="toggleMenuSection(this)">Reports</div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Performance" onclick="navigateTo(this, 'Performance')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="chart"></span>
         <span>Performance</span>
       </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Cash Flow" onclick="navigateTo(this, 'Cash Flow')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="flow"></span>
         <span>Cash Flow</span>
       </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Position" onclick="navigateTo(this, 'Position')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="position"></span>
         <span>Position</span>
       </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Net Assets" onclick="navigateTo(this, 'Net Assets')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="net"></span>
         <span>Net Assets</span>
       </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Budget vs Actual" onclick="navigateTo(this, 'Budget vs Actual')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="budget"></span>
         <span>Budget vs Actual</span>
       </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Notes" onclick="navigateTo(this, 'Notes')">
-        <span class="menu-item-icon">-</span>
+        <span class="menu-item-icon" data-icon="notes"></span>
         <span>Notes</span>
       </div>
     </div>
@@ -198,11 +291,11 @@
     <div class="menu-section-title" onclick="toggleMenuSection(this)">Admin</div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin" data-label="Users" onclick="navigateTo(this, 'Users')">
-        <span class="menu-item-icon">*</span>
+        <span class="menu-item-icon" data-icon="users"></span>
         <span>Users</span>
       </div>
       <div class="menu-item" data-role="admin" data-label="Settings" onclick="navigateTo(this, 'Settings')">
-        <span class="menu-item-icon">*</span>
+        <span class="menu-item-icon" data-icon="settings"></span>
         <span>Settings</span>
       </div>
     </div>

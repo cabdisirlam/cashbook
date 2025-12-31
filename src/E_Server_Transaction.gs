@@ -2270,6 +2270,133 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
   };
 }
 
+function getAssetPurchasesSummary(criteria) {
+  const financialYear = String(criteria && criteria.financialYear || '').trim();
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return { rows: [] };
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const totalsByYear = {};
+
+  data.forEach(function(row) {
+    if (!cols.financialYear || !cols.reportMapping || !cols.debit || !cols.credit) return;
+    const rowYear = String(row[cols.financialYear - 1] || '').trim();
+    if (financialYear && rowYear !== financialYear) return;
+    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+    if (accountCode) return;
+    const mapping = String(row[cols.reportMapping - 1] || '').toLowerCase();
+    const isNonCurrent = mapping.includes('non-current asset') || mapping.includes('non current asset') || mapping.includes('ppe') || mapping.includes('property, plant') || mapping.includes('property plant') || mapping.includes('property and equipment');
+    if (!isNonCurrent) return;
+    const debit = _parseNumber_(row[cols.debit - 1]);
+    const credit = _parseNumber_(row[cols.credit - 1]);
+    const net = debit - credit;
+    if (!totalsByYear[rowYear]) totalsByYear[rowYear] = 0;
+    totalsByYear[rowYear] += net;
+  });
+
+  const years = Object.keys(totalsByYear).sort((a, b) => _compareFinancialYears_(a, b));
+  let cumulative = 0;
+  const rows = years.map(year => {
+    const additions = totalsByYear[year] || 0;
+    cumulative += additions;
+    return {
+      financialYear: year,
+      additions: additions,
+      cumulative: cumulative
+    };
+  });
+
+  return { rows: rows };
+}
+
+function getDashboardSummary() {
+  const dropdowns = getDropdownData();
+  const years = dropdowns && dropdowns.financialYears ? dropdowns.financialYears : [];
+  const financialYear = _resolveCurrentFinancialYear_(years);
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  let totalReceipts = 0;
+  let totalPayments = 0;
+  if (lastRow > 1) {
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+    const cols = _getJournalColumns_(headers);
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    data.forEach(function(row) {
+      if (!cols.financialYear || !cols.accountCode) return;
+      const rowYear = String(row[cols.financialYear - 1] || '').trim();
+      if (financialYear && rowYear !== financialYear) return;
+      const accountCode = String(row[cols.accountCode - 1] || '').trim();
+      if (!accountCode) return;
+      const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+      const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+      if (debit > 0) totalReceipts += debit;
+      if (credit > 0) totalPayments += credit;
+    });
+  }
+
+  const receivableSummary = getReceivablePayableSummary('receivable', { financialYear: financialYear });
+  const payableSummary = getReceivablePayableSummary('payable', { financialYear: financialYear });
+  const totalReceivables = (receivableSummary.rows || []).reduce((sum, row) => sum + Number(row.closing || 0), 0);
+  const totalPayables = (payableSummary.rows || []).reduce((sum, row) => sum + Number(row.closing || 0), 0);
+
+  return {
+    financialYear: financialYear,
+    totalReceipts: totalReceipts,
+    totalPayments: totalPayments,
+    totalReceivables: totalReceivables,
+    totalPayables: totalPayables
+  };
+}
+
+function _resolveCurrentFinancialYear_(years) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const startYear = month >= 7 ? currentYear : currentYear - 1;
+  const endYear = startYear + 1;
+  const yearList = Array.isArray(years) ? years.slice() : [];
+  const targetLabel = startYear + '/' + endYear;
+  const match = yearList.find(value => String(value || '').includes(targetLabel));
+  if (match) return match;
+  return targetLabel;
+}
+
+function _compareFinancialYears_(a, b) {
+  const yearA = _financialYearEnd_(a);
+  const yearB = _financialYearEnd_(b);
+  if (yearA !== yearB) return yearA - yearB;
+  return String(a || '').localeCompare(String(b || ''));
+}
+
+function _financialYearEnd_(label) {
+  const text = String(label || '').trim();
+  if (!text) return 0;
+  const match = text.match(/(\d{4})\s*[\/-]\s*(\d{2,4})/);
+  if (match) {
+    const start = parseInt(match[1], 10);
+    const endRaw = match[2];
+    const end = endRaw.length === 2 ? parseInt(String(start).slice(0, 2) + endRaw, 10) : parseInt(endRaw, 10);
+    return Number.isFinite(end) ? end : 0;
+  }
+  const years = text.match(/\d{4}/g) || [];
+  if (years.length) {
+    return parseInt(years[years.length - 1], 10) || 0;
+  }
+  return 0;
+}
+
 function saveBankStatementUpload(payload) {
   if (!payload) throw new Error('Missing payload.');
   const accountCode = String(payload.accountCode || '').trim();

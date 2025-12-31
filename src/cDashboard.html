@@ -192,16 +192,113 @@
     }
 
     .menu-item-icon {
-      font-size: 14px;
-      width: 16px;
-      text-align: center;
+      width: 18px;
+      height: 18px;
+      flex: 0 0 18px;
+      background-color: currentColor;
       color: #94a3b8;
       transition: var(--transition);
+      -webkit-mask-size: 18px 18px;
+      mask-size: 18px 18px;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+      -webkit-mask-position: center;
+      mask-position: center;
     }
 
     .menu-item:hover .menu-item-icon,
     .menu-item.active .menu-item-icon {
       color: #3b82f6;
+    }
+
+    .menu-item-icon[data-icon="home"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 11.5 12 5l8 6.5v7a1 1 0 0 1-1 1h-5v-5H10v5H5a1 1 0 0 1-1-1z'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 11.5 12 5l8 6.5v7a1 1 0 0 1-1 1h-5v-5H10v5H5a1 1 0 0 1-1-1z'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="journal"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1v4h4'/><path d='M8 11h8M8 15h8M8 19h6' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1v4h4'/><path d='M8 11h8M8 15h8M8 19h6' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="payment"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 6h18a2 2 0 0 1 2 2v2H1V8a2 2 0 0 1 2-2zm-2 6h22v4a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2z'/><path d='M6 15h4' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 6h18a2 2 0 0 1 2 2v2H1V8a2 2 0 0 1 2-2zm-2 6h22v4a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2z'/><path d='M6 15h4' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="receipt"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 2h12v20l-3-2-3 2-3-2-3 2z'/><path d='M8 8h8M8 12h8M8 16h5' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 2h12v20l-3-2-3 2-3-2-3 2z'/><path d='M8 8h8M8 12h8M8 16h5' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="search"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M10 4a6 6 0 1 1 0 12A6 6 0 0 1 10 4zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'/><path d='m14 14 6 6-2 2-6-6z'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M10 4a6 6 0 1 1 0 12A6 6 0 0 1 10 4zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'/><path d='m14 14 6 6-2 2-6-6z'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="budget"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 4h16v16H4z'/><path d='M4 9h16M9 4v16' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 4h16v16H4z'/><path d='M4 9h16M9 4v16' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="receivable"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8l10 5 10-5z'/><path d='M4 12v6l8 4 8-4v-6' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8l10 5 10-5z'/><path d='M4 12v6l8 4 8-4v-6' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="payable"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h16v10H4z'/><path d='M8 7V5h8v2' stroke='black' stroke-width='2' fill='none'/><path d='M7 12h10' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h16v10H4z'/><path d='M8 7V5h8v2' stroke='black' stroke-width='2' fill='none'/><path d='M7 12h10' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="asset"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 10h18v8H3z'/><path d='M6 10V6h12v4' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 10h18v8H3z'/><path d='M6 10V6h12v4' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="bank"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 9h18v2H3z'/><path d='M4 11h16v8H4z'/><path d='M12 3 2 8h20z'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 9h18v2H3z'/><path d='M4 11h16v8H4z'/><path d='M12 3 2 8h20z'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="reconcile"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 5h16v4H4z'/><path d='M4 11h16v8H4z'/><path d='M8 15l2 2 4-4' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 5h16v4H4z'/><path d='M4 11h16v8H4z'/><path d='M8 15l2 2 4-4' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="chart"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 20h16v2H4z'/><path d='M6 18V8h3v10zm5 0V5h3v13zm5 0v-7h3v7z'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 20h16v2H4z'/><path d='M6 18V8h3v10zm5 0V5h3v13zm5 0v-7h3v7z'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="flow"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h10v4H4z'/><path d='M10 13h10v4H10z'/><path d='M9 9v6' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h10v4H4z'/><path d='M10 13h10v4H10z'/><path d='M9 9v6' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="position"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M5 4h14v4H5z'/><path d='M5 10h14v4H5z'/><path d='M5 16h14v4H5z'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M5 4h14v4H5z'/><path d='M5 10h14v4H5z'/><path d='M5 16h14v4H5z'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="net"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 6h16v12H4z'/><path d='M7 9h10M7 12h10M7 15h6' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 6h16v12H4z'/><path d='M7 9h10M7 12h10M7 15h6' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="notes"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h12v18H6z'/><path d='M8 7h8M8 11h8M8 15h5' stroke='black' stroke-width='2' fill='none'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h12v18H6z'/><path d='M8 7h8M8 11h8M8 15h5' stroke='black' stroke-width='2' fill='none'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="users"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm10-1a3 3 0 1 1 0-6 3 3 0 0 1 0 6z'/><path d='M2 20a5 5 0 0 1 10 0zm11 0a4 4 0 0 1 8 0' fill='black'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm10-1a3 3 0 1 1 0-6 3 3 0 0 1 0 6z'/><path d='M2 20a5 5 0 0 1 10 0zm11 0a4 4 0 0 1 8 0' fill='black'/></svg>");
+    }
+
+    .menu-item-icon[data-icon="settings"] {
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm8.5 4.5-1.8-.5a7.2 7.2 0 0 0-.7-1.6l1-1.6-1.4-1.4-1.6 1a7.2 7.2 0 0 0-1.6-.7l-.5-1.8h-2l-.5 1.8a7.2 7.2 0 0 0-1.6.7l-1.6-1-1.4 1.4 1 1.6a7.2 7.2 0 0 0-.7 1.6l-1.8.5v2l1.8.5a7.2 7.2 0 0 0 .7 1.6l-1 1.6 1.4 1.4 1.6-1a7.2 7.2 0 0 0 1.6.7l.5 1.8h2l.5-1.8a7.2 7.2 0 0 0 1.6-.7l1.6 1 1.4-1.4-1-1.6a7.2 7.2 0 0 0 .7-1.6l1.8-.5z'/></svg>");
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm8.5 4.5-1.8-.5a7.2 7.2 0 0 0-.7-1.6l1-1.6-1.4-1.4-1.6 1a7.2 7.2 0 0 0-1.6-.7l-.5-1.8h-2l-.5 1.8a7.2 7.2 0 0 0-1.6.7l-1.6-1-1.4 1.4 1 1.6a7.2 7.2 0 0 0-.7 1.6l-1.8.5v2l1.8.5a7.2 7.2 0 0 0 .7 1.6l-1 1.6 1.4 1.4 1.6-1a7.2 7.2 0 0 0 1.6.7l.5 1.8h2l.5-1.8a7.2 7.2 0 0 0 1.6-.7l1.6 1 1.4-1.4-1-1.6a7.2 7.2 0 0 0 .7-1.6l1.8-.5z'/></svg>");
     }
 
     .main {
@@ -1389,6 +1486,50 @@
       }
     }
 
+    function loadDashboardSummary() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        renderDashboardSummary({ totalReceipts: 0, totalPayments: 0, totalReceivables: 0, totalPayables: 0, financialYear: '' });
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          renderDashboardSummary(result || {});
+        })
+        .withFailureHandler(function() {
+          renderDashboardSummary({ totalReceipts: 0, totalPayments: 0, totalReceivables: 0, totalPayables: 0, financialYear: '' });
+        })
+        .getDashboardSummary();
+    }
+
+    function renderDashboardSummary(summary) {
+      const container = document.getElementById('dashboardSummary');
+      if (!container) return;
+      const fyLabel = summary.financialYear ? `FY ${summary.financialYear}` : 'All years';
+      container.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div>
+            <h2 style="margin:0;">Dashboard</h2>
+            <p style="color:#6b7280;font-size:13px;margin:4px 0 0;">Summary (${fyLabel})</p>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px;">
+          ${renderSummaryCard('Total Receipts', summary.totalReceipts)}
+          ${renderSummaryCard('Total Payments', summary.totalPayments)}
+          ${renderSummaryCard('Total Receivables', summary.totalReceivables)}
+          ${renderSummaryCard('Total Payables', summary.totalPayables)}
+        </div>
+      `;
+    }
+
+    function renderSummaryCard(label, value) {
+      return `
+        <div style="border:1px solid var(--line);border-radius:10px;padding:14px;background:#f8fafc;">
+          <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;">${label}</div>
+          <div style="font-size:18px;font-weight:700;color:#0f172a;">Ksh ${formatPerformanceAmount(value)}</div>
+        </div>
+      `;
+    }
+
     function setActiveMenu(label) {
       document.querySelectorAll('.menu-item').forEach(item => {
         item.classList.remove('active');
@@ -1486,6 +1627,11 @@
         return;
       }
 
+      if (label === 'Asset Purchases') {
+        renderAssetPurchasesContent();
+        return;
+      }
+
       if (label === 'Add/Edit Budget') {
         renderBudgetManagerContent();
         return;
@@ -1510,11 +1656,12 @@
         const contentArea = document.getElementById('contentArea');
         contentArea.innerHTML = `
           ${renderSectionHero('Dashboard', 'Welcome back. Track activity, balances, and quick actions in one place.')}
-          <div class="card">
+          <div id="dashboardSummary" class="card" style="margin-bottom:16px;">
             <h2>Dashboard</h2>
-            <p>This is the skeleton dashboard. Use the menu to navigate.</p>
+            <p>Loading summary...</p>
           </div>
         `;
+        loadDashboardSummary();
         return;
       }
 
@@ -3604,6 +3751,42 @@
       loadPayablesYears();
     }
 
+    function renderAssetPurchasesContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="assetPurchasesAlert"></div>
+        ${renderSectionHero('Fixed Assets', 'Track cumulative non-current asset additions.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Asset Purchases</h2>
+              <p style="color:#6b7280;font-size:13px;">Select a financial year to view cumulative additions.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderAssetPurchasesContent()">Refresh</button>
+              <button class="btn btn-secondary" onclick="downloadAssetPurchasesCsv()">Download CSV</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="assetPurchasesFinancialYear">Financial Year</label>
+              <select id="assetPurchasesFinancialYear"></select>
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="refreshAssetPurchases()">Run</button>
+            </div>
+          </div>
+
+          <div id="assetPurchasesStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="assetPurchasesReport"></div>
+        </div>
+      `;
+
+      loadAssetPurchasesYears();
+    }
+
     function renderNotesContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
@@ -3773,6 +3956,26 @@
         })
         .withFailureHandler(function(error) {
           showPayablesAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
+    function loadAssetPurchasesYears() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showAssetPurchasesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const years = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptionsWithDefault('assetPurchasesFinancialYear', years, 'All years');
+          if (years.length) {
+            const currentSelect = document.getElementById('assetPurchasesFinancialYear');
+            if (currentSelect) currentSelect.value = years[years.length - 1];
+          }
+        })
+        .withFailureHandler(function(error) {
+          showAssetPurchasesAlert(error.message || 'Failed to load financial years.', 'error');
         })
         .getDropdownData();
     }
@@ -3957,6 +4160,29 @@
           showPayablesAlert(error.message || 'Failed to load statements.', 'error');
         })
         .getReceivablePayableSummary('payable', { financialYear: financialYear });
+    }
+
+    function refreshAssetPurchases() {
+      const financialYear = document.getElementById('assetPurchasesFinancialYear').value.trim();
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showAssetPurchasesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      const status = document.getElementById('assetPurchasesStatus');
+      if (status) status.textContent = 'Loading summary...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          lastAssetPurchasesResult = result || { rows: [] };
+          renderAssetPurchasesReport(lastAssetPurchasesResult);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showAssetPurchasesAlert(error.message || 'Failed to load summary.', 'error');
+        })
+        .getAssetPurchasesSummary({ financialYear: financialYear });
     }
 
     function renderPerformanceReport(result) {
@@ -4636,6 +4862,37 @@
       `;
     }
 
+    function renderAssetPurchasesReport(result) {
+      const container = document.getElementById('assetPurchasesReport');
+      if (!container) return;
+      const rows = result && result.rows ? result.rows : [];
+      if (!rows.length) {
+        container.innerHTML = '<div class="card"><p>No asset purchases found for the selected period.</p></div>';
+        return;
+      }
+
+      const body = rows.map(row => `
+        <tr>
+          <td data-label="Financial Year">${row.financialYear || ''}</td>
+          <td data-label="Additions">${formatPerformanceAmount(row.additions)}</td>
+          <td data-label="Cumulative">${formatPerformanceAmount(row.cumulative)}</td>
+        </tr>
+      `).join('');
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Financial Year</th>
+              <th>Additions</th>
+              <th>Cumulative</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      `;
+    }
+
     function formatPerformanceAmount(value) {
       const amount = Number(value || 0);
       if (!Number.isFinite(amount)) return '';
@@ -5302,6 +5559,22 @@
       downloadRowsAsCsv(rows, 'payables_summary.csv');
     }
 
+    function downloadAssetPurchasesCsv() {
+      if (!lastAssetPurchasesResult || !lastAssetPurchasesResult.rows || !lastAssetPurchasesResult.rows.length) {
+        showAssetPurchasesAlert('Run the summary first.', 'error');
+        return;
+      }
+      const rows = [['Asset Purchases Summary'], ['Financial Year', 'Additions', 'Cumulative']];
+      lastAssetPurchasesResult.rows.forEach(row => {
+        rows.push([
+          row.financialYear || '',
+          formatPerformanceAmount(row.additions),
+          formatPerformanceAmount(row.cumulative)
+        ]);
+      });
+      downloadRowsAsCsv(rows, 'asset_purchases_summary.csv');
+    }
+
     function downloadNetAssetsCsv() {
       if (!lastNetAssetsResult) {
         showNetAssetsAlert('Run the statement first.', 'error');
@@ -5462,6 +5735,32 @@
 
     function showPayablesAlert(message, type = 'success', duration = 6000) {
       const container = document.getElementById('payablesAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function showAssetPurchasesAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('assetPurchasesAlert');
       if (!container) {
         showAlert(message, type, duration);
         return;
@@ -5953,6 +6252,7 @@
     let lastNetAssetsResult = null;
     let lastReceivablesResult = null;
     let lastPayablesResult = null;
+    let lastAssetPurchasesResult = null;
     let currentBatchRows = [];
     let currentBatchId = '';
 
