@@ -1412,6 +1412,11 @@
         return;
       }
 
+      if (label === 'Net Assets') {
+        renderNetAssetsContent();
+        return;
+      }
+
       if (label === 'Add/Edit Budget') {
         renderBudgetManagerContent();
         return;
@@ -3405,6 +3410,47 @@
       loadPositionYears();
     }
 
+    function renderNetAssetsContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="netAssetsAlert"></div>
+        ${renderSectionHero('Net Assets', 'Statement of net assets for the year.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Statement of Net Assets</h2>
+              <p style="color:#6b7280;font-size:13px;">Select current and comparative financial years, then run the report.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderNetAssetsContent()">Refresh</button>
+              <button class="btn btn-secondary" onclick="downloadNetAssetsCsv()">Download CSV</button>
+              <button class="btn btn-secondary" onclick="downloadNetAssetsXlsx()">Download XLSX</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="netAssetsCurrentYear">Current Financial Year</label>
+              <select id="netAssetsCurrentYear"></select>
+            </div>
+            <div class="form-group">
+              <label for="netAssetsComparativeYear">Comparative Financial Year</label>
+              <select id="netAssetsComparativeYear"></select>
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="refreshNetAssetsReport()">Run</button>
+            </div>
+          </div>
+
+          <div id="netAssetsStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="netAssetsReport"></div>
+        </div>
+      `;
+
+      loadNetAssetsYears();
+    }
+
     function renderNotesContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
@@ -3515,6 +3561,29 @@
         .getDropdownData();
     }
 
+    function loadNetAssetsYears() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showNetAssetsAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const years = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptions('netAssetsCurrentYear', years);
+          fillSelectOptions('netAssetsComparativeYear', years);
+          if (years.length) {
+            const currentSelect = document.getElementById('netAssetsCurrentYear');
+            if (currentSelect) currentSelect.value = years[years.length - 1];
+            setComparativeFromCurrent('netAssetsCurrentYear', 'netAssetsComparativeYear');
+            bindComparativeSync('netAssetsCurrentYear', 'netAssetsComparativeYear');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showNetAssetsAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
     function refreshPerformanceReport() {
       const currentYear = document.getElementById('performanceCurrentYear').value.trim();
       const comparativeYear = document.getElementById('performanceComparativeYear').value.trim();
@@ -3611,6 +3680,40 @@
         .withFailureHandler(function(error) {
           if (status) status.textContent = '';
           showPositionAlert(error.message || 'Failed to load statement.', 'error');
+        })
+        .getPositionReport(currentYear, comparativeYear);
+
+      fireNotesCache(currentYear, comparativeYear);
+    }
+
+    function refreshNetAssetsReport() {
+      const currentYear = document.getElementById('netAssetsCurrentYear').value.trim();
+      const comparativeYear = document.getElementById('netAssetsComparativeYear').value.trim();
+      if (!currentYear) {
+        showNetAssetsAlert('Select a current financial year.', 'error');
+        return;
+      }
+      if (!comparativeYear) {
+        showNetAssetsAlert('Select a comparative financial year.', 'error');
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showNetAssetsAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      const status = document.getElementById('netAssetsStatus');
+      if (status) status.textContent = 'Loading statement...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          lastNetAssetsResult = result || {};
+          renderNetAssetsReport(lastNetAssetsResult);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showNetAssetsAlert(error.message || 'Failed to load statement.', 'error');
         })
         .getPositionReport(currentYear, comparativeYear);
 
@@ -4118,56 +4221,6 @@
         </tr>
       `;
 
-      let changesHtml = '';
-      if (result.changesInNetAssets) {
-        const changes = result.changesInNetAssets;
-        const titleYear = changes.titleYear || '';
-        const previousYear = changes.previousYear || '';
-        const prev = changes.previous || {};
-        const curr = changes.current || {};
-
-        const buildRow = (label, rev, acc) => `
-          <tr>
-            <td>${label}</td>
-            <td>${formatPerformanceAmount(rev)}</td>
-            <td>${formatPerformanceAmount(acc)}</td>
-            <td>${formatPerformanceAmount((rev || 0) + (acc || 0))}</td>
-          </tr>
-        `;
-
-        changesHtml = `
-          <div style="font-weight:700;margin:22px 0 8px;">Statement of Changes in Net Assets for the year ended ${titleYear}</div>
-          <table class="table">
-            <thead>
-              <tr>
-                <th style="width:46%;">Description</th>
-                <th>Revaluation Reserve</th>
-                <th>Accumulated Fund</th>
-                <th>Total</th>
-              </tr>
-              <tr>
-                <th></th>
-                <th>Kshs</th>
-                <th>Kshs</th>
-                <th>Kshs</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${buildRow(`As at July 1 (${previousYear || 'Previous FY'})`, 0, prev.opening || 0)}
-              ${buildRow('Revaluation gain', prev.revaluationGain || 0, 0)}
-              ${buildRow('Transfer of excess depreciation on revaluation', prev.transfer || 0, prev.transfer || 0)}
-              ${buildRow('Surplus/(deficit) for the year', 0, prev.surplus || 0)}
-              ${buildRow(`As at June 30 (${previousYear || 'Previous FY'})`, 0, prev.closing || 0)}
-              ${buildRow(`As at July 1 (${titleYear || 'Current FY'})`, 0, curr.opening || 0)}
-              ${buildRow('Revaluation gain', curr.revaluationGain || 0, 0)}
-              ${buildRow('Transfer of excess depreciation on revaluation', curr.transfer || 0, curr.transfer || 0)}
-              ${buildRow('Surplus/(deficit) for the year', 0, curr.surplus || 0)}
-              ${buildRow(`As at June 30 (${titleYear || 'Current FY'})`, 0, curr.closing || 0)}
-            </tbody>
-          </table>
-        `;
-      }
-
       container.innerHTML = `
         <div style="font-weight:700;margin-bottom:8px;">Statement of Financial Position as at ${titleYear}</div>
         <table class="table">
@@ -4187,7 +4240,63 @@
             ${rows}
           </tbody>
         </table>
-        ${changesHtml}
+      `;
+    }
+
+    function renderNetAssetsReport(result) {
+      const container = document.getElementById('netAssetsReport');
+      if (!container) return;
+
+      if (!result || !result.changesInNetAssets) {
+        container.innerHTML = '<div class="card"><p>No net assets data found for the selected years.</p></div>';
+        return;
+      }
+
+      const changes = result.changesInNetAssets;
+      const titleYear = changes.titleYear || result.currentYear || '';
+      const previousYear = changes.previousYear || result.comparativeYear || '';
+      const prev = changes.previous || {};
+      const curr = changes.current || {};
+
+      const buildRow = (label, rev, acc) => `
+        <tr>
+          <td>${label}</td>
+          <td>${formatPerformanceAmount(rev)}</td>
+          <td>${formatPerformanceAmount(acc)}</td>
+          <td>${formatPerformanceAmount((rev || 0) + (acc || 0))}</td>
+        </tr>
+      `;
+
+      container.innerHTML = `
+        <div style="font-weight:700;margin-bottom:8px;">Statement of Net Assets for the year ended ${titleYear}</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:46%;">Description</th>
+              <th>Revaluation Reserve</th>
+              <th>Accumulated Fund</th>
+              <th>Total</th>
+            </tr>
+            <tr>
+              <th></th>
+              <th>Kshs</th>
+              <th>Kshs</th>
+              <th>Kshs</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${buildRow(`As at July 1 (${previousYear || 'Previous FY'})`, 0, prev.opening || 0)}
+            ${buildRow('Revaluation gain', prev.revaluationGain || 0, 0)}
+            ${buildRow('Transfer of excess depreciation on revaluation', prev.transfer || 0, prev.transfer || 0)}
+            ${buildRow('Surplus/(deficit) for the year', 0, prev.surplus || 0)}
+            ${buildRow(`As at June 30 (${previousYear || 'Previous FY'})`, 0, prev.closing || 0)}
+            ${buildRow(`As at July 1 (${titleYear || 'Current FY'})`, 0, curr.opening || 0)}
+            ${buildRow('Revaluation gain', curr.revaluationGain || 0, 0)}
+            ${buildRow('Transfer of excess depreciation on revaluation', curr.transfer || 0, curr.transfer || 0)}
+            ${buildRow('Surplus/(deficit) for the year', 0, curr.surplus || 0)}
+            ${buildRow(`As at June 30 (${titleYear || 'Current FY'})`, 0, curr.closing || 0)}
+          </tbody>
+        </table>
       `;
     }
 
@@ -4534,34 +4643,39 @@
         formatPerformanceAmount(result.equity ? result.equity.totalComparative : 0)
       ]);
 
-      if (result.changesInNetAssets) {
-        const changes = result.changesInNetAssets;
-        const titleYear = changes.titleYear || '';
-        const previousYear = changes.previousYear || '';
-        const prev = changes.previous || {};
-        const curr = changes.current || {};
+      return rows;
+    }
 
-        rows.push(['', '', '', '']);
-        rows.push([`Statement of Changes in Net Assets for the year ended ${titleYear}`]);
-        rows.push(['Description', 'Revaluation Reserve', 'Accumulated Fund', 'Total']);
-        rows.push(['', 'Kshs', 'Kshs', 'Kshs']);
-
-        const pushChangeRow = (label, rev, acc) => {
-          rows.push([label, formatPerformanceAmount(rev), formatPerformanceAmount(acc), formatPerformanceAmount((rev || 0) + (acc || 0))]);
-        };
-
-        pushChangeRow(`As at July 1 (${previousYear || 'Previous FY'})`, 0, prev.opening || 0);
-        pushChangeRow('Revaluation gain', prev.revaluationGain || 0, 0);
-        pushChangeRow('Transfer of excess depreciation on revaluation', prev.transfer || 0, prev.transfer || 0);
-        pushChangeRow('Surplus/(deficit) for the year', 0, prev.surplus || 0);
-        pushChangeRow(`As at June 30 (${previousYear || 'Previous FY'})`, 0, prev.closing || 0);
-
-        pushChangeRow(`As at July 1 (${titleYear || 'Current FY'})`, 0, curr.opening || 0);
-        pushChangeRow('Revaluation gain', curr.revaluationGain || 0, 0);
-        pushChangeRow('Transfer of excess depreciation on revaluation', curr.transfer || 0, curr.transfer || 0);
-        pushChangeRow('Surplus/(deficit) for the year', 0, curr.surplus || 0);
-        pushChangeRow(`As at June 30 (${titleYear || 'Current FY'})`, 0, curr.closing || 0);
+    function buildNetAssetsDownloadRows(result) {
+      const rows = [];
+      if (!result || !result.changesInNetAssets) {
+        return rows;
       }
+      const changes = result.changesInNetAssets;
+      const titleYear = changes.titleYear || result.currentYear || '';
+      const previousYear = changes.previousYear || result.comparativeYear || '';
+      const prev = changes.previous || {};
+      const curr = changes.current || {};
+
+      rows.push([`Statement of Net Assets for the year ended ${titleYear}`]);
+      rows.push(['Description', 'Revaluation Reserve', 'Accumulated Fund', 'Total']);
+      rows.push(['', 'Kshs', 'Kshs', 'Kshs']);
+
+      const pushChangeRow = (label, rev, acc) => {
+        rows.push([label, formatPerformanceAmount(rev), formatPerformanceAmount(acc), formatPerformanceAmount((rev || 0) + (acc || 0))]);
+      };
+
+      pushChangeRow(`As at July 1 (${previousYear || 'Previous FY'})`, 0, prev.opening || 0);
+      pushChangeRow('Revaluation gain', prev.revaluationGain || 0, 0);
+      pushChangeRow('Transfer of excess depreciation on revaluation', prev.transfer || 0, prev.transfer || 0);
+      pushChangeRow('Surplus/(deficit) for the year', 0, prev.surplus || 0);
+      pushChangeRow(`As at June 30 (${previousYear || 'Previous FY'})`, 0, prev.closing || 0);
+
+      pushChangeRow(`As at July 1 (${titleYear || 'Current FY'})`, 0, curr.opening || 0);
+      pushChangeRow('Revaluation gain', curr.revaluationGain || 0, 0);
+      pushChangeRow('Transfer of excess depreciation on revaluation', curr.transfer || 0, curr.transfer || 0);
+      pushChangeRow('Surplus/(deficit) for the year', 0, curr.surplus || 0);
+      pushChangeRow(`As at June 30 (${titleYear || 'Current FY'})`, 0, curr.closing || 0);
 
       return rows;
     }
@@ -4646,6 +4760,34 @@
       }
     }
 
+    function downloadNetAssetsCsv() {
+      if (!lastNetAssetsResult) {
+        showNetAssetsAlert('Run the statement first.', 'error');
+        return;
+      }
+      const rows = buildNetAssetsDownloadRows(lastNetAssetsResult);
+      if (!rows.length) {
+        showNetAssetsAlert('No net assets data to download.', 'error');
+        return;
+      }
+      downloadRowsAsCsv(rows, 'net_assets_report.csv');
+    }
+
+    function downloadNetAssetsXlsx() {
+      if (!lastNetAssetsResult) {
+        showNetAssetsAlert('Run the statement first.', 'error');
+        return;
+      }
+      const rows = buildNetAssetsDownloadRows(lastNetAssetsResult);
+      if (!rows.length) {
+        showNetAssetsAlert('No net assets data to download.', 'error');
+        return;
+      }
+      if (!downloadRowsAsXlsx(rows, 'net_assets_report.xlsx', 'Net Assets')) {
+        showNetAssetsAlert('XLSX library not available. Use CSV download instead.', 'error');
+      }
+    }
+
     function showPerformanceAlert(message, type = 'success', duration = 6000) {
       const container = document.getElementById('performanceAlert');
       if (!container) {
@@ -4700,6 +4842,32 @@
 
     function showPositionAlert(message, type = 'success', duration = 6000) {
       const container = document.getElementById('positionAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function showNetAssetsAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('netAssetsAlert');
       if (!container) {
         showAlert(message, type, duration);
         return;
@@ -5188,6 +5356,7 @@
     let lastPerformanceResult = null;
     let lastCashFlowResult = null;
     let lastPositionResult = null;
+    let lastNetAssetsResult = null;
 
     function bindSearchHandlers() {
       ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchParticulars', 'searchPayee']
