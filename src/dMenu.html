@@ -1,31 +1,31 @@
 <style>
-  /* Oracle-style compact tree menu */
+  /* Oracle-style tree menu with proper spacing */
   .menu-section {
-    margin-bottom: 2px;
+    margin-bottom: 4px;
     padding-bottom: 0;
     border-bottom: none;
   }
 
   .menu-section-title {
-    padding: 4px 8px;
-    font-size: 12px;
-    font-weight: 400;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: #60a5fa;
+    color: #93c5fd;
   }
 
   .menu-section.collapsible .menu-section-title {
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
   }
 
   .menu-section-title .menu-section-label {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
   }
 
   /* Oracle-style +/- toggle button */
@@ -33,14 +33,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 14px;
-    height: 14px;
-    font-size: 11px;
+    width: 16px;
+    height: 16px;
+    font-size: 12px;
     font-weight: 700;
-    color: #64748b;
+    color: #94a3b8;
     background: #1e293b;
     border: 1px solid #475569;
-    border-radius: 2px;
+    border-radius: 3px;
     flex-shrink: 0;
     line-height: 1;
   }
@@ -55,7 +55,9 @@
 
   .menu-section.collapsible .menu-section-body {
     display: block;
-    padding-left: 18px;
+    padding-left: 24px;
+    margin-left: 8px;
+    border-left: 1px solid #334155;
   }
 
   .menu-section.collapsible.collapsed .menu-section-body {
@@ -63,32 +65,33 @@
   }
 
   .menu-item {
-    margin: 0 4px 1px;
-    padding: 4px 8px;
+    margin: 2px 12px 2px 8px;
+    padding: 7px 12px;
     color: #60a5fa;
     cursor: pointer;
-    transition: background 0.1s ease;
+    transition: background 0.15s ease;
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 12px;
+    gap: 6px;
+    font-size: 13px;
     font-weight: 400;
-    border-radius: 2px;
+    border-radius: 4px;
     position: relative;
     text-decoration: underline;
   }
 
   .menu-item:hover {
-    background: rgba(51, 65, 85, 0.4);
+    background: rgba(51, 65, 85, 0.5);
     color: #93c5fd;
     transform: none;
   }
 
   .menu-item.active {
-    background: rgba(37, 99, 235, 0.2);
+    background: rgba(37, 99, 235, 0.25);
     color: #93c5fd;
     font-weight: 500;
-    border-left: 2px solid #3b82f6;
+    border-left: 3px solid #3b82f6;
+    text-decoration: none;
   }
 
   /* Hide all menu item icons - Oracle style uses text links only */
