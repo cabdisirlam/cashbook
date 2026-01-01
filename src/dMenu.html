@@ -1,93 +1,61 @@
 <style>
+  /* Oracle-style compact tree menu */
   .menu-section {
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    margin-bottom: 2px;
+    padding-bottom: 0;
+    border-bottom: none;
   }
 
   .menu-section-title {
-    padding: 10px 14px 6px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    color: #64748b;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: #60a5fa;
   }
 
   .menu-section.collapsible .menu-section-title {
     cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 4px;
   }
 
   .menu-section-title .menu-section-label {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
   }
 
-  .menu-section-icon {
-    width: 12px;
-    height: 12px;
-    flex: 0 0 12px;
-    background-color: #64748b;
-    -webkit-mask-size: 12px 12px;
-    mask-size: 12px 12px;
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
+  /* Oracle-style +/- toggle button */
+  .menu-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    background: #1e293b;
+    border: 1px solid #475569;
+    border-radius: 2px;
+    flex-shrink: 0;
+    line-height: 1;
   }
 
-  .menu-section-icon[data-icon="transactions"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 6h16v3H4zm0 5h16v3H4zm0 5h10v3H4z'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 6h16v3H4zm0 5h16v3H4zm0 5h10v3H4z'/></svg>");
+  .menu-toggle-btn::before {
+    content: '+';
   }
 
-  .menu-section-icon[data-icon="receivables"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8l10 5 10-5z'/><path d='M4 12v6l8 4 8-4v-6' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8l10 5 10-5z'/><path d='M4 12v6l8 4 8-4v-6' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-section-icon[data-icon="payables"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h16v10H4z'/><path d='M7 12h10' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h16v10H4z'/><path d='M7 12h10' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-section-icon[data-icon="assets"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 10h18v8H3z'/><path d='M6 10V6h12v4' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 10h18v8H3z'/><path d='M6 10V6h12v4' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-section-icon[data-icon="banking"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8h20z'/><path d='M4 11h16v8H4z'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8h20z'/><path d='M4 11h16v8H4z'/></svg>");
-  }
-
-  .menu-section-icon[data-icon="reports"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 20h16v2H4z'/><path d='M6 18V8h3v10zm5 0V5h3v13zm5 0v-7h3v7z'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 20h16v2H4z'/><path d='M6 18V8h3v10zm5 0V5h3v13zm5 0v-7h3v7z'/></svg>");
-  }
-
-  .menu-section-icon[data-icon="admin"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z'/></svg>");
-  }
-
-  .menu-section.collapsible .menu-section-title::after {
-    content: '›';
-    font-size: 14px;
-    color: #94a3b8;
-    transition: transform 0.2s ease;
-  }
-
-  .menu-section.collapsible.collapsed .menu-section-title::after {
-    transform: rotate(-90deg);
+  .menu-section.collapsible:not(.collapsed) .menu-toggle-btn::before {
+    content: '-';
   }
 
   .menu-section.collapsible .menu-section-body {
     display: block;
+    padding-left: 18px;
   }
 
   .menu-section.collapsible.collapsed .menu-section-body {
@@ -95,141 +63,37 @@
   }
 
   .menu-item {
-    margin: 0 10px 2px;
-    padding: 9px 12px;
-    color: #cbd5e1;
+    margin: 0 4px 1px;
+    padding: 4px 8px;
+    color: #60a5fa;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.1s ease;
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    font-weight: 600;
-    border-radius: 6px;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 400;
+    border-radius: 2px;
     position: relative;
+    text-decoration: underline;
   }
 
   .menu-item:hover {
-    background: rgba(51, 65, 85, 0.6);
-    color: #f1f5f9;
-    transform: translateX(2px);
+    background: rgba(51, 65, 85, 0.4);
+    color: #93c5fd;
+    transform: none;
   }
 
   .menu-item.active {
-    background: rgba(37, 99, 235, 0.15);
-    color: #3b82f6;
-    font-weight: 600;
-    border-left: 3px solid #3b82f6;
+    background: rgba(37, 99, 235, 0.2);
+    color: #93c5fd;
+    font-weight: 500;
+    border-left: 2px solid #3b82f6;
   }
 
+  /* Hide all menu item icons - Oracle style uses text links only */
   .menu-item-icon {
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
-    background-color: currentColor;
-    color: #94a3b8;
-    transition: all 0.2s ease;
-    -webkit-mask-size: 18px 18px;
-    mask-size: 18px 18px;
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
-  }
-
-  .menu-item:hover .menu-item-icon,
-  .menu-item.active .menu-item-icon {
-    color: #3b82f6;
-  }
-
-  .menu-item-icon[data-icon="home"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 11.5 12 5l8 6.5v7a1 1 0 0 1-1 1h-5v-5H10v5H5a1 1 0 0 1-1-1z'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 11.5 12 5l8 6.5v7a1 1 0 0 1-1 1h-5v-5H10v5H5a1 1 0 0 1-1-1z'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="journal"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1v4h4'/><path d='M8 11h8M8 15h8M8 19h6' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1v4h4'/><path d='M8 11h8M8 15h8M8 19h6' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="payment"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 6h18a2 2 0 0 1 2 2v2H1V8a2 2 0 0 1 2-2zm-2 6h22v4a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2z'/><path d='M6 15h4' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 6h18a2 2 0 0 1 2 2v2H1V8a2 2 0 0 1 2-2zm-2 6h22v4a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2z'/><path d='M6 15h4' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="receipt"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 2h12v20l-3-2-3 2-3-2-3 2z'/><path d='M8 8h8M8 12h8M8 16h5' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 2h12v20l-3-2-3 2-3-2-3 2z'/><path d='M8 8h8M8 12h8M8 16h5' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="search"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M10 4a6 6 0 1 1 0 12A6 6 0 0 1 10 4zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'/><path d='m14 14 6 6-2 2-6-6z'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M10 4a6 6 0 1 1 0 12A6 6 0 0 1 10 4zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'/><path d='m14 14 6 6-2 2-6-6z'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="budget"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 4h16v16H4z'/><path d='M4 9h16M9 4v16' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 4h16v16H4z'/><path d='M4 9h16M9 4v16' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="receivable"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8l10 5 10-5z'/><path d='M4 12v6l8 4 8-4v-6' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 3 2 8l10 5 10-5z'/><path d='M4 12v6l8 4 8-4v-6' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="payable"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h16v10H4z'/><path d='M8 7V5h8v2' stroke='black' stroke-width='2' fill='none'/><path d='M7 12h10' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h16v10H4z'/><path d='M8 7V5h8v2' stroke='black' stroke-width='2' fill='none'/><path d='M7 12h10' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="asset"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 10h18v8H3z'/><path d='M6 10V6h12v4' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 10h18v8H3z'/><path d='M6 10V6h12v4' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="bank"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 9h18v2H3z'/><path d='M4 11h16v8H4z'/><path d='M12 3 2 8h20z'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M3 9h18v2H3z'/><path d='M4 11h16v8H4z'/><path d='M12 3 2 8h20z'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="reconcile"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 5h16v4H4z'/><path d='M4 11h16v8H4z'/><path d='M8 15l2 2 4-4' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 5h16v4H4z'/><path d='M4 11h16v8H4z'/><path d='M8 15l2 2 4-4' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="chart"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 20h16v2H4z'/><path d='M6 18V8h3v10zm5 0V5h3v13zm5 0v-7h3v7z'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 20h16v2H4z'/><path d='M6 18V8h3v10zm5 0V5h3v13zm5 0v-7h3v7z'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="flow"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h10v4H4z'/><path d='M10 13h10v4H10z'/><path d='M9 9v6' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 7h10v4H4z'/><path d='M10 13h10v4H10z'/><path d='M9 9v6' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="position"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M5 4h14v4H5z'/><path d='M5 10h14v4H5z'/><path d='M5 16h14v4H5z'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M5 4h14v4H5z'/><path d='M5 10h14v4H5z'/><path d='M5 16h14v4H5z'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="net"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 6h16v12H4z'/><path d='M7 9h10M7 12h10M7 15h6' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 6h16v12H4z'/><path d='M7 9h10M7 12h10M7 15h6' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="notes"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h12v18H6z'/><path d='M8 7h8M8 11h8M8 15h5' stroke='black' stroke-width='2' fill='none'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M6 3h12v18H6z'/><path d='M8 7h8M8 11h8M8 15h5' stroke='black' stroke-width='2' fill='none'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="users"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm10-1a3 3 0 1 1 0-6 3 3 0 0 1 0 6z'/><path d='M2 20a5 5 0 0 1 10 0zm11 0a4 4 0 0 1 8 0' fill='black'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm10-1a3 3 0 1 1 0-6 3 3 0 0 1 0 6z'/><path d='M2 20a5 5 0 0 1 10 0zm11 0a4 4 0 0 1 8 0' fill='black'/></svg>");
-  }
-
-  .menu-item-icon[data-icon="settings"] {
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm8.5 4.5-1.8-.5a7.2 7.2 0 0 0-.7-1.6l1-1.6-1.4-1.4-1.6 1a7.2 7.2 0 0 0-1.6-.7l-.5-1.8h-2l-.5 1.8a7.2 7.2 0 0 0-1.6.7l-1.6-1-1.4 1.4 1 1.6a7.2 7.2 0 0 0-.7 1.6l-1.8.5v2l1.8.5a7.2 7.2 0 0 0 .7 1.6l-1 1.6 1.4 1.4 1.6-1a7.2 7.2 0 0 0 1.6.7l.5 1.8h2l.5-1.8a7.2 7.2 0 0 0 1.6-.7l1.6 1 1.4-1.4-1-1.6a7.2 7.2 0 0 0 .7-1.6l1.8-.5z'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm8.5 4.5-1.8-.5a7.2 7.2 0 0 0-.7-1.6l1-1.6-1.4-1.4-1.6 1a7.2 7.2 0 0 0-1.6-.7l-.5-1.8h-2l-.5 1.8a7.2 7.2 0 0 0-1.6.7l-1.6-1-1.4 1.4 1 1.6a7.2 7.2 0 0 0-.7 1.6l-1.8.5v2l1.8.5a7.2 7.2 0 0 0 .7 1.6l-1 1.6 1.4 1.4 1.6-1a7.2 7.2 0 0 0 1.6.7l.5 1.8h2l.5-1.8a7.2 7.2 0 0 0 1.6-.7l1.6 1 1.4-1.4-1-1.6a7.2 7.2 0 0 0 .7-1.6l1.8-.5z'/></svg>");
+    display: none;
   }
 </style>
 
@@ -241,12 +105,10 @@
     </div>
   </div>
 
-  <div class="menu-section collapsible">
+  <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
-      <span class="menu-section-label">
-        <span class="menu-section-icon" data-icon="transactions"></span>
-        Transactions
-      </span>
+      <span class="menu-toggle-btn"></span>
+      <span class="menu-section-label">Transactions</span>
     </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter" data-label="New Journal" onclick="navigateTo(this, 'New Journal')">
@@ -272,12 +134,10 @@
     </div>
   </div>
 
-  <div class="menu-section collapsible">
+  <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
-      <span class="menu-section-label">
-        <span class="menu-section-icon" data-icon="receivables"></span>
-        Receivables
-      </span>
+      <span class="menu-toggle-btn"></span>
+      <span class="menu-section-label">Receivables</span>
     </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Receivables Statements" onclick="navigateTo(this, 'Receivables Statements')">
@@ -287,12 +147,10 @@
     </div>
   </div>
 
-  <div class="menu-section collapsible">
+  <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
-      <span class="menu-section-label">
-        <span class="menu-section-icon" data-icon="payables"></span>
-        Payables
-      </span>
+      <span class="menu-toggle-btn"></span>
+      <span class="menu-section-label">Payables</span>
     </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Payables Statements" onclick="navigateTo(this, 'Payables Statements')">
@@ -302,12 +160,10 @@
     </div>
   </div>
 
-  <div class="menu-section collapsible">
+  <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
-      <span class="menu-section-label">
-        <span class="menu-section-icon" data-icon="assets"></span>
-        Fixed Assets
-      </span>
+      <span class="menu-toggle-btn"></span>
+      <span class="menu-section-label">Fixed Assets</span>
     </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Asset Purchases" onclick="navigateTo(this, 'Asset Purchases')">
@@ -317,12 +173,10 @@
     </div>
   </div>
 
-  <div class="menu-section collapsible">
+  <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
-      <span class="menu-section-label">
-        <span class="menu-section-icon" data-icon="banking"></span>
-        Banking
-      </span>
+      <span class="menu-toggle-btn"></span>
+      <span class="menu-section-label">Banking</span>
     </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter" data-label="Import Statement" onclick="navigateTo(this, 'Import Statement')">
@@ -336,12 +190,10 @@
     </div>
   </div>
 
-  <div class="menu-section collapsible">
+  <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
-      <span class="menu-section-label">
-        <span class="menu-section-icon" data-icon="reports"></span>
-        Reports
-      </span>
+      <span class="menu-toggle-btn"></span>
+      <span class="menu-section-label">Reports</span>
     </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Performance" onclick="navigateTo(this, 'Performance')">
@@ -371,12 +223,10 @@
     </div>
   </div>
 
-  <div class="menu-section collapsible">
+  <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
-      <span class="menu-section-label">
-        <span class="menu-section-icon" data-icon="admin"></span>
-        Admin
-      </span>
+      <span class="menu-toggle-btn"></span>
+      <span class="menu-section-label">Admin</span>
     </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin" data-label="Users" onclick="navigateTo(this, 'Users')">
