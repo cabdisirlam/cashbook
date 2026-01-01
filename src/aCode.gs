@@ -8,26 +8,27 @@ const CONFIG = {
   SPREADSHEET_NAME: "Financial System",
   SESSION_TIMEOUT: 5 * 60 * 1000, // 5 minutes in milliseconds
   SHEETS: {
-    // PART 1: Core Transaction Database
+    // PART 1: Core Transaction Database (3 sheets)
     DB_JOURNAL: "DB_JOURNAL",
     DB_BANK: "DB_BANK",
     DB_BUDGET: "DB_BUDGET",
 
-    // PART 2: Procurement & Payables Module
-    SUPPLIERS: "SUPPLIERS",
+    // PART 2: Unified Contacts - Suppliers, Customers, Staff (1 sheet)
+    CONTACTS: "CONTACTS",
+
+    // PART 3: Procurement (2 sheets)
     PURCHASE_ORDERS: "PURCHASE_ORDERS",
     GRN: "GRN",
-    PAYABLES: "PAYABLES",
 
-    // PART 3: Customers & Receivables Module
-    CUSTOMERS: "CUSTOMERS",
-    RECEIVABLES: "RECEIVABLES",
+    // PART 4: Unified Invoices - Payables & Receivables (1 sheet)
+    INVOICES: "INVOICES",
 
-    // PART 4: Master Data & System
+    // PART 5: System (3 sheets)
     MASTER_DATA: "MASTER_DATA",
     SYS_USERS: "SYS_USERS",
     SYS_LOGS: "SYS_LOGS"
   }
+  // TOTAL: 10 sheets
 };
 
 // Sheet header definitions - single source of truth
@@ -40,9 +41,9 @@ const SHEET_HEADERS = {
   DB_BUDGET: ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type',
               'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget',
               'Actual_Amount', 'Variance', 'Auth_Ref', 'Description'],
-  SUPPLIERS: ['Supplier_ID', 'Supplier_Name', 'Contact_Person', 'Phone', 'Email',
-              'Address', 'KRA_PIN', 'Bank_Name', 'Bank_Account', 'Category',
-              'Payment_Terms', 'Status', 'Created_Date', 'Created_By'],
+  CONTACTS: ['Contact_ID', 'Contact_Type', 'Contact_Name', 'Contact_Person', 'Phone', 'Email',
+             'Address', 'Tax_PIN', 'Bank_Name', 'Bank_Account', 'Category',
+             'Credit_Limit', 'Payment_Terms', 'Status', 'Created_Date', 'Created_By'],
   PURCHASE_ORDERS: ['PO_ID', 'PO_Number', 'PO_Date', 'Financial_Year', 'Supplier_ID',
                     'Supplier_Name', 'Description', 'Total_Amount', 'Status',
                     'Requested_By', 'Requested_Date', 'Approved_By', 'Approved_Date',
@@ -50,24 +51,19 @@ const SHEET_HEADERS = {
   GRN: ['GRN_ID', 'GRN_Number', 'GRN_Date', 'PO_ID', 'PO_Number',
         'Supplier_ID', 'Supplier_Name', 'Received_By', 'Status',
         'Invoice_Number', 'Invoice_Date', 'Invoice_Amount', 'Notes', 'Line_Items'],
-  PAYABLES: ['Payable_ID', 'Invoice_Number', 'Invoice_Date', 'Due_Date', 'Financial_Year',
-             'Supplier_ID', 'Supplier_Name', 'GRN_ID', 'GRN_Number', 'PO_ID', 'PO_Number',
-             'Amount', 'Paid_Amount', 'Balance', 'Status', 'Payment_Terms',
+  INVOICES: ['Invoice_ID', 'Invoice_Type', 'Invoice_Number', 'Invoice_Date', 'Due_Date', 'Financial_Year',
+             'Contact_ID', 'Contact_Name', 'GRN_ID', 'GRN_Number', 'PO_ID', 'PO_Number',
+             'Description', 'Amount', 'Paid_Amount', 'Balance', 'Status', 'Payment_Terms',
              'Created_Date', 'Created_By', 'Line_Items'],
-  CUSTOMERS: ['Customer_ID', 'Customer_Name', 'Contact_Person', 'Phone', 'Email',
-              'Address', 'Customer_Type', 'Credit_Limit', 'Payment_Terms',
-              'Status', 'Created_Date', 'Created_By'],
-  RECEIVABLES: ['Receivable_ID', 'Invoice_Number', 'Invoice_Date', 'Due_Date', 'Financial_Year',
-                'Customer_ID', 'Customer_Name', 'Description',
-                'Amount', 'Received_Amount', 'Balance', 'Status', 'Payment_Terms',
-                'Created_Date', 'Created_By', 'Line_Items'],
+
   MASTER_DATA: ['Particulars', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'],
   SYS_USERS: ['Email', 'PIN', 'Name', 'Role', 'Status'],
   SYS_LOGS: ['Timestamp', 'User', 'Action', 'Target_ID', 'Details']
 };
 
-// Legacy sheets to remove
-const LEGACY_SHEETS = ['HOME', 'VIEW_LEDGER', 'VIEW_REPORTS', 'VIEW_RECON', 'PO_LINES', 'GRN_LINES'];
+// Legacy sheets to remove (consolidated into CONTACTS and INVOICES)
+const LEGACY_SHEETS = ['HOME', 'VIEW_LEDGER', 'VIEW_REPORTS', 'VIEW_RECON', 'PO_LINES', 'GRN_LINES',
+                       'SUPPLIERS', 'CUSTOMERS', 'PAYABLES', 'RECEIVABLES'];
 
 /**
  * Main entry point - serves the web app
@@ -1384,65 +1380,71 @@ function _generateSequentialNumber(prefix, sheet, columnIndex) {
   return `${prefix}-${year}-${String(maxNum + 1).padStart(4, '0')}`;
 }
 
+
 // ============================================================
-// SUPPLIERS CRUD
+// CONTACTS MODULE - Unified Contacts (Suppliers, Customers, Staff)
 // ============================================================
 
+const CONTACT_HEADERS = SHEET_HEADERS.CONTACTS;
+
 /**
- * Get all suppliers
+ * Get all contacts, optionally filtered by type
  */
-function getSuppliers() {
+function getContacts(contactType) {
   const ss = _getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.SUPPLIERS);
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
   if (!sheet) return [];
 
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
 
-  const data = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
-  const headers = ['Supplier_ID', 'Supplier_Name', 'Contact_Person', 'Phone', 'Email',
-                   'Address', 'KRA_PIN', 'Bank_Name', 'Bank_Account', 'Category',
-                   'Payment_Terms', 'Status', 'Created_Date', 'Created_By'];
+  const data = sheet.getRange(2, 1, lastRow - 1, CONTACT_HEADERS.length).getValues();
 
-  return data.map(row => {
+  let results = data.map(row => {
     const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
+    CONTACT_HEADERS.forEach((h, i) => {
+      if (h.includes('Date') && row[i] instanceof Date) {
+        obj[h] = Utilities.formatDate(row[i], Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      } else {
+        obj[h] = row[i];
+      }
+    });
     return obj;
-  }).filter(s => s.Supplier_ID);
-}
+  }).filter(c => c.Contact_ID);
 
-/**
- * Get active suppliers for dropdowns
- */
-function getActiveSuppliers() {
-  return getSuppliers().filter(s => s.Status === 'Active');
-}
-
-/**
- * Save a new supplier
- */
-function saveSupplier(data) {
-  const ss = _getOrCreateSpreadsheet();
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.SUPPLIERS);
-  if (!sheet) {
-    sheet = _ensureSheet(ss, 'SUPPLIERS');
+  if (contactType) {
+    results = results.filter(c => c.Contact_Type === contactType);
   }
 
+  return results;
+}
+
+/**
+ * Save a new contact
+ */
+function saveContact(contactType, data) {
+  const ss = _getOrCreateSpreadsheet();
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
+  if (!sheet) sheet = _ensureSheet(ss, 'CONTACTS');
+
   const user = getCurrentUser();
-  const supplierId = _generateId('SUP');
+  const prefix = contactType === 'Supplier' ? 'SUP' : contactType === 'Customer' ? 'CUS' : 'CON';
+  const contactId = _generateId(prefix);
   const now = new Date();
 
   const row = [
-    supplierId,
-    data.supplierName || '',
+    contactId,
+    contactType,
+    data.contactName || data.supplierName || data.customerName || '',
     data.contactPerson || '',
     data.phone || '',
     data.email || '',
     data.address || '',
-    data.kraPin || '',
+    data.taxPin || data.kraPin || '',
     data.bankName || '',
     data.bankAccount || '',
     data.category || 'General',
+    parseFloat(data.creditLimit) || 0,
     data.paymentTerms || 'Net 30',
     'Active',
     now,
@@ -1450,55 +1452,139 @@ function saveSupplier(data) {
   ];
 
   sheet.appendRow(row);
-  logSystemEvent(user.email, 'CREATE_SUPPLIER', supplierId, data.supplierName);
+  logSystemEvent(user.email, 'CREATE_CONTACT', contactId, row[2]);
 
-  return { success: true, supplierId: supplierId };
+  return { success: true, contactId: contactId };
 }
 
 /**
- * Update supplier
+ * Update contact
  */
-function updateSupplier(supplierId, data) {
+function updateContact(contactId, data) {
   const ss = _getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.SUPPLIERS);
-  if (!sheet) return { success: false, message: 'Suppliers sheet not found' };
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
+  if (!sheet) return { success: false, message: 'Contacts sheet not found' };
 
   const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { success: false, message: 'Supplier not found' };
+  if (lastRow < 2) return { success: false, message: 'Contact not found' };
 
   const idColumn = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   let rowIndex = -1;
 
   for (let i = 0; i < idColumn.length; i++) {
-    if (idColumn[i][0] === supplierId) {
+    if (idColumn[i][0] === contactId) {
       rowIndex = i + 2;
       break;
     }
   }
 
-  if (rowIndex === -1) return { success: false, message: 'Supplier not found' };
+  if (rowIndex === -1) return { success: false, message: 'Contact not found' };
 
-  // Update fields (columns 2-11, excluding ID, Created_Date, Created_By)
+  // Update fields (columns 3-14, excluding ID, Type, Created_Date, Created_By)
   const updates = [
-    data.supplierName || '',
+    data.contactName || data.supplierName || data.customerName || '',
     data.contactPerson || '',
     data.phone || '',
     data.email || '',
     data.address || '',
-    data.kraPin || '',
+    data.taxPin || data.kraPin || '',
     data.bankName || '',
     data.bankAccount || '',
-    data.category || 'General',
-    data.paymentTerms || 'Net 30',
+    data.category || '',
+    parseFloat(data.creditLimit) || 0,
+    data.paymentTerms || '',
     data.status || 'Active'
   ];
 
-  sheet.getRange(rowIndex, 2, 1, updates.length).setValues([updates]);
-
-  const user = getCurrentUser();
-  logSystemEvent(user.email, 'UPDATE_SUPPLIER', supplierId, data.supplierName);
+  sheet.getRange(rowIndex, 3, 1, 12).setValues([updates]);
+  logSystemEvent(getCurrentUser().email, 'UPDATE_CONTACT', contactId, updates[0]);
 
   return { success: true };
+}
+
+// ============================================================
+// SUPPLIERS - Wrapper functions for backward compatibility
+// ============================================================
+
+function getSuppliers() {
+  return getContacts('Supplier').map(c => ({
+    Supplier_ID: c.Contact_ID,
+    Supplier_Name: c.Contact_Name,
+    Contact_Person: c.Contact_Person,
+    Phone: c.Phone,
+    Email: c.Email,
+    Address: c.Address,
+    KRA_PIN: c.Tax_PIN,
+    Bank_Name: c.Bank_Name,
+    Bank_Account: c.Bank_Account,
+    Category: c.Category,
+    Payment_Terms: c.Payment_Terms,
+    Status: c.Status,
+    Created_Date: c.Created_Date,
+    Created_By: c.Created_By
+  }));
+}
+
+function getActiveSuppliers() {
+  return getSuppliers().filter(s => s.Status === 'Active');
+}
+
+function saveSupplier(data) {
+  data.contactName = data.supplierName;
+  data.taxPin = data.kraPin;
+  const result = saveContact('Supplier', data);
+  return { success: result.success, supplierId: result.contactId };
+}
+
+function updateSupplier(supplierId, data) {
+  data.contactName = data.supplierName;
+  data.taxPin = data.kraPin;
+  return updateContact(supplierId, data);
+}
+
+// ============================================================
+// CUSTOMERS - Wrapper functions for backward compatibility
+// ============================================================
+
+function getCustomers(filters) {
+  let results = getContacts('Customer').map(c => ({
+    Customer_ID: c.Contact_ID,
+    Customer_Name: c.Contact_Name,
+    Contact_Person: c.Contact_Person,
+    Phone: c.Phone,
+    Email: c.Email,
+    Address: c.Address,
+    Customer_Type: c.Category,
+    Credit_Limit: c.Credit_Limit,
+    Payment_Terms: c.Payment_Terms,
+    Status: c.Status,
+    Created_Date: c.Created_Date,
+    Created_By: c.Created_By
+  }));
+
+  if (filters) {
+    if (filters.status) results = results.filter(c => c.Status === filters.status);
+    if (filters.customerType) results = results.filter(c => c.Customer_Type === filters.customerType);
+  }
+
+  return results;
+}
+
+function getActiveCustomers() {
+  return getCustomers().filter(c => c.Status === 'Active');
+}
+
+function saveCustomer(data) {
+  data.contactName = data.customerName;
+  data.category = data.customerType;
+  const result = saveContact('Customer', data);
+  return { success: result.success, customerId: result.contactId };
+}
+
+function updateCustomer(customerId, data) {
+  data.contactName = data.customerName;
+  data.category = data.customerType;
+  return updateContact(customerId, data);
 }
 
 // ============================================================
@@ -1910,730 +1996,159 @@ function cleanupLegacySheets() {
   return initializeSpreadsheet();
 }
 
+
 // ============================================================
-// PAYABLES MODULE - Accounts Payable Management
+// INVOICES MODULE - Unified AP/AR (Payables & Receivables)
 // ============================================================
 
-/**
- * Get all payables with optional filters
- */
-function getPayables(filters) {
+const INVOICE_HEADERS = SHEET_HEADERS.INVOICES;
+
+function getInvoices(invoiceType, filters) {
   const ss = _getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.PAYABLES);
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.INVOICES);
   if (!sheet) return [];
-
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-
-  const headers = SHEET_HEADERS.PAYABLES;
-  const data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
-
+  const data = sheet.getRange(2, 1, lastRow - 1, INVOICE_HEADERS.length).getValues();
   let results = data.map(row => {
     const obj = {};
-    headers.forEach((h, i) => {
+    INVOICE_HEADERS.forEach((h, i) => {
       if (h.includes('Date') && row[i] instanceof Date) {
         obj[h] = Utilities.formatDate(row[i], Session.getScriptTimeZone(), 'yyyy-MM-dd');
       } else if (h === 'Line_Items') {
-        try {
-          obj[h] = row[i] ? JSON.parse(row[i]) : [];
-        } catch (e) {
-          obj[h] = [];
-        }
-      } else {
-        obj[h] = row[i];
-      }
+        try { obj[h] = row[i] ? JSON.parse(row[i]) : []; } catch (e) { obj[h] = []; }
+      } else { obj[h] = row[i]; }
     });
-    // Calculate days overdue
     if (obj.Due_Date && obj.Status !== 'Paid') {
       const dueDate = new Date(obj.Due_Date);
-      const today = new Date();
-      const diffDays = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor((new Date() - dueDate) / (1000 * 60 * 60 * 24));
       obj.Days_Overdue = diffDays > 0 ? diffDays : 0;
-    } else {
-      obj.Days_Overdue = 0;
-    }
+    } else { obj.Days_Overdue = 0; }
     return obj;
-  }).filter(p => p.Payable_ID);
-
-  // Apply filters
+  }).filter(inv => inv.Invoice_ID);
+  if (invoiceType) results = results.filter(inv => inv.Invoice_Type === invoiceType);
   if (filters) {
-    if (filters.status) {
-      results = results.filter(p => p.Status === filters.status);
-    }
-    if (filters.supplierId) {
-      results = results.filter(p => p.Supplier_ID === filters.supplierId);
-    }
-    if (filters.overdue) {
-      results = results.filter(p => p.Days_Overdue > 0);
-    }
+    if (filters.status) results = results.filter(inv => inv.Status === filters.status);
+    if (filters.contactId) results = results.filter(inv => inv.Contact_ID === filters.contactId);
+    if (filters.overdue) results = results.filter(inv => inv.Days_Overdue > 0);
   }
-
   return results;
 }
 
-/**
- * Get payables summary (aging report)
- */
-function getPayablesAgingSummary() {
-  const payables = getPayables({ status: 'Pending' }).concat(getPayables({ status: 'Partial' }));
-
-  const summary = {
-    current: 0,      // Not yet due
-    days_1_30: 0,    // 1-30 days overdue
-    days_31_60: 0,   // 31-60 days overdue
-    days_61_90: 0,   // 61-90 days overdue
-    days_over_90: 0, // Over 90 days
-    total: 0
-  };
-
-  payables.forEach(p => {
-    const balance = parseFloat(p.Balance) || 0;
-    summary.total += balance;
-
-    if (p.Days_Overdue <= 0) {
-      summary.current += balance;
-    } else if (p.Days_Overdue <= 30) {
-      summary.days_1_30 += balance;
-    } else if (p.Days_Overdue <= 60) {
-      summary.days_31_60 += balance;
-    } else if (p.Days_Overdue <= 90) {
-      summary.days_61_90 += balance;
-    } else {
-      summary.days_over_90 += balance;
-    }
-  });
-
-  return summary;
-}
-
-/**
- * Create a payable from GRN (called automatically when GRN with invoice is recorded)
- */
-function createPayableFromGRN(grnData) {
+function createInvoice(invoiceType, data) {
   const ss = _getOrCreateSpreadsheet();
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.PAYABLES);
-  if (!sheet) sheet = _ensureSheet(ss, 'PAYABLES');
-
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.INVOICES);
+  if (!sheet) sheet = _ensureSheet(ss, 'INVOICES');
   const user = getCurrentUser();
-  const payableId = _generateId('PAY');
+  const prefix = invoiceType === 'AP' ? 'PAY' : 'REC';
+  const invoiceId = _generateId(prefix);
   const now = new Date();
-
-  // Calculate due date based on payment terms (default Net 30)
-  const invoiceDate = grnData.invoiceDate ? new Date(grnData.invoiceDate) : now;
-  const paymentTerms = grnData.paymentTerms || 'Net 30';
-  const daysToAdd = parseInt(paymentTerms.replace(/\D/g, '')) || 30;
-  const dueDate = new Date(invoiceDate);
-  dueDate.setDate(dueDate.getDate() + daysToAdd);
-
-  const amount = parseFloat(grnData.invoiceAmount) || 0;
-
-  // Get financial year from PO if available
-  let financialYear = grnData.financialYear || '';
-  if (!financialYear && grnData.poId) {
-    const po = getPurchaseOrderWithLines(grnData.poId);
-    if (po) financialYear = po.Financial_Year || '';
-  }
-
-  const payableRow = [
-    payableId,
-    grnData.invoiceNumber || '',
-    invoiceDate,
-    dueDate,
-    financialYear,
-    grnData.supplierId || '',
-    grnData.supplierName || '',
-    grnData.grnId || '',
-    grnData.grnNumber || '',
-    grnData.poId || '',
-    grnData.poNumber || '',
-    amount,
-    0, // Paid_Amount
-    amount, // Balance
-    'Pending',
-    paymentTerms,
-    now,
-    user.email || '',
-    JSON.stringify(grnData.lineItems || [])
-  ];
-
-  sheet.appendRow(payableRow);
-  logSystemEvent(user.email, 'CREATE_PAYABLE', payableId, grnData.invoiceNumber);
-
-  return { success: true, payableId: payableId };
-}
-
-/**
- * Record a payment against a payable
- */
-function recordPayment(paymentData) {
-  const ss = _getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.PAYABLES);
-  if (!sheet) return { success: false, message: 'Payables sheet not found' };
-
-  const payableId = paymentData.payableId;
-  if (!payableId) return { success: false, message: 'Payable ID is required' };
-
-  const headers = SHEET_HEADERS.PAYABLES;
-  const data = sheet.getDataRange().getValues();
-  let rowIndex = -1;
-  let payableRecord = null;
-
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === payableId) {
-      rowIndex = i + 1;
-      payableRecord = {};
-      headers.forEach((h, idx) => payableRecord[h] = data[i][idx]);
-      break;
-    }
-  }
-
-  if (rowIndex === -1) return { success: false, message: 'Payable not found' };
-
-  const paymentAmount = parseFloat(paymentData.amount) || 0;
-  if (paymentAmount <= 0) return { success: false, message: 'Payment amount must be positive' };
-
-  const currentPaid = parseFloat(payableRecord.Paid_Amount) || 0;
-  const totalAmount = parseFloat(payableRecord.Amount) || 0;
-  const newPaid = currentPaid + paymentAmount;
-  const newBalance = Math.max(0, totalAmount - newPaid);
-  const newStatus = newBalance <= 0 ? 'Paid' : 'Partial';
-
-  // Update payable record
-  const paidAmountIndex = headers.indexOf('Paid_Amount') + 1;
-  const balanceIndex = headers.indexOf('Balance') + 1;
-  const statusIndex = headers.indexOf('Status') + 1;
-
-  sheet.getRange(rowIndex, paidAmountIndex).setValue(newPaid);
-  sheet.getRange(rowIndex, balanceIndex).setValue(newBalance);
-  sheet.getRange(rowIndex, statusIndex).setValue(newStatus);
-
-  // Create journal entry for payment
-  const journalResult = createPaymentJournalEntry({
-    payableId: payableId,
-    supplierId: payableRecord.Supplier_ID,
-    supplierName: payableRecord.Supplier_Name,
-    invoiceNumber: payableRecord.Invoice_Number,
-    amount: paymentAmount,
-    paymentDate: paymentData.paymentDate || new Date(),
-    paymentRef: paymentData.paymentRef || '',
-    bankAccount: paymentData.bankAccount || '',
-    financialYear: payableRecord.Financial_Year,
-    lineItems: payableRecord.Line_Items ?
-      (typeof payableRecord.Line_Items === 'string' ? JSON.parse(payableRecord.Line_Items) : payableRecord.Line_Items) : []
-  });
-
-  const user = getCurrentUser();
-  logSystemEvent(user.email, 'RECORD_PAYMENT', payableId,
-    `Amount: ${paymentAmount}, Ref: ${paymentData.paymentRef || 'N/A'}`);
-
-  return {
-    success: true,
-    newBalance: newBalance,
-    status: newStatus,
-    journalCreated: journalResult.success
-  };
-}
-
-/**
- * Create journal entry for supplier payment
- * DR: Accounts Payable (reduces liability)
- * CR: Bank Account (reduces asset)
- */
-function createPaymentJournalEntry(data) {
-  const ss = _getOrCreateSpreadsheet();
-  let journalSheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
-  if (!journalSheet) journalSheet = _ensureSheet(ss, 'DB_JOURNAL');
-
-  const user = getCurrentUser();
-  const batchId = _generateId('PMT');
-  const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
-
-  const entries = [];
-
-  // Entry 1: Debit Accounts Payable (reduce liability)
-  entries.push([
-    _generateId('JRN'),
-    batchId,
-    paymentDate,
-    data.financialYear || '',
-    data.bankAccount || '',
-    data.supplierName || '',
-    data.paymentRef || '',
-    data.paymentRef || '',
-    'Accounts Payable',
-    'Trade Payables',
-    'Current Liabilities',
-    `Payment for Invoice: ${data.invoiceNumber || ''}`,
-    data.amount, // Debit
-    0, // Credit
-    'Liability',
-    'Statement of Financial Position',
-    '',
-    ''
-  ]);
-
-  // Entry 2: Credit Bank Account (reduce asset)
-  entries.push([
-    _generateId('JRN'),
-    batchId,
-    paymentDate,
-    data.financialYear || '',
-    data.bankAccount || '',
-    data.supplierName || '',
-    data.paymentRef || '',
-    data.paymentRef || '',
-    'Bank',
-    'Bank Account',
-    'Current Assets',
-    `Payment to ${data.supplierName || 'Supplier'} - Inv: ${data.invoiceNumber || ''}`,
-    0, // Debit
-    data.amount, // Credit
-    'Asset',
-    'Statement of Financial Position',
-    '',
-    ''
-  ]);
-
-  // Append entries
-  entries.forEach(entry => {
-    journalSheet.appendRow(entry);
-  });
-
-  logSystemEvent(user.email, 'CREATE_PAYMENT_JOURNAL', batchId,
-    `Supplier: ${data.supplierName}, Amount: ${data.amount}`);
-
-  return { success: true, batchId: batchId };
-}
-
-/**
- * Get pending payables for a supplier
- */
-function getSupplierPayables(supplierId) {
-  return getPayables({ supplierId: supplierId }).filter(p => p.Status !== 'Paid');
-}
-
-// ============================================================
-// CUSTOMERS MODULE - Customer Management
-// ============================================================
-
-/**
- * Get all customers with optional filters
- */
-function getCustomers(filters) {
-  const ss = _getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.CUSTOMERS);
-  if (!sheet) return [];
-
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
-
-  const headers = SHEET_HEADERS.CUSTOMERS;
-  const data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
-
-  let results = data.map(row => {
-    const obj = {};
-    headers.forEach((h, i) => {
-      if (h.includes('Date') && row[i] instanceof Date) {
-        obj[h] = Utilities.formatDate(row[i], Session.getScriptTimeZone(), 'yyyy-MM-dd');
-      } else {
-        obj[h] = row[i];
-      }
-    });
-    return obj;
-  }).filter(c => c.Customer_ID);
-
-  if (filters) {
-    if (filters.status) {
-      results = results.filter(c => c.Status === filters.status);
-    }
-    if (filters.customerType) {
-      results = results.filter(c => c.Customer_Type === filters.customerType);
-    }
-  }
-
-  return results;
-}
-
-/**
- * Get active customers only
- */
-function getActiveCustomers() {
-  return getCustomers().filter(c => c.Status === 'Active');
-}
-
-/**
- * Save a new customer
- */
-function saveCustomer(data) {
-  const ss = _getOrCreateSpreadsheet();
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.CUSTOMERS);
-  if (!sheet) sheet = _ensureSheet(ss, 'CUSTOMERS');
-
-  const user = getCurrentUser();
-  const customerId = _generateId('CUS');
-  const now = new Date();
-
-  const row = [
-    customerId,
-    data.customerName || '',
-    data.contactPerson || '',
-    data.phone || '',
-    data.email || '',
-    data.address || '',
-    data.customerType || 'General',
-    parseFloat(data.creditLimit) || 0,
-    data.paymentTerms || 'Net 30',
-    'Active',
-    now,
-    user.email || ''
-  ];
-
-  sheet.appendRow(row);
-  logSystemEvent(user.email, 'CREATE_CUSTOMER', customerId, data.customerName);
-
-  return { success: true, customerId: customerId };
-}
-
-/**
- * Update customer
- */
-function updateCustomer(customerId, data) {
-  const ss = _getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.CUSTOMERS);
-  if (!sheet) return { success: false, message: 'Customers sheet not found' };
-
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { success: false, message: 'Customer not found' };
-
-  const idColumn = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  let rowIndex = -1;
-
-  for (let i = 0; i < idColumn.length; i++) {
-    if (idColumn[i][0] === customerId) {
-      rowIndex = i + 2;
-      break;
-    }
-  }
-
-  if (rowIndex === -1) return { success: false, message: 'Customer not found' };
-
-  // Update fields (columns 2-10, excluding ID, Created_Date, Created_By)
-  const updates = [
-    data.customerName || '',
-    data.contactPerson || '',
-    data.phone || '',
-    data.email || '',
-    data.address || '',
-    data.customerType || 'General',
-    parseFloat(data.creditLimit) || 0,
-    data.paymentTerms || 'Net 30',
-    data.status || 'Active'
-  ];
-
-  sheet.getRange(rowIndex, 2, 1, updates.length).setValues([updates]);
-
-  const user = getCurrentUser();
-  logSystemEvent(user.email, 'UPDATE_CUSTOMER', customerId, data.customerName);
-
-  return { success: true };
-}
-
-// ============================================================
-// RECEIVABLES MODULE - Accounts Receivable Management
-// ============================================================
-
-/**
- * Get all receivables with optional filters
- */
-function getReceivables(filters) {
-  const ss = _getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.RECEIVABLES);
-  if (!sheet) return [];
-
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
-
-  const headers = SHEET_HEADERS.RECEIVABLES;
-  const data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
-
-  let results = data.map(row => {
-    const obj = {};
-    headers.forEach((h, i) => {
-      if (h.includes('Date') && row[i] instanceof Date) {
-        obj[h] = Utilities.formatDate(row[i], Session.getScriptTimeZone(), 'yyyy-MM-dd');
-      } else if (h === 'Line_Items') {
-        try {
-          obj[h] = row[i] ? JSON.parse(row[i]) : [];
-        } catch (e) {
-          obj[h] = [];
-        }
-      } else {
-        obj[h] = row[i];
-      }
-    });
-    // Calculate days overdue
-    if (obj.Due_Date && obj.Status !== 'Paid') {
-      const dueDate = new Date(obj.Due_Date);
-      const today = new Date();
-      const diffDays = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
-      obj.Days_Overdue = diffDays > 0 ? diffDays : 0;
-    } else {
-      obj.Days_Overdue = 0;
-    }
-    return obj;
-  }).filter(r => r.Receivable_ID);
-
-  // Apply filters
-  if (filters) {
-    if (filters.status) {
-      results = results.filter(r => r.Status === filters.status);
-    }
-    if (filters.customerId) {
-      results = results.filter(r => r.Customer_ID === filters.customerId);
-    }
-    if (filters.overdue) {
-      results = results.filter(r => r.Days_Overdue > 0);
-    }
-  }
-
-  return results;
-}
-
-/**
- * Get receivables aging summary
- */
-function getReceivablesAgingSummary() {
-  const receivables = getReceivables({ status: 'Pending' }).concat(getReceivables({ status: 'Partial' }));
-
-  const summary = {
-    current: 0,
-    days_1_30: 0,
-    days_31_60: 0,
-    days_61_90: 0,
-    days_over_90: 0,
-    total: 0
-  };
-
-  receivables.forEach(r => {
-    const balance = parseFloat(r.Balance) || 0;
-    summary.total += balance;
-
-    if (r.Days_Overdue <= 0) {
-      summary.current += balance;
-    } else if (r.Days_Overdue <= 30) {
-      summary.days_1_30 += balance;
-    } else if (r.Days_Overdue <= 60) {
-      summary.days_31_60 += balance;
-    } else if (r.Days_Overdue <= 90) {
-      summary.days_61_90 += balance;
-    } else {
-      summary.days_over_90 += balance;
-    }
-  });
-
-  return summary;
-}
-
-/**
- * Create/Issue an invoice (receivable)
- */
-function createReceivable(data) {
-  const ss = _getOrCreateSpreadsheet();
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.RECEIVABLES);
-  if (!sheet) sheet = _ensureSheet(ss, 'RECEIVABLES');
-
-  const user = getCurrentUser();
-  const receivableId = _generateId('REC');
-  const invoiceNumber = _generateSequentialNumber('INV', sheet, 2);
-  const now = new Date();
-
-  // Calculate due date
   const invoiceDate = data.invoiceDate ? new Date(data.invoiceDate) : now;
   const paymentTerms = data.paymentTerms || 'Net 30';
   const daysToAdd = parseInt(paymentTerms.replace(/\D/g, '')) || 30;
   const dueDate = new Date(invoiceDate);
   dueDate.setDate(dueDate.getDate() + daysToAdd);
-
-  const amount = parseFloat(data.amount) || 0;
-
-  // Process line items if provided
-  const lineItems = (data.lineItems || []).map((line, index) => ({
-    lineNo: index + 1,
-    description: line.description || '',
-    quantity: parseFloat(line.quantity) || 1,
-    unitPrice: parseFloat(line.unitPrice) || 0,
-    totalPrice: (parseFloat(line.quantity) || 1) * (parseFloat(line.unitPrice) || 0)
-  }));
-
+  const amount = parseFloat(data.amount || data.invoiceAmount) || 0;
   const row = [
-    receivableId,
-    invoiceNumber,
-    invoiceDate,
-    dueDate,
-    data.financialYear || '',
-    data.customerId || '',
-    data.customerName || '',
-    data.description || '',
-    amount,
-    0, // Received_Amount
-    amount, // Balance
-    'Pending',
-    paymentTerms,
-    now,
-    user.email || '',
-    JSON.stringify(lineItems)
+    invoiceId, invoiceType,
+    data.invoiceNumber || _generateSequentialNumber(invoiceType === 'AP' ? 'BILL' : 'INV', sheet, 3),
+    invoiceDate, dueDate, data.financialYear || '',
+    data.contactId || data.supplierId || data.customerId || '',
+    data.contactName || data.supplierName || data.customerName || '',
+    data.grnId || '', data.grnNumber || '', data.poId || '', data.poNumber || '',
+    data.description || '', amount, 0, amount, 'Pending', paymentTerms, now,
+    user.email || '', JSON.stringify(data.lineItems || [])
   ];
-
   sheet.appendRow(row);
-  logSystemEvent(user.email, 'CREATE_RECEIVABLE', receivableId, invoiceNumber);
-
-  return { success: true, receivableId: receivableId, invoiceNumber: invoiceNumber };
+  logSystemEvent(user.email, 'CREATE_INVOICE', invoiceId, invoiceType + ': ' + row[2]);
+  return { success: true, invoiceId: invoiceId, invoiceNumber: row[2] };
 }
 
-/**
- * Record a receipt (payment received from customer)
- */
-function recordReceipt(receiptData) {
+function recordInvoicePayment(invoiceId, paymentData) {
   const ss = _getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.RECEIVABLES);
-  if (!sheet) return { success: false, message: 'Receivables sheet not found' };
-
-  const receivableId = receiptData.receivableId;
-  if (!receivableId) return { success: false, message: 'Receivable ID is required' };
-
-  const headers = SHEET_HEADERS.RECEIVABLES;
-  const data = sheet.getDataRange().getValues();
-  let rowIndex = -1;
-  let receivableRecord = null;
-
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === receivableId) {
-      rowIndex = i + 1;
-      receivableRecord = {};
-      headers.forEach((h, idx) => receivableRecord[h] = data[i][idx]);
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.INVOICES);
+  if (!sheet) return { success: false, message: 'Invoices sheet not found' };
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: false, message: 'Invoice not found' };
+  const data = sheet.getRange(2, 1, lastRow - 1, INVOICE_HEADERS.length).getValues();
+  let rowIndex = -1, invoice = null;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === invoiceId) {
+      rowIndex = i + 2;
+      invoice = {};
+      INVOICE_HEADERS.forEach((h, j) => invoice[h] = data[i][j]);
       break;
     }
   }
-
-  if (rowIndex === -1) return { success: false, message: 'Receivable not found' };
-
-  const receiptAmount = parseFloat(receiptData.amount) || 0;
-  if (receiptAmount <= 0) return { success: false, message: 'Receipt amount must be positive' };
-
-  const currentReceived = parseFloat(receivableRecord.Received_Amount) || 0;
-  const totalAmount = parseFloat(receivableRecord.Amount) || 0;
-  const newReceived = currentReceived + receiptAmount;
-  const newBalance = Math.max(0, totalAmount - newReceived);
+  if (!invoice) return { success: false, message: 'Invoice not found' };
+  const paymentAmount = parseFloat(paymentData.amount) || 0;
+  const currentPaid = parseFloat(invoice.Paid_Amount) || 0;
+  const totalAmount = parseFloat(invoice.Amount) || 0;
+  const newPaidAmount = currentPaid + paymentAmount;
+  const newBalance = totalAmount - newPaidAmount;
   const newStatus = newBalance <= 0 ? 'Paid' : 'Partial';
+  const paidAmountCol = INVOICE_HEADERS.indexOf('Paid_Amount') + 1;
+  const balanceCol = INVOICE_HEADERS.indexOf('Balance') + 1;
+  const statusCol = INVOICE_HEADERS.indexOf('Status') + 1;
+  sheet.getRange(rowIndex, paidAmountCol).setValue(newPaidAmount);
+  sheet.getRange(rowIndex, balanceCol).setValue(Math.max(0, newBalance));
+  sheet.getRange(rowIndex, statusCol).setValue(newStatus);
+  _createPaymentJournalEntry(invoice, paymentData, invoice.Invoice_Type);
+  logSystemEvent(getCurrentUser().email, 'RECORD_PAYMENT', invoiceId, 'Amount: ' + paymentAmount);
+  return { success: true, newBalance: Math.max(0, newBalance), newStatus: newStatus };
+}
 
-  // Update receivable record
-  const receivedAmountIndex = headers.indexOf('Received_Amount') + 1;
-  const balanceIndex = headers.indexOf('Balance') + 1;
-  const statusIndex = headers.indexOf('Status') + 1;
-
-  sheet.getRange(rowIndex, receivedAmountIndex).setValue(newReceived);
-  sheet.getRange(rowIndex, balanceIndex).setValue(newBalance);
-  sheet.getRange(rowIndex, statusIndex).setValue(newStatus);
-
-  // Create journal entry for receipt
-  const journalResult = createReceiptJournalEntry({
-    receivableId: receivableId,
-    customerId: receivableRecord.Customer_ID,
-    customerName: receivableRecord.Customer_Name,
-    invoiceNumber: receivableRecord.Invoice_Number,
-    amount: receiptAmount,
-    receiptDate: receiptData.receiptDate || new Date(),
-    receiptRef: receiptData.receiptRef || '',
-    bankAccount: receiptData.bankAccount || '',
-    financialYear: receivableRecord.Financial_Year
+function getInvoiceAgingSummary(invoiceType) {
+  const invoices = getInvoices(invoiceType, { status: 'Pending' }).concat(getInvoices(invoiceType, { status: 'Partial' }));
+  const summary = { current: 0, days_1_30: 0, days_31_60: 0, days_61_90: 0, days_over_90: 0, total: 0 };
+  invoices.forEach(inv => {
+    const balance = parseFloat(inv.Balance) || 0;
+    summary.total += balance;
+    if (inv.Days_Overdue <= 0) summary.current += balance;
+    else if (inv.Days_Overdue <= 30) summary.days_1_30 += balance;
+    else if (inv.Days_Overdue <= 60) summary.days_31_60 += balance;
+    else if (inv.Days_Overdue <= 90) summary.days_61_90 += balance;
+    else summary.days_over_90 += balance;
   });
-
-  const user = getCurrentUser();
-  logSystemEvent(user.email, 'RECORD_RECEIPT', receivableId,
-    `Amount: ${receiptAmount}, Ref: ${receiptData.receiptRef || 'N/A'}`);
-
-  return {
-    success: true,
-    newBalance: newBalance,
-    status: newStatus,
-    journalCreated: journalResult.success
-  };
+  return summary;
 }
 
-/**
- * Create journal entry for customer receipt
- * DR: Bank Account (increases asset)
- * CR: Accounts Receivable (reduces asset)
- */
-function createReceiptJournalEntry(data) {
-  const ss = _getOrCreateSpreadsheet();
-  let journalSheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
-  if (!journalSheet) journalSheet = _ensureSheet(ss, 'DB_JOURNAL');
-
-  const user = getCurrentUser();
-  const batchId = _generateId('RCT');
-  const receiptDate = data.receiptDate ? new Date(data.receiptDate) : new Date();
-
-  const entries = [];
-
-  // Entry 1: Debit Bank Account (increase asset)
-  entries.push([
-    _generateId('JRN'),
-    batchId,
-    receiptDate,
-    data.financialYear || '',
-    data.bankAccount || '',
-    data.customerName || '',
-    data.receiptRef || '',
-    data.receiptRef || '',
-    'Bank',
-    'Bank Account',
-    'Current Assets',
-    `Receipt from ${data.customerName || 'Customer'} - Inv: ${data.invoiceNumber || ''}`,
-    data.amount, // Debit
-    0, // Credit
-    'Asset',
-    'Statement of Financial Position',
-    '',
-    ''
-  ]);
-
-  // Entry 2: Credit Accounts Receivable (reduce asset)
-  entries.push([
-    _generateId('JRN'),
-    batchId,
-    receiptDate,
-    data.financialYear || '',
-    data.bankAccount || '',
-    data.customerName || '',
-    data.receiptRef || '',
-    data.receiptRef || '',
-    'Accounts Receivable',
-    'Trade Receivables',
-    'Current Assets',
-    `Receipt for Invoice: ${data.invoiceNumber || ''}`,
-    0, // Debit
-    data.amount, // Credit
-    'Asset',
-    'Statement of Financial Position',
-    '',
-    ''
-  ]);
-
-  // Append entries
-  entries.forEach(entry => {
-    journalSheet.appendRow(entry);
-  });
-
-  logSystemEvent(user.email, 'CREATE_RECEIPT_JOURNAL', batchId,
-    `Customer: ${data.customerName}, Amount: ${data.amount}`);
-
-  return { success: true, batchId: batchId };
+// PAYABLES wrappers
+function getPayables(filters) {
+  const f = filters ? { status: filters.status, contactId: filters.supplierId, overdue: filters.overdue } : undefined;
+  return getInvoices('AP', f).map(inv => ({
+    Payable_ID: inv.Invoice_ID, Invoice_Number: inv.Invoice_Number, Invoice_Date: inv.Invoice_Date,
+    Due_Date: inv.Due_Date, Financial_Year: inv.Financial_Year, Supplier_ID: inv.Contact_ID,
+    Supplier_Name: inv.Contact_Name, GRN_ID: inv.GRN_ID, GRN_Number: inv.GRN_Number,
+    PO_ID: inv.PO_ID, PO_Number: inv.PO_Number, Amount: inv.Amount, Paid_Amount: inv.Paid_Amount,
+    Balance: inv.Balance, Status: inv.Status, Payment_Terms: inv.Payment_Terms,
+    Created_Date: inv.Created_Date, Created_By: inv.Created_By, Line_Items: inv.Line_Items, Days_Overdue: inv.Days_Overdue
+  }));
 }
-
-/**
- * Get pending receivables for a customer
- */
-function getCustomerReceivables(customerId) {
-  return getReceivables({ customerId: customerId }).filter(r => r.Status !== 'Paid');
+function getPayablesAgingSummary() { return getInvoiceAgingSummary('AP'); }
+function createPayableFromGRN(grnData) {
+  grnData.contactId = grnData.supplierId; grnData.contactName = grnData.supplierName; grnData.amount = grnData.invoiceAmount;
+  return createInvoice('AP', grnData);
 }
+function recordPayablePayment(payableId, paymentData) { return recordInvoicePayment(payableId, paymentData); }
+function getSupplierPayables(supplierId) { return getPayables({ supplierId: supplierId }).filter(p => p.Status !== 'Paid'); }
+
+// RECEIVABLES wrappers
+function getReceivables(filters) {
+  const f = filters ? { status: filters.status, contactId: filters.customerId, overdue: filters.overdue } : undefined;
+  return getInvoices('AR', f).map(inv => ({
+    Receivable_ID: inv.Invoice_ID, Invoice_Number: inv.Invoice_Number, Invoice_Date: inv.Invoice_Date,
+    Due_Date: inv.Due_Date, Financial_Year: inv.Financial_Year, Customer_ID: inv.Contact_ID,
+    Customer_Name: inv.Contact_Name, Description: inv.Description, Amount: inv.Amount,
+    Received_Amount: inv.Paid_Amount, Balance: inv.Balance, Status: inv.Status, Payment_Terms: inv.Payment_Terms,
+    Created_Date: inv.Created_Date, Created_By: inv.Created_By, Line_Items: inv.Line_Items, Days_Overdue: inv.Days_Overdue
+  }));
+}
+function getReceivablesAgingSummary() { return getInvoiceAgingSummary('AR'); }
+function createReceivable(data) {
+  data.contactId = data.customerId; data.contactName = data.customerName;
+  const result = createInvoice('AR', data);
+  return { success: result.success, receivableId: result.invoiceId, invoiceNumber: result.invoiceNumber };
+}
+function recordReceivablePayment(receivableId, paymentData) { return recordInvoicePayment(receivableId, paymentData); }
+function getCustomerReceivables(customerId) { return getReceivables({ customerId: customerId }).filter(r => r.Status !== 'Paid'); }
