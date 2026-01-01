@@ -1943,39 +1943,6 @@
             </div>
           </div>
 
-          <div class="form-row" style="margin-bottom:12px;">
-            <div class="form-group">
-              <label for="searchStartDate">Start Date</label>
-              <input type="date" id="searchStartDate">
-            </div>
-            <div class="form-group">
-              <label for="searchEndDate">End Date</label>
-              <input type="date" id="searchEndDate">
-            </div>
-          </div>
-
-          <div class="form-row" style="margin-bottom:16px;">
-            <div class="form-group">
-              <label for="searchCategory">Category</label>
-              <select id="searchCategory">
-                <option value="">All Categories</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="searchParticulars">Particulars</label>
-              <select id="searchParticulars">
-                <option value="">All Particulars</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row" style="margin-bottom:16px;">
-            <div class="form-group">
-              <label for="searchPayee">Payee</label>
-              <input type="text" id="searchPayee" placeholder="Vendor name">
-            </div>
-          </div>
-
           <div id="searchStatus" style="color:#6b7280;font-size:13px;margin-bottom:12px;"></div>
           <div id="searchResults"></div>
         </div>
@@ -6485,7 +6452,7 @@
     let currentBatchId = '';
 
     function bindSearchHandlers() {
-      ['searchQuery', 'searchRef', 'searchStartDate', 'searchEndDate', 'searchCategory', 'searchParticulars', 'searchPayee']
+      ['searchQuery', 'searchRef']
         .forEach(id => {
           const el = document.getElementById(id);
           if (!el) return;
@@ -6527,26 +6494,6 @@
           const years = (data && data.financialYears) ? data.financialYears : [];
           const particulars = (data && data.particulars) ? data.particulars : [];
           const particularMeta = (data && data.particularMeta) ? data.particularMeta : {};
-          const select = document.getElementById('searchCategory');
-          const particularsSelect = document.getElementById('searchParticulars');
-          if (select) {
-            select.innerHTML = '<option value="">All Categories</option>';
-            categories.forEach(cat => {
-              const option = document.createElement('option');
-              option.value = cat;
-              option.textContent = cat;
-              select.appendChild(option);
-            });
-          }
-          if (particularsSelect) {
-            particularsSelect.innerHTML = '<option value="">All Particulars</option>';
-            particulars.forEach(item => {
-              const option = document.createElement('option');
-              option.value = item;
-              option.textContent = item;
-              particularsSelect.appendChild(option);
-            });
-          }
           searchMeta.categories = categories;
           searchMeta.particulars = particulars;
           searchMeta.particularMeta = particularMeta;
@@ -6832,11 +6779,11 @@
       const criteria = {
         query: document.getElementById('searchQuery').value.trim(),
         refOrId: document.getElementById('searchRef').value.trim(),
-        startDate: document.getElementById('searchStartDate').value,
-        endDate: document.getElementById('searchEndDate').value,
-        category: document.getElementById('searchCategory').value,
-        particulars: document.getElementById('searchParticulars').value,
-        payee: document.getElementById('searchPayee').value.trim()
+        startDate: '',
+        endDate: '',
+        category: '',
+        particulars: '',
+        payee: ''
       };
 
       const status = document.getElementById('searchStatus');
