@@ -2809,13 +2809,11 @@
 
         <div class="modal" id="budgetBulkModal">
           <div class="modal-card" style="max-width:900px;">
-            <h3>Original Input (Bulk Loader)</h3>
-            <div style="overflow-y:auto;max-height:calc(85vh - 120px);">
-              <div style="display:flex;justify-content:flex-end;padding:8px 12px;border-bottom:1px solid #e2e8f0;">
-                <button class="btn btn-secondary" onclick="closeBudgetBulkModal()" style="padding:4px 8px;font-size:11px;">Close</button>
-              </div>
-
-            <div style="padding:12px;">
+            <div class="modal-header">
+              <span>Budget Input (Bulk Loader)</span>
+              <button class="btn btn-secondary" onclick="closeBudgetBulkModal()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="overflow-y:auto;max-height:calc(85vh - 140px);padding:16px;">
             <div class="form-row">
               <div class="form-group">
                 <label for="bulkFinancialYear">Financial Year</label>
@@ -2849,11 +2847,10 @@
               </div>
             </div>
 
-              <div id="bulkBudgetTable" style="padding:0 12px;"></div>
-            </div>
+              <div id="bulkBudgetTable" style="padding:0;"></div>
             </div>
 
-            <div class="form-actions" style="padding:12px;border-top:1px solid #e2e8f0;background:#f8fafc;">
+            <div class="modal-footer" style="padding:12px 16px;border-top:1px solid #e5e7eb;background:#f9fafb;">
               <button class="btn btn-secondary" onclick="closeBudgetBulkModal()">Cancel</button>
               <button class="btn btn-primary" onclick="saveOriginalBudget()">Save Original Budget</button>
             </div>
@@ -2862,11 +2859,11 @@
 
         <div class="modal" id="budgetAdjustmentModal">
           <div class="modal-card" style="max-width:640px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-              <h3 style="font-size:18px;font-weight:700;margin:0;">Budget Adjustment</h3>
-              <button class="btn btn-secondary" onclick="closeBudgetAdjustmentModal()" style="padding:6px 10px;font-size:12px;">Close</button>
+            <div class="modal-header">
+              <span>Budget Adjustment</span>
+              <button class="btn btn-secondary" onclick="closeBudgetAdjustmentModal()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
             </div>
-
+            <div class="modal-body" style="padding:16px;">
             <div class="form-row">
               <div class="form-group">
                 <label for="adjustDate">Date</label>
@@ -2923,8 +2920,9 @@
                 <input type="text" id="adjustDescription">
               </div>
             </div>
+            </div>
 
-            <div class="form-actions">
+            <div class="modal-footer" style="padding:12px 16px;border-top:1px solid #e5e7eb;background:#f9fafb;">
               <button class="btn btn-secondary" onclick="closeBudgetAdjustmentModal()">Cancel</button>
               <button class="btn btn-primary" onclick="saveBudgetAdjustment()">Save Adjustment</button>
             </div>
@@ -2932,15 +2930,17 @@
         </div>
         <div class="modal" id="budgetYearModal">
           <div class="modal-card" style="max-width:420px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-              <h3 style="font-size:18px;font-weight:700;margin:0;">Add Financial Year</h3>
-              <button class="btn btn-secondary" onclick="closeBudgetYearModal()" style="padding:6px 10px;font-size:12px;">Close</button>
+            <div class="modal-header">
+              <span>Add Financial Year</span>
+              <button class="btn btn-secondary" onclick="closeBudgetYearModal()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
             </div>
+            <div class="modal-body" style="padding:16px;">
             <div class="form-group">
               <label for="budgetYearInput">Financial Year</label>
               <input type="text" id="budgetYearInput" placeholder="FY 2024/2025">
             </div>
-            <div class="form-actions">
+            </div>
+            <div class="modal-footer" style="padding:12px 16px;border-top:1px solid #e5e7eb;background:#f9fafb;">
               <button class="btn btn-secondary" onclick="closeBudgetYearModal()">Cancel</button>
               <button class="btn btn-primary" onclick="saveBudgetYear()">Save</button>
             </div>
