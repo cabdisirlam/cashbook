@@ -13,10 +13,11 @@ const CONFIG = {
     DB_BANK: "DB_BANK",
     DB_BUDGET: "DB_BUDGET",
 
-    // PART 2: Procurement Module (3 sheets - lines stored as JSON)
+    // PART 2: Procurement & Payables Module
     SUPPLIERS: "SUPPLIERS",
     PURCHASE_ORDERS: "PURCHASE_ORDERS",
     GRN: "GRN",
+    PAYABLES: "PAYABLES",
 
     // PART 3: Master Data & System
     MASTER_DATA: "MASTER_DATA",
@@ -45,7 +46,11 @@ const SHEET_HEADERS = {
   GRN: ['GRN_ID', 'GRN_Number', 'GRN_Date', 'PO_ID', 'PO_Number',
         'Supplier_ID', 'Supplier_Name', 'Received_By', 'Status',
         'Invoice_Number', 'Invoice_Date', 'Invoice_Amount', 'Notes', 'Line_Items'],
-  MASTER_DATA: ['Payees', 'Particulars', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'],
+  PAYABLES: ['Payable_ID', 'Invoice_Number', 'Invoice_Date', 'Due_Date', 'Financial_Year',
+             'Supplier_ID', 'Supplier_Name', 'GRN_ID', 'GRN_Number', 'PO_ID', 'PO_Number',
+             'Amount', 'Paid_Amount', 'Balance', 'Status', 'Payment_Terms',
+             'Created_Date', 'Created_By', 'Line_Items'],
+  MASTER_DATA: ['Particulars', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'],
   SYS_USERS: ['Email', 'PIN', 'Name', 'Role', 'Status'],
   SYS_LOGS: ['Timestamp', 'User', 'Action', 'Target_ID', 'Details']
 };
@@ -1772,9 +1777,43 @@ function saveGoodsReceivedNote(data) {
     _updatePOLineItemsReceived(ss, data.poId, lineItems);
   }
 
+  // Auto-create payable if invoice details provided
+  let payableResult = null;
+  if (data.invoiceNumber && parseFloat(data.invoiceAmount) > 0) {
+    // Get supplier payment terms
+    let paymentTerms = 'Net 30';
+    if (data.supplierId) {
+      const suppliers = getSuppliers();
+      const supplier = suppliers.find(s => s.Supplier_ID === data.supplierId);
+      if (supplier && supplier.Payment_Terms) {
+        paymentTerms = supplier.Payment_Terms;
+      }
+    }
+
+    payableResult = createPayableFromGRN({
+      grnId: grnId,
+      grnNumber: grnNumber,
+      poId: data.poId || '',
+      poNumber: data.poNumber || '',
+      supplierId: data.supplierId || '',
+      supplierName: data.supplierName || '',
+      invoiceNumber: data.invoiceNumber,
+      invoiceDate: data.invoiceDate,
+      invoiceAmount: data.invoiceAmount,
+      paymentTerms: paymentTerms,
+      lineItems: lineItems
+    });
+  }
+
   logSystemEvent(user.email, 'CREATE_GRN', grnId, grnNumber);
 
-  return { success: true, grnId: grnId, grnNumber: grnNumber };
+  return {
+    success: true,
+    grnId: grnId,
+    grnNumber: grnNumber,
+    payableCreated: payableResult ? payableResult.success : false,
+    payableId: payableResult ? payableResult.payableId : null
+  };
 }
 
 /**
@@ -1858,4 +1897,306 @@ function getPendingPOsForGRN() {
  */
 function cleanupLegacySheets() {
   return initializeSpreadsheet();
+}
+
+// ============================================================
+// PAYABLES MODULE - Accounts Payable Management
+// ============================================================
+
+/**
+ * Get all payables with optional filters
+ */
+function getPayables(filters) {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.PAYABLES);
+  if (!sheet) return [];
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const headers = SHEET_HEADERS.PAYABLES;
+  const data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+
+  let results = data.map(row => {
+    const obj = {};
+    headers.forEach((h, i) => {
+      if (h.includes('Date') && row[i] instanceof Date) {
+        obj[h] = Utilities.formatDate(row[i], Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      } else if (h === 'Line_Items') {
+        try {
+          obj[h] = row[i] ? JSON.parse(row[i]) : [];
+        } catch (e) {
+          obj[h] = [];
+        }
+      } else {
+        obj[h] = row[i];
+      }
+    });
+    // Calculate days overdue
+    if (obj.Due_Date && obj.Status !== 'Paid') {
+      const dueDate = new Date(obj.Due_Date);
+      const today = new Date();
+      const diffDays = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+      obj.Days_Overdue = diffDays > 0 ? diffDays : 0;
+    } else {
+      obj.Days_Overdue = 0;
+    }
+    return obj;
+  }).filter(p => p.Payable_ID);
+
+  // Apply filters
+  if (filters) {
+    if (filters.status) {
+      results = results.filter(p => p.Status === filters.status);
+    }
+    if (filters.supplierId) {
+      results = results.filter(p => p.Supplier_ID === filters.supplierId);
+    }
+    if (filters.overdue) {
+      results = results.filter(p => p.Days_Overdue > 0);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Get payables summary (aging report)
+ */
+function getPayablesAgingSummary() {
+  const payables = getPayables({ status: 'Pending' }).concat(getPayables({ status: 'Partial' }));
+
+  const summary = {
+    current: 0,      // Not yet due
+    days_1_30: 0,    // 1-30 days overdue
+    days_31_60: 0,   // 31-60 days overdue
+    days_61_90: 0,   // 61-90 days overdue
+    days_over_90: 0, // Over 90 days
+    total: 0
+  };
+
+  payables.forEach(p => {
+    const balance = parseFloat(p.Balance) || 0;
+    summary.total += balance;
+
+    if (p.Days_Overdue <= 0) {
+      summary.current += balance;
+    } else if (p.Days_Overdue <= 30) {
+      summary.days_1_30 += balance;
+    } else if (p.Days_Overdue <= 60) {
+      summary.days_31_60 += balance;
+    } else if (p.Days_Overdue <= 90) {
+      summary.days_61_90 += balance;
+    } else {
+      summary.days_over_90 += balance;
+    }
+  });
+
+  return summary;
+}
+
+/**
+ * Create a payable from GRN (called automatically when GRN with invoice is recorded)
+ */
+function createPayableFromGRN(grnData) {
+  const ss = _getOrCreateSpreadsheet();
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.PAYABLES);
+  if (!sheet) sheet = _ensureSheet(ss, 'PAYABLES');
+
+  const user = getCurrentUser();
+  const payableId = _generateId('PAY');
+  const now = new Date();
+
+  // Calculate due date based on payment terms (default Net 30)
+  const invoiceDate = grnData.invoiceDate ? new Date(grnData.invoiceDate) : now;
+  const paymentTerms = grnData.paymentTerms || 'Net 30';
+  const daysToAdd = parseInt(paymentTerms.replace(/\D/g, '')) || 30;
+  const dueDate = new Date(invoiceDate);
+  dueDate.setDate(dueDate.getDate() + daysToAdd);
+
+  const amount = parseFloat(grnData.invoiceAmount) || 0;
+
+  // Get financial year from PO if available
+  let financialYear = grnData.financialYear || '';
+  if (!financialYear && grnData.poId) {
+    const po = getPurchaseOrderWithLines(grnData.poId);
+    if (po) financialYear = po.Financial_Year || '';
+  }
+
+  const payableRow = [
+    payableId,
+    grnData.invoiceNumber || '',
+    invoiceDate,
+    dueDate,
+    financialYear,
+    grnData.supplierId || '',
+    grnData.supplierName || '',
+    grnData.grnId || '',
+    grnData.grnNumber || '',
+    grnData.poId || '',
+    grnData.poNumber || '',
+    amount,
+    0, // Paid_Amount
+    amount, // Balance
+    'Pending',
+    paymentTerms,
+    now,
+    user.email || '',
+    JSON.stringify(grnData.lineItems || [])
+  ];
+
+  sheet.appendRow(payableRow);
+  logSystemEvent(user.email, 'CREATE_PAYABLE', payableId, grnData.invoiceNumber);
+
+  return { success: true, payableId: payableId };
+}
+
+/**
+ * Record a payment against a payable
+ */
+function recordPayment(paymentData) {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.PAYABLES);
+  if (!sheet) return { success: false, message: 'Payables sheet not found' };
+
+  const payableId = paymentData.payableId;
+  if (!payableId) return { success: false, message: 'Payable ID is required' };
+
+  const headers = SHEET_HEADERS.PAYABLES;
+  const data = sheet.getDataRange().getValues();
+  let rowIndex = -1;
+  let payableRecord = null;
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === payableId) {
+      rowIndex = i + 1;
+      payableRecord = {};
+      headers.forEach((h, idx) => payableRecord[h] = data[i][idx]);
+      break;
+    }
+  }
+
+  if (rowIndex === -1) return { success: false, message: 'Payable not found' };
+
+  const paymentAmount = parseFloat(paymentData.amount) || 0;
+  if (paymentAmount <= 0) return { success: false, message: 'Payment amount must be positive' };
+
+  const currentPaid = parseFloat(payableRecord.Paid_Amount) || 0;
+  const totalAmount = parseFloat(payableRecord.Amount) || 0;
+  const newPaid = currentPaid + paymentAmount;
+  const newBalance = Math.max(0, totalAmount - newPaid);
+  const newStatus = newBalance <= 0 ? 'Paid' : 'Partial';
+
+  // Update payable record
+  const paidAmountIndex = headers.indexOf('Paid_Amount') + 1;
+  const balanceIndex = headers.indexOf('Balance') + 1;
+  const statusIndex = headers.indexOf('Status') + 1;
+
+  sheet.getRange(rowIndex, paidAmountIndex).setValue(newPaid);
+  sheet.getRange(rowIndex, balanceIndex).setValue(newBalance);
+  sheet.getRange(rowIndex, statusIndex).setValue(newStatus);
+
+  // Create journal entry for payment
+  const journalResult = createPaymentJournalEntry({
+    payableId: payableId,
+    supplierId: payableRecord.Supplier_ID,
+    supplierName: payableRecord.Supplier_Name,
+    invoiceNumber: payableRecord.Invoice_Number,
+    amount: paymentAmount,
+    paymentDate: paymentData.paymentDate || new Date(),
+    paymentRef: paymentData.paymentRef || '',
+    bankAccount: paymentData.bankAccount || '',
+    financialYear: payableRecord.Financial_Year,
+    lineItems: payableRecord.Line_Items ?
+      (typeof payableRecord.Line_Items === 'string' ? JSON.parse(payableRecord.Line_Items) : payableRecord.Line_Items) : []
+  });
+
+  const user = getCurrentUser();
+  logSystemEvent(user.email, 'RECORD_PAYMENT', payableId,
+    `Amount: ${paymentAmount}, Ref: ${paymentData.paymentRef || 'N/A'}`);
+
+  return {
+    success: true,
+    newBalance: newBalance,
+    status: newStatus,
+    journalCreated: journalResult.success
+  };
+}
+
+/**
+ * Create journal entry for supplier payment
+ * DR: Accounts Payable (reduces liability)
+ * CR: Bank Account (reduces asset)
+ */
+function createPaymentJournalEntry(data) {
+  const ss = _getOrCreateSpreadsheet();
+  let journalSheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journalSheet) journalSheet = _ensureSheet(ss, 'DB_JOURNAL');
+
+  const user = getCurrentUser();
+  const batchId = _generateId('PMT');
+  const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
+
+  const entries = [];
+
+  // Entry 1: Debit Accounts Payable (reduce liability)
+  entries.push([
+    _generateId('JRN'),
+    batchId,
+    paymentDate,
+    data.financialYear || '',
+    data.bankAccount || '',
+    data.supplierName || '',
+    data.paymentRef || '',
+    data.paymentRef || '',
+    'Accounts Payable',
+    'Trade Payables',
+    'Current Liabilities',
+    `Payment for Invoice: ${data.invoiceNumber || ''}`,
+    data.amount, // Debit
+    0, // Credit
+    'Liability',
+    'Statement of Financial Position',
+    '',
+    ''
+  ]);
+
+  // Entry 2: Credit Bank Account (reduce asset)
+  entries.push([
+    _generateId('JRN'),
+    batchId,
+    paymentDate,
+    data.financialYear || '',
+    data.bankAccount || '',
+    data.supplierName || '',
+    data.paymentRef || '',
+    data.paymentRef || '',
+    'Bank',
+    'Bank Account',
+    'Current Assets',
+    `Payment to ${data.supplierName || 'Supplier'} - Inv: ${data.invoiceNumber || ''}`,
+    0, // Debit
+    data.amount, // Credit
+    'Asset',
+    'Statement of Financial Position',
+    '',
+    ''
+  ]);
+
+  // Append entries
+  entries.forEach(entry => {
+    journalSheet.appendRow(entry);
+  });
+
+  logSystemEvent(user.email, 'CREATE_PAYMENT_JOURNAL', batchId,
+    `Supplier: ${data.supplierName}, Amount: ${data.amount}`);
+
+  return { success: true, batchId: batchId };
+}
+
+/**
+ * Get pending payables for a supplier
+ */
+function getSupplierPayables(supplierId) {
+  return getPayables({ supplierId: supplierId }).filter(p => p.Status !== 'Paid');
 }

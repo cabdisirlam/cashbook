@@ -1740,6 +1740,22 @@
         return;
       }
 
+      // Payables Module
+      if (label === 'Invoices to Pay') {
+        renderInvoicesToPayContent();
+        return;
+      }
+
+      if (label === 'Pay Supplier') {
+        renderPaySupplierContent();
+        return;
+      }
+
+      if (label === 'Aging Report') {
+        renderAgingReportContent();
+        return;
+      }
+
       if (label === 'Dashboard') {
         const contentArea = document.getElementById('contentArea');
         contentArea.innerHTML = `
@@ -9173,6 +9189,399 @@
           alert('Error: ' + error.message);
         })
         .approvePurchaseOrder(poId);
+    }
+
+    // ============================================================
+    // PAYABLES MODULE - Accounts Payable Management
+    // ============================================================
+
+    // Invoices to Pay (Payables List)
+    function renderInvoicesToPayContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Invoices to Pay', 'Manage supplier invoices and track payment status.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Outstanding Invoices</h2>
+              <p style="color:#6b7280;font-size:13px;">Invoices pending payment from suppliers.</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <select id="payablesFilter" onchange="loadPayables()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:6px;">
+                <option value="all">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Partial">Partial</option>
+                <option value="Paid">Paid</option>
+              </select>
+              <button class="btn btn-secondary" onclick="loadPayables()">Refresh</button>
+            </div>
+          </div>
+          <div id="payablesTableContainer" style="margin-top:16px;">
+            <p>Loading invoices...</p>
+          </div>
+        </div>
+      `;
+      loadPayables();
+    }
+
+    function loadPayables() {
+      const container = document.getElementById('payablesTableContainer');
+      container.innerHTML = '<p>Loading invoices...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(payables) {
+          const filter = document.getElementById('payablesFilter').value;
+          let filtered = payables || [];
+
+          if (filter !== 'all') {
+            filtered = filtered.filter(p => p.Status === filter);
+          }
+
+          if (filtered.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;">No invoices found.</p>';
+            return;
+          }
+
+          let html = `
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Supplier</th>
+                  <th>Invoice Date</th>
+                  <th>Due Date</th>
+                  <th style="text-align:right;">Amount</th>
+                  <th style="text-align:right;">Paid</th>
+                  <th style="text-align:right;">Balance</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          filtered.forEach(p => {
+            const amount = parseFloat(p.Amount) || 0;
+            const paid = parseFloat(p.Paid_Amount) || 0;
+            const balance = parseFloat(p.Balance) || 0;
+            const statusClass = p.Status === 'Paid' ? 'status-badge--ok' :
+                               p.Status === 'Partial' ? 'status-badge--warn' : 'status-badge--bad';
+            const overdue = p.Days_Overdue > 0 ? `<br><span style="color:#dc2626;font-size:11px;">${p.Days_Overdue} days overdue</span>` : '';
+
+            html += `
+              <tr>
+                <td><strong>${p.Invoice_Number || '-'}</strong></td>
+                <td>${p.Supplier_Name || '-'}</td>
+                <td>${p.Invoice_Date || '-'}</td>
+                <td>${p.Due_Date || '-'}${overdue}</td>
+                <td style="text-align:right;">${amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td style="text-align:right;">${paid.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td style="text-align:right;font-weight:600;">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td><span class="status-badge ${statusClass}">${p.Status || 'Unknown'}</span></td>
+                <td>
+                  ${p.Status !== 'Paid' ? `<button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openPaymentModal('${p.Payable_ID}', '${p.Supplier_Name}', '${p.Invoice_Number}', ${balance})">Pay</button>` : '-'}
+                </td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load invoices: ' + error.message + '</p>';
+        })
+        .getPayables();
+    }
+
+    // Pay Supplier Page
+    function renderPaySupplierContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Pay Supplier', 'Process payments to suppliers.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Select Supplier</h2>
+              <p style="color:#6b7280;font-size:13px;">Choose a supplier to see outstanding invoices.</p>
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            <div class="form-group">
+              <label for="paySupplierSelect">Supplier</label>
+              <select id="paySupplierSelect" onchange="loadSupplierPayables()" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                <option value="">-- Select Supplier --</option>
+              </select>
+            </div>
+          </div>
+          <div id="supplierPayablesContainer" style="margin-top:16px;">
+            <p style="color:#6b7280;">Select a supplier to view outstanding invoices.</p>
+          </div>
+        </div>
+      `;
+      loadSuppliersForPayment();
+    }
+
+    function loadSuppliersForPayment() {
+      google.script.run
+        .withSuccessHandler(function(suppliers) {
+          const select = document.getElementById('paySupplierSelect');
+          (suppliers || []).filter(s => s.Status === 'Active').forEach(s => {
+            const option = document.createElement('option');
+            option.value = s.Supplier_ID;
+            option.textContent = s.Supplier_Name;
+            select.appendChild(option);
+          });
+        })
+        .getSuppliers();
+    }
+
+    function loadSupplierPayables() {
+      const supplierId = document.getElementById('paySupplierSelect').value;
+      const container = document.getElementById('supplierPayablesContainer');
+
+      if (!supplierId) {
+        container.innerHTML = '<p style="color:#6b7280;">Select a supplier to view outstanding invoices.</p>';
+        return;
+      }
+
+      container.innerHTML = '<p>Loading invoices...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(payables) {
+          const pending = (payables || []).filter(p => p.Status !== 'Paid');
+
+          if (pending.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;">No outstanding invoices for this supplier.</p>';
+            return;
+          }
+
+          let totalOutstanding = 0;
+          let html = `
+            <table class="table" style="margin-bottom:16px;">
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Invoice Date</th>
+                  <th>Due Date</th>
+                  <th style="text-align:right;">Amount</th>
+                  <th style="text-align:right;">Balance</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          pending.forEach(p => {
+            const balance = parseFloat(p.Balance) || 0;
+            totalOutstanding += balance;
+            const overdue = p.Days_Overdue > 0 ? `<span style="color:#dc2626;font-size:11px;">(${p.Days_Overdue}d overdue)</span>` : '';
+
+            html += `
+              <tr>
+                <td><strong>${p.Invoice_Number || '-'}</strong></td>
+                <td>${p.Invoice_Date || '-'}</td>
+                <td>${p.Due_Date || '-'} ${overdue}</td>
+                <td style="text-align:right;">${parseFloat(p.Amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td style="text-align:right;font-weight:600;">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td><span class="status-badge ${p.Status === 'Partial' ? 'status-badge--warn' : 'status-badge--bad'}">${p.Status}</span></td>
+                <td>
+                  <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openPaymentModal('${p.Payable_ID}', '${p.Supplier_Name}', '${p.Invoice_Number}', ${balance})">Pay</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += `
+              </tbody>
+              <tfoot>
+                <tr style="font-weight:600;background:#f9fafb;">
+                  <td colspan="4" style="text-align:right;">Total Outstanding:</td>
+                  <td style="text-align:right;">${totalOutstanding.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                  <td colspan="2"></td>
+                </tr>
+              </tfoot>
+            </table>
+          `;
+
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load invoices: ' + error.message + '</p>';
+        })
+        .getSupplierPayables(supplierId);
+    }
+
+    // Payment Modal
+    function openPaymentModal(payableId, supplierName, invoiceNumber, balance) {
+      const today = new Date().toISOString().split('T')[0];
+
+      const modalHtml = `
+        <div class="modal open" id="paymentModal">
+          <div class="modal-card" style="max-width:500px;">
+            <div class="modal-header">
+              <span>Record Payment</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('paymentModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div style="background:#f3f4f6;padding:12px;border-radius:6px;margin-bottom:16px;">
+                <p style="font-size:13px;color:#6b7280;">Supplier</p>
+                <p style="font-weight:600;">${supplierName}</p>
+                <p style="font-size:13px;color:#6b7280;margin-top:8px;">Invoice</p>
+                <p style="font-weight:600;">${invoiceNumber}</p>
+                <p style="font-size:13px;color:#6b7280;margin-top:8px;">Outstanding Balance</p>
+                <p style="font-weight:600;font-size:18px;color:#dc2626;">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+
+              <input type="hidden" id="paymentPayableId" value="${payableId}">
+
+              <div class="form-group">
+                <label for="paymentDate">Payment Date *</label>
+                <input type="date" id="paymentDate" value="${today}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+
+              <div class="form-group">
+                <label for="paymentAmount">Amount *</label>
+                <input type="number" id="paymentAmount" value="${balance}" min="0.01" max="${balance}" step="0.01" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+
+              <div class="form-group">
+                <label for="paymentRef">Payment Reference *</label>
+                <input type="text" id="paymentRef" placeholder="e.g., CHQ-001234 or EFT-5678" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+
+              <div class="form-group">
+                <label for="paymentBankAccount">Bank Account</label>
+                <input type="text" id="paymentBankAccount" placeholder="Account code" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+
+              <div id="paymentFormStatus" style="min-height:24px;margin:12px 0;"></div>
+
+              <button class="btn btn-primary" onclick="processPayment()" style="width:100%;">Record Payment</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function processPayment() {
+      const payableId = document.getElementById('paymentPayableId').value;
+      const paymentDate = document.getElementById('paymentDate').value;
+      const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+      const paymentRef = document.getElementById('paymentRef').value.trim();
+      const bankAccount = document.getElementById('paymentBankAccount').value.trim();
+      const statusDiv = document.getElementById('paymentFormStatus');
+
+      if (!paymentDate) {
+        statusDiv.innerHTML = '<span style="color:#dc2626;">Payment date is required.</span>';
+        return;
+      }
+
+      if (amount <= 0) {
+        statusDiv.innerHTML = '<span style="color:#dc2626;">Amount must be greater than zero.</span>';
+        return;
+      }
+
+      if (!paymentRef) {
+        statusDiv.innerHTML = '<span style="color:#dc2626;">Payment reference is required.</span>';
+        return;
+      }
+
+      statusDiv.innerHTML = 'Processing payment...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            document.getElementById('paymentModal').remove();
+            alert('Payment recorded successfully!' + (result.journalCreated ? ' Journal entry created.' : ''));
+            // Refresh the current view
+            if (document.getElementById('payablesTableContainer')) {
+              loadPayables();
+            } else if (document.getElementById('supplierPayablesContainer')) {
+              loadSupplierPayables();
+            }
+          } else {
+            statusDiv.innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to process payment') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          statusDiv.innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .recordPayment({
+          payableId: payableId,
+          paymentDate: paymentDate,
+          amount: amount,
+          paymentRef: paymentRef,
+          bankAccount: bankAccount
+        });
+    }
+
+    // Aging Report
+    function renderAgingReportContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Aging Report', 'View payables aging summary.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Accounts Payable Aging</h2>
+              <p style="color:#6b7280;font-size:13px;">Summary of outstanding invoices by age.</p>
+            </div>
+            <button class="btn btn-secondary" onclick="loadAgingReport()">Refresh</button>
+          </div>
+          <div id="agingReportContainer" style="margin-top:16px;">
+            <p>Loading aging report...</p>
+          </div>
+        </div>
+      `;
+      loadAgingReport();
+    }
+
+    function loadAgingReport() {
+      const container = document.getElementById('agingReportContainer');
+      container.innerHTML = '<p>Loading aging report...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(summary) {
+          const html = `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:16px;margin-bottom:24px;">
+              <div style="background:#f0fdf4;padding:16px;border-radius:8px;text-align:center;">
+                <p style="font-size:12px;color:#166534;margin-bottom:4px;">Current</p>
+                <p style="font-size:24px;font-weight:700;color:#166534;">${(summary.current || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+              <div style="background:#fefce8;padding:16px;border-radius:8px;text-align:center;">
+                <p style="font-size:12px;color:#854d0e;margin-bottom:4px;">1-30 Days</p>
+                <p style="font-size:24px;font-weight:700;color:#854d0e;">${(summary.days_1_30 || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+              <div style="background:#fff7ed;padding:16px;border-radius:8px;text-align:center;">
+                <p style="font-size:12px;color:#c2410c;margin-bottom:4px;">31-60 Days</p>
+                <p style="font-size:24px;font-weight:700;color:#c2410c;">${(summary.days_31_60 || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+              <div style="background:#fef2f2;padding:16px;border-radius:8px;text-align:center;">
+                <p style="font-size:12px;color:#dc2626;margin-bottom:4px;">61-90 Days</p>
+                <p style="font-size:24px;font-weight:700;color:#dc2626;">${(summary.days_61_90 || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+              <div style="background:#fef2f2;padding:16px;border-radius:8px;text-align:center;border:2px solid #dc2626;">
+                <p style="font-size:12px;color:#dc2626;margin-bottom:4px;">Over 90 Days</p>
+                <p style="font-size:24px;font-weight:700;color:#dc2626;">${(summary.days_over_90 || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+            </div>
+
+            <div style="background:#f9fafb;padding:16px;border-radius:8px;text-align:center;">
+              <p style="font-size:14px;color:#6b7280;margin-bottom:4px;">Total Outstanding</p>
+              <p style="font-size:32px;font-weight:700;color:#1f2937;">${(summary.total || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+            </div>
+          `;
+
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load aging report: ' + error.message + '</p>';
+        })
+        .getPayablesAgingSummary();
     }
   </script>
 
