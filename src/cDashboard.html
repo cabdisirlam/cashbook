@@ -1756,6 +1756,32 @@
         return;
       }
 
+      // Receivables Module
+      if (label === 'Customers') {
+        renderCustomersContent();
+        return;
+      }
+
+      if (label === 'Issue Invoice') {
+        renderIssueInvoiceContent();
+        return;
+      }
+
+      if (label === 'Outstanding Invoices') {
+        renderOutstandingInvoicesContent();
+        return;
+      }
+
+      if (label === 'Record Receipt') {
+        renderRecordReceiptContent();
+        return;
+      }
+
+      if (label === 'AR Aging Report') {
+        renderARAgingReportContent();
+        return;
+      }
+
       if (label === 'Dashboard') {
         const contentArea = document.getElementById('contentArea');
         contentArea.innerHTML = `
@@ -9582,6 +9608,824 @@
           container.innerHTML = '<p style="color:#dc2626;">Failed to load aging report: ' + error.message + '</p>';
         })
         .getPayablesAgingSummary();
+    }
+
+    // ============================================================
+    // RECEIVABLES MODULE - Customers & Accounts Receivable
+    // ============================================================
+
+    // Customers Management
+    function renderCustomersContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Customers', 'Manage customers and track receivables.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Customer List</h2>
+              <p style="color:#6b7280;font-size:13px;">All registered customers.</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="loadCustomers()">Refresh</button>
+              <button class="btn btn-primary" onclick="openAddCustomerModal()">+ Add Customer</button>
+            </div>
+          </div>
+          <div id="customersTableContainer" style="margin-top:16px;">
+            <p>Loading customers...</p>
+          </div>
+        </div>
+      `;
+      loadCustomers();
+    }
+
+    function loadCustomers() {
+      const container = document.getElementById('customersTableContainer');
+      container.innerHTML = '<p>Loading customers...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(customers) {
+          if (!customers || customers.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;">No customers found. Click "Add Customer" to create one.</p>';
+            return;
+          }
+
+          let html = `
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Contact</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Credit Limit</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          customers.forEach(c => {
+            const statusClass = c.Status === 'Active' ? 'status-badge--ok' : 'status-badge--bad';
+            html += `
+              <tr>
+                <td><strong>${c.Customer_Name || ''}</strong></td>
+                <td>${c.Customer_Type || '-'}</td>
+                <td>${c.Contact_Person || '-'}</td>
+                <td>${c.Phone || '-'}</td>
+                <td>${c.Email || '-'}</td>
+                <td style="text-align:right;">${parseFloat(c.Credit_Limit || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td><span class="status-badge ${statusClass}">${c.Status || 'Unknown'}</span></td>
+                <td>
+                  <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="editCustomer('${c.Customer_ID}')">Edit</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load customers: ' + error.message + '</p>';
+        })
+        .getCustomers();
+    }
+
+    function openAddCustomerModal() {
+      const modalHtml = `
+        <div class="modal open" id="addCustomerModal">
+          <div class="modal-card" style="max-width:600px;">
+            <div class="modal-header">
+              <span>Add New Customer</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('addCustomerModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="customerName">Customer Name *</label>
+                  <input type="text" id="customerName" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="customerType">Customer Type</label>
+                  <select id="customerType" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="School">School</option>
+                    <option value="Project">Project</option>
+                    <option value="Donor">Donor</option>
+                    <option value="Government">Government</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="customerContact">Contact Person</label>
+                  <input type="text" id="customerContact" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="customerPhone">Phone</label>
+                  <input type="text" id="customerPhone" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="customerEmail">Email</label>
+                  <input type="email" id="customerEmail" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="customerCreditLimit">Credit Limit</label>
+                  <input type="number" id="customerCreditLimit" value="0" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="customerAddress">Address</label>
+                <textarea id="customerAddress" rows="2" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="customerPaymentTerms">Payment Terms</label>
+                <select id="customerPaymentTerms" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                  <option value="Net 30">Net 30</option>
+                  <option value="Net 15">Net 15</option>
+                  <option value="Net 60">Net 60</option>
+                  <option value="Due on Receipt">Due on Receipt</option>
+                </select>
+              </div>
+              <div id="customerFormStatus" style="min-height:24px;margin:12px 0;"></div>
+              <button class="btn btn-primary" onclick="saveCustomerForm()" style="width:100%;">Save Customer</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function saveCustomerForm() {
+      const name = document.getElementById('customerName').value.trim();
+      if (!name) {
+        document.getElementById('customerFormStatus').innerHTML = '<span style="color:#dc2626;">Customer name is required.</span>';
+        return;
+      }
+
+      const data = {
+        customerName: name,
+        customerType: document.getElementById('customerType').value,
+        contactPerson: document.getElementById('customerContact').value.trim(),
+        phone: document.getElementById('customerPhone').value.trim(),
+        email: document.getElementById('customerEmail').value.trim(),
+        address: document.getElementById('customerAddress').value.trim(),
+        creditLimit: document.getElementById('customerCreditLimit').value,
+        paymentTerms: document.getElementById('customerPaymentTerms').value
+      };
+
+      document.getElementById('customerFormStatus').innerHTML = 'Saving customer...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            document.getElementById('addCustomerModal').remove();
+            loadCustomers();
+            alert('Customer saved successfully!');
+          } else {
+            document.getElementById('customerFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to save') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('customerFormStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .saveCustomer(data);
+    }
+
+    function editCustomer(customerId) {
+      google.script.run
+        .withSuccessHandler(function(customers) {
+          const customer = (customers || []).find(c => c.Customer_ID === customerId);
+          if (!customer) {
+            alert('Customer not found.');
+            return;
+          }
+          openEditCustomerModal(customer);
+        })
+        .getCustomers();
+    }
+
+    function openEditCustomerModal(c) {
+      const modalHtml = `
+        <div class="modal open" id="editCustomerModal">
+          <div class="modal-card" style="max-width:600px;">
+            <div class="modal-header">
+              <span>Edit Customer</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('editCustomerModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <input type="hidden" id="editCustomerId" value="${c.Customer_ID}">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editCustomerName">Customer Name *</label>
+                  <input type="text" id="editCustomerName" value="${c.Customer_Name || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="editCustomerType">Customer Type</label>
+                  <select id="editCustomerType" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="School" ${c.Customer_Type === 'School' ? 'selected' : ''}>School</option>
+                    <option value="Project" ${c.Customer_Type === 'Project' ? 'selected' : ''}>Project</option>
+                    <option value="Donor" ${c.Customer_Type === 'Donor' ? 'selected' : ''}>Donor</option>
+                    <option value="Government" ${c.Customer_Type === 'Government' ? 'selected' : ''}>Government</option>
+                    <option value="General" ${c.Customer_Type === 'General' ? 'selected' : ''}>General</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editCustomerContact">Contact Person</label>
+                  <input type="text" id="editCustomerContact" value="${c.Contact_Person || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="editCustomerPhone">Phone</label>
+                  <input type="text" id="editCustomerPhone" value="${c.Phone || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editCustomerEmail">Email</label>
+                  <input type="email" id="editCustomerEmail" value="${c.Email || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="editCustomerCreditLimit">Credit Limit</label>
+                  <input type="number" id="editCustomerCreditLimit" value="${c.Credit_Limit || 0}" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="editCustomerAddress">Address</label>
+                <textarea id="editCustomerAddress" rows="2" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">${c.Address || ''}</textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editCustomerPaymentTerms">Payment Terms</label>
+                  <select id="editCustomerPaymentTerms" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="Net 30" ${c.Payment_Terms === 'Net 30' ? 'selected' : ''}>Net 30</option>
+                    <option value="Net 15" ${c.Payment_Terms === 'Net 15' ? 'selected' : ''}>Net 15</option>
+                    <option value="Net 60" ${c.Payment_Terms === 'Net 60' ? 'selected' : ''}>Net 60</option>
+                    <option value="Due on Receipt" ${c.Payment_Terms === 'Due on Receipt' ? 'selected' : ''}>Due on Receipt</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="editCustomerStatus">Status</label>
+                  <select id="editCustomerStatus" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="Active" ${c.Status === 'Active' ? 'selected' : ''}>Active</option>
+                    <option value="Inactive" ${c.Status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                  </select>
+                </div>
+              </div>
+              <div id="editCustomerFormStatus" style="min-height:24px;margin:12px 0;"></div>
+              <button class="btn btn-primary" onclick="updateCustomerForm()" style="width:100%;">Update Customer</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function updateCustomerForm() {
+      const customerId = document.getElementById('editCustomerId').value;
+      const name = document.getElementById('editCustomerName').value.trim();
+      if (!name) {
+        document.getElementById('editCustomerFormStatus').innerHTML = '<span style="color:#dc2626;">Customer name is required.</span>';
+        return;
+      }
+
+      const data = {
+        customerName: name,
+        customerType: document.getElementById('editCustomerType').value,
+        contactPerson: document.getElementById('editCustomerContact').value.trim(),
+        phone: document.getElementById('editCustomerPhone').value.trim(),
+        email: document.getElementById('editCustomerEmail').value.trim(),
+        address: document.getElementById('editCustomerAddress').value.trim(),
+        creditLimit: document.getElementById('editCustomerCreditLimit').value,
+        paymentTerms: document.getElementById('editCustomerPaymentTerms').value,
+        status: document.getElementById('editCustomerStatus').value
+      };
+
+      document.getElementById('editCustomerFormStatus').innerHTML = 'Updating customer...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            document.getElementById('editCustomerModal').remove();
+            loadCustomers();
+            alert('Customer updated successfully!');
+          } else {
+            document.getElementById('editCustomerFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to update') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('editCustomerFormStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .updateCustomer(customerId, data);
+    }
+
+    // Issue Invoice
+    function renderIssueInvoiceContent() {
+      const contentArea = document.getElementById('contentArea');
+      const today = new Date().toISOString().split('T')[0];
+
+      contentArea.innerHTML = `
+        ${renderSectionHero('Issue Invoice', 'Create a new invoice for a customer.')}
+        <div class="card card-spacious">
+          <h2 style="margin-bottom:16px;">New Invoice</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="invoiceCustomer">Customer *</label>
+              <select id="invoiceCustomer" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                <option value="">-- Select Customer --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="invoiceDate">Invoice Date *</label>
+              <input type="date" id="invoiceDate" value="${today}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="invoiceFinancialYear">Financial Year</label>
+              <input type="text" id="invoiceFinancialYear" placeholder="e.g., 2024/2025" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+            </div>
+            <div class="form-group">
+              <label for="invoicePaymentTerms">Payment Terms</label>
+              <select id="invoicePaymentTerms" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                <option value="Net 30">Net 30</option>
+                <option value="Net 15">Net 15</option>
+                <option value="Net 60">Net 60</option>
+                <option value="Due on Receipt">Due on Receipt</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="invoiceDescription">Description</label>
+            <input type="text" id="invoiceDescription" placeholder="Invoice description" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+          </div>
+          <div class="form-group">
+            <label for="invoiceAmount">Amount *</label>
+            <input type="number" id="invoiceAmount" min="0.01" step="0.01" placeholder="0.00" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+          </div>
+          <div id="invoiceFormStatus" style="min-height:24px;margin:12px 0;"></div>
+          <button class="btn btn-primary" onclick="saveInvoice()" style="width:200px;">Issue Invoice</button>
+        </div>
+      `;
+      loadCustomersForInvoice();
+    }
+
+    function loadCustomersForInvoice() {
+      google.script.run
+        .withSuccessHandler(function(customers) {
+          const select = document.getElementById('invoiceCustomer');
+          (customers || []).filter(c => c.Status === 'Active').forEach(c => {
+            const option = document.createElement('option');
+            option.value = c.Customer_ID;
+            option.textContent = c.Customer_Name;
+            option.dataset.name = c.Customer_Name;
+            option.dataset.terms = c.Payment_Terms || 'Net 30';
+            select.appendChild(option);
+          });
+          // Update payment terms when customer changes
+          select.addEventListener('change', function() {
+            const selectedOption = select.selectedOptions[0];
+            if (selectedOption && selectedOption.dataset.terms) {
+              document.getElementById('invoicePaymentTerms').value = selectedOption.dataset.terms;
+            }
+          });
+        })
+        .getCustomers();
+    }
+
+    function saveInvoice() {
+      const customerSelect = document.getElementById('invoiceCustomer');
+      const customerId = customerSelect.value;
+      const amount = parseFloat(document.getElementById('invoiceAmount').value) || 0;
+      const statusDiv = document.getElementById('invoiceFormStatus');
+
+      if (!customerId) {
+        statusDiv.innerHTML = '<span style="color:#dc2626;">Please select a customer.</span>';
+        return;
+      }
+      if (amount <= 0) {
+        statusDiv.innerHTML = '<span style="color:#dc2626;">Amount must be greater than zero.</span>';
+        return;
+      }
+
+      const selectedOption = customerSelect.selectedOptions[0];
+      const data = {
+        customerId: customerId,
+        customerName: selectedOption.dataset.name || '',
+        invoiceDate: document.getElementById('invoiceDate').value,
+        financialYear: document.getElementById('invoiceFinancialYear').value.trim(),
+        paymentTerms: document.getElementById('invoicePaymentTerms').value,
+        description: document.getElementById('invoiceDescription').value.trim(),
+        amount: amount
+      };
+
+      statusDiv.innerHTML = 'Creating invoice...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            alert('Invoice ' + result.invoiceNumber + ' created successfully!');
+            renderOutstandingInvoicesContent();
+          } else {
+            statusDiv.innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to create invoice') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          statusDiv.innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .createReceivable(data);
+    }
+
+    // Outstanding Invoices
+    function renderOutstandingInvoicesContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Outstanding Invoices', 'Track invoices issued to customers.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Invoices</h2>
+              <p style="color:#6b7280;font-size:13px;">Customer invoices and payment status.</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <select id="receivablesFilter" onchange="loadReceivables()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:6px;">
+                <option value="all">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Partial">Partial</option>
+                <option value="Paid">Paid</option>
+              </select>
+              <button class="btn btn-secondary" onclick="loadReceivables()">Refresh</button>
+            </div>
+          </div>
+          <div id="receivablesTableContainer" style="margin-top:16px;">
+            <p>Loading invoices...</p>
+          </div>
+        </div>
+      `;
+      loadReceivables();
+    }
+
+    function loadReceivables() {
+      const container = document.getElementById('receivablesTableContainer');
+      container.innerHTML = '<p>Loading invoices...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(receivables) {
+          const filter = document.getElementById('receivablesFilter').value;
+          let filtered = receivables || [];
+
+          if (filter !== 'all') {
+            filtered = filtered.filter(r => r.Status === filter);
+          }
+
+          if (filtered.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;">No invoices found.</p>';
+            return;
+          }
+
+          let html = `
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Customer</th>
+                  <th>Invoice Date</th>
+                  <th>Due Date</th>
+                  <th style="text-align:right;">Amount</th>
+                  <th style="text-align:right;">Received</th>
+                  <th style="text-align:right;">Balance</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          filtered.forEach(r => {
+            const amount = parseFloat(r.Amount) || 0;
+            const received = parseFloat(r.Received_Amount) || 0;
+            const balance = parseFloat(r.Balance) || 0;
+            const statusClass = r.Status === 'Paid' ? 'status-badge--ok' :
+                               r.Status === 'Partial' ? 'status-badge--warn' : 'status-badge--bad';
+            const overdue = r.Days_Overdue > 0 ? `<br><span style="color:#dc2626;font-size:11px;">${r.Days_Overdue} days overdue</span>` : '';
+
+            html += `
+              <tr>
+                <td><strong>${r.Invoice_Number || '-'}</strong></td>
+                <td>${r.Customer_Name || '-'}</td>
+                <td>${r.Invoice_Date || '-'}</td>
+                <td>${r.Due_Date || '-'}${overdue}</td>
+                <td style="text-align:right;">${amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td style="text-align:right;">${received.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td style="text-align:right;font-weight:600;">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td><span class="status-badge ${statusClass}">${r.Status || 'Unknown'}</span></td>
+                <td>
+                  ${r.Status !== 'Paid' ? `<button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openReceiptModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Receive</button>` : '-'}
+                </td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load invoices: ' + error.message + '</p>';
+        })
+        .getReceivables();
+    }
+
+    // Record Receipt Page
+    function renderRecordReceiptContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Record Receipt', 'Record payments received from customers.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Select Customer</h2>
+              <p style="color:#6b7280;font-size:13px;">Choose a customer to see outstanding invoices.</p>
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            <div class="form-group">
+              <label for="receiptCustomerSelect">Customer</label>
+              <select id="receiptCustomerSelect" onchange="loadCustomerReceivables()" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                <option value="">-- Select Customer --</option>
+              </select>
+            </div>
+          </div>
+          <div id="customerReceivablesContainer" style="margin-top:16px;">
+            <p style="color:#6b7280;">Select a customer to view outstanding invoices.</p>
+          </div>
+        </div>
+      `;
+      loadCustomersForReceipt();
+    }
+
+    function loadCustomersForReceipt() {
+      google.script.run
+        .withSuccessHandler(function(customers) {
+          const select = document.getElementById('receiptCustomerSelect');
+          (customers || []).filter(c => c.Status === 'Active').forEach(c => {
+            const option = document.createElement('option');
+            option.value = c.Customer_ID;
+            option.textContent = c.Customer_Name;
+            select.appendChild(option);
+          });
+        })
+        .getCustomers();
+    }
+
+    function loadCustomerReceivables() {
+      const customerId = document.getElementById('receiptCustomerSelect').value;
+      const container = document.getElementById('customerReceivablesContainer');
+
+      if (!customerId) {
+        container.innerHTML = '<p style="color:#6b7280;">Select a customer to view outstanding invoices.</p>';
+        return;
+      }
+
+      container.innerHTML = '<p>Loading invoices...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(receivables) {
+          const pending = (receivables || []).filter(r => r.Status !== 'Paid');
+
+          if (pending.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;">No outstanding invoices for this customer.</p>';
+            return;
+          }
+
+          let totalOutstanding = 0;
+          let html = `
+            <table class="table" style="margin-bottom:16px;">
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Invoice Date</th>
+                  <th>Due Date</th>
+                  <th style="text-align:right;">Amount</th>
+                  <th style="text-align:right;">Balance</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          pending.forEach(r => {
+            const balance = parseFloat(r.Balance) || 0;
+            totalOutstanding += balance;
+            const overdue = r.Days_Overdue > 0 ? `<span style="color:#dc2626;font-size:11px;">(${r.Days_Overdue}d overdue)</span>` : '';
+
+            html += `
+              <tr>
+                <td><strong>${r.Invoice_Number || '-'}</strong></td>
+                <td>${r.Invoice_Date || '-'}</td>
+                <td>${r.Due_Date || '-'} ${overdue}</td>
+                <td style="text-align:right;">${parseFloat(r.Amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td style="text-align:right;font-weight:600;">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td><span class="status-badge ${r.Status === 'Partial' ? 'status-badge--warn' : 'status-badge--bad'}">${r.Status}</span></td>
+                <td>
+                  <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openReceiptModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Receive</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += `
+              </tbody>
+              <tfoot>
+                <tr style="font-weight:600;background:#f9fafb;">
+                  <td colspan="4" style="text-align:right;">Total Outstanding:</td>
+                  <td style="text-align:right;">${totalOutstanding.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                  <td colspan="2"></td>
+                </tr>
+              </tfoot>
+            </table>
+          `;
+
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load invoices: ' + error.message + '</p>';
+        })
+        .getCustomerReceivables(customerId);
+    }
+
+    // Receipt Modal
+    function openReceiptModal(receivableId, customerName, invoiceNumber, balance) {
+      const today = new Date().toISOString().split('T')[0];
+
+      const modalHtml = `
+        <div class="modal open" id="receiptModal">
+          <div class="modal-card" style="max-width:500px;">
+            <div class="modal-header">
+              <span>Record Receipt</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('receiptModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div style="background:#f0fdf4;padding:12px;border-radius:6px;margin-bottom:16px;">
+                <p style="font-size:13px;color:#166534;">Customer</p>
+                <p style="font-weight:600;">${customerName}</p>
+                <p style="font-size:13px;color:#166534;margin-top:8px;">Invoice</p>
+                <p style="font-weight:600;">${invoiceNumber}</p>
+                <p style="font-size:13px;color:#166534;margin-top:8px;">Outstanding Balance</p>
+                <p style="font-weight:600;font-size:18px;color:#166534;">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+
+              <input type="hidden" id="receiptReceivableId" value="${receivableId}">
+
+              <div class="form-group">
+                <label for="receiptDate">Receipt Date *</label>
+                <input type="date" id="receiptDate" value="${today}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+
+              <div class="form-group">
+                <label for="receiptAmount">Amount *</label>
+                <input type="number" id="receiptAmount" value="${balance}" min="0.01" max="${balance}" step="0.01" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+
+              <div class="form-group">
+                <label for="receiptRef">Receipt Reference *</label>
+                <input type="text" id="receiptRef" placeholder="e.g., RCT-001234 or Deposit slip #" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+
+              <div class="form-group">
+                <label for="receiptBankAccount">Bank Account</label>
+                <input type="text" id="receiptBankAccount" placeholder="Account code" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+
+              <div id="receiptFormStatus" style="min-height:24px;margin:12px 0;"></div>
+
+              <button class="btn btn-primary" onclick="processReceipt()" style="width:100%;">Record Receipt</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function processReceipt() {
+      const receivableId = document.getElementById('receiptReceivableId').value;
+      const receiptDate = document.getElementById('receiptDate').value;
+      const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+      const receiptRef = document.getElementById('receiptRef').value.trim();
+      const bankAccount = document.getElementById('receiptBankAccount').value.trim();
+      const statusDiv = document.getElementById('receiptFormStatus');
+
+      if (!receiptDate) {
+        statusDiv.innerHTML = '<span style="color:#dc2626;">Receipt date is required.</span>';
+        return;
+      }
+      if (amount <= 0) {
+        statusDiv.innerHTML = '<span style="color:#dc2626;">Amount must be greater than zero.</span>';
+        return;
+      }
+      if (!receiptRef) {
+        statusDiv.innerHTML = '<span style="color:#dc2626;">Receipt reference is required.</span>';
+        return;
+      }
+
+      statusDiv.innerHTML = 'Processing receipt...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            document.getElementById('receiptModal').remove();
+            alert('Receipt recorded successfully!' + (result.journalCreated ? ' Journal entry created.' : ''));
+            // Refresh the current view
+            if (document.getElementById('receivablesTableContainer')) {
+              loadReceivables();
+            } else if (document.getElementById('customerReceivablesContainer')) {
+              loadCustomerReceivables();
+            }
+          } else {
+            statusDiv.innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to process receipt') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          statusDiv.innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .recordReceipt({
+          receivableId: receivableId,
+          receiptDate: receiptDate,
+          amount: amount,
+          receiptRef: receiptRef,
+          bankAccount: bankAccount
+        });
+    }
+
+    // AR Aging Report
+    function renderARAgingReportContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('AR Aging Report', 'View accounts receivable aging summary.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Accounts Receivable Aging</h2>
+              <p style="color:#6b7280;font-size:13px;">Summary of outstanding invoices by age.</p>
+            </div>
+            <button class="btn btn-secondary" onclick="loadARAgingReport()">Refresh</button>
+          </div>
+          <div id="arAgingReportContainer" style="margin-top:16px;">
+            <p>Loading aging report...</p>
+          </div>
+        </div>
+      `;
+      loadARAgingReport();
+    }
+
+    function loadARAgingReport() {
+      const container = document.getElementById('arAgingReportContainer');
+      container.innerHTML = '<p>Loading aging report...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(summary) {
+          const html = `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:16px;margin-bottom:24px;">
+              <div style="background:#f0fdf4;padding:16px;border-radius:8px;text-align:center;">
+                <p style="font-size:12px;color:#166534;margin-bottom:4px;">Current</p>
+                <p style="font-size:24px;font-weight:700;color:#166534;">${(summary.current || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+              <div style="background:#fefce8;padding:16px;border-radius:8px;text-align:center;">
+                <p style="font-size:12px;color:#854d0e;margin-bottom:4px;">1-30 Days</p>
+                <p style="font-size:24px;font-weight:700;color:#854d0e;">${(summary.days_1_30 || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+              <div style="background:#fff7ed;padding:16px;border-radius:8px;text-align:center;">
+                <p style="font-size:12px;color:#c2410c;margin-bottom:4px;">31-60 Days</p>
+                <p style="font-size:24px;font-weight:700;color:#c2410c;">${(summary.days_31_60 || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+              <div style="background:#fef2f2;padding:16px;border-radius:8px;text-align:center;">
+                <p style="font-size:12px;color:#dc2626;margin-bottom:4px;">61-90 Days</p>
+                <p style="font-size:24px;font-weight:700;color:#dc2626;">${(summary.days_61_90 || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+              <div style="background:#fef2f2;padding:16px;border-radius:8px;text-align:center;border:2px solid #dc2626;">
+                <p style="font-size:12px;color:#dc2626;margin-bottom:4px;">Over 90 Days</p>
+                <p style="font-size:24px;font-weight:700;color:#dc2626;">${(summary.days_over_90 || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+            </div>
+
+            <div style="background:#f0fdf4;padding:16px;border-radius:8px;text-align:center;">
+              <p style="font-size:14px;color:#166534;margin-bottom:4px;">Total Receivables</p>
+              <p style="font-size:32px;font-weight:700;color:#166534;">${(summary.total || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+            </div>
+          `;
+
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load aging report: ' + error.message + '</p>';
+        })
+        .getReceivablesAgingSummary();
     }
   </script>
 
