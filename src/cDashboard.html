@@ -462,6 +462,18 @@
       background: #ffffff;
     }
 
+    /* Default content padding inside cards (after section-hero) */
+    .card > div:not(.section-hero):not(.panel-header) {
+      padding: 16px;
+    }
+
+    /* When section-hero is followed by content, add proper spacing */
+    .section-hero + div,
+    .section-hero + form,
+    .section-hero + section {
+      padding: 16px;
+    }
+
     /* Oracle-style panel header */
     .section-hero {
       background: linear-gradient(180deg, #d4e5f7 0%, #c4d9f0 100%);
@@ -540,7 +552,10 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
+      padding: 12px 16px;
+      background: #f8f8f8;
+      border-bottom: 1px solid #dddddd;
       flex-wrap: wrap;
     }
 
@@ -550,16 +565,52 @@
       flex-wrap: wrap;
     }
 
-    /* Oracle-style card body */
+    /* Form grid layout with spacing */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      padding: 16px;
+    }
+
+    /* Status text and helper text */
+    .status-text {
+      font-size: 11px;
+      color: #666666;
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+
+    /* Result count text */
+    .result-count {
+      font-size: 12px;
+      color: #336699;
+      font-weight: 500;
+      margin: 12px 0;
+      padding: 6px 0;
+      border-bottom: 1px dotted #cccccc;
+    }
+
+    /* Oracle-style card body - content padding */
     .card-body {
-      padding: 10px;
+      padding: 16px;
+    }
+
+    /* Section content area below header */
+    .section-content {
+      padding: 16px;
+    }
+
+    /* Panel/form content area */
+    .panel-content {
+      padding: 16px;
     }
 
     /* Desktop: Normal table layout */
     .table {
       width: 100%;
       font-size: 11px;
-      margin-top: 0;
+      margin-top: 12px;
       border-collapse: collapse;
       border: 1px solid #cccccc;
     }
