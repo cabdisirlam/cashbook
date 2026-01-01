@@ -17,29 +17,34 @@
     /* Critical CSS - inlined for fast first paint */
 
     :root {
-      --brand: #2563eb;
-      --brand-dark: #1d4ed8;
-      --brand-light: #3b82f6;
-      --purple: #7c3aed;
-      --purple-dark: #5b21b6;
-      --accent: #0f172a;
-      --accent-dark: #1e293b;
-      --ink: #0f172a;
-      --ink-light: #1f2937;
-      --muted: #64748b;
-      --muted-light: #94a3b8;
+      /* Oracle E-Business Suite Color Palette */
+      --oracle-header: #003366;
+      --oracle-header-dark: #002244;
+      --oracle-panel-header: #336699;
+      --oracle-panel-header-light: #d4e5f7;
+      --oracle-link: #0066cc;
+      --oracle-link-hover: #004499;
+      --brand: #336699;
+      --brand-dark: #003366;
+      --brand-light: #4477aa;
+      --accent: #003366;
+      --accent-dark: #002244;
+      --ink: #333333;
+      --ink-light: #555555;
+      --muted: #666666;
+      --muted-light: #999999;
       --panel: #ffffff;
-      --bg: #f8fafc;
-      --bg-secondary: #f1f5f9;
-      --line: #e2e8f0;
-      --line-light: #f1f5f9;
-      --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
-      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-      --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-      --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-      --radius: 12px;
-      --radius-lg: 16px;
+      --bg: #f5f5f5;
+      --bg-secondary: #eeeeee;
+      --line: #cccccc;
+      --line-light: #dddddd;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+      --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.12);
+      --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.15);
+      --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.2);
+      --radius: 4px;
+      --radius-lg: 6px;
       --transition: all 0.15s ease;
     }
 
@@ -114,7 +119,7 @@
 
     body {
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      background: #f5f5f5;
       min-height: 100vh;
       color: var(--ink);
       -webkit-font-smoothing: antialiased;
@@ -124,16 +129,7 @@
 
     body::before {
       content: "";
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background:
-        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.05) 0%, transparent 25%),
-        radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.05) 0%, transparent 25%);
-      pointer-events: none;
-      z-index: 0;
+      display: none;
     }
 
     .layout {
@@ -143,29 +139,31 @@
       z-index: 1;
     }
 
+    /* Oracle-style sidebar - white with blue header */
     .sidebar {
       width: 240px;
-      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-      border-right: 1px solid #334155;
+      background: #ffffff;
+      border-right: 1px solid #cccccc;
       display: flex;
       flex-direction: column;
       position: fixed;
       height: 100vh;
-      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+      box-shadow: 1px 0 3px rgba(0, 0, 0, 0.1);
       z-index: 100;
     }
 
     .sidebar-header {
-      padding: 14px 16px;
-      font-weight: 600;
-      font-size: 14px;
-      color: #f1f5f9;
+      padding: 8px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      color: #ffffff;
       letter-spacing: 0;
-      border-bottom: 1px solid #334155;
+      border-bottom: 1px solid #cccccc;
       display: flex;
       align-items: center;
       gap: 8px;
-      background: #0f172a;
+      background: linear-gradient(180deg, #336699 0%, #2d5a85 100%);
+      border-left: 3px solid #003366;
     }
 
     .sidebar-header::before {
@@ -177,36 +175,36 @@
       flex: 1;
       overflow-y: auto;
       padding: 8px 0;
-      background: transparent;
+      background: #ffffff;
     }
 
-    /* Oracle-style tree menu with proper spacing */
+    /* Oracle-style tree menu */
     .menu-section {
-      margin-bottom: 4px;
+      margin-bottom: 2px;
       padding-bottom: 0;
       border-bottom: none;
     }
 
     .menu-section-title {
-      padding: 8px 16px;
+      padding: 6px 12px;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0;
       text-transform: none;
-      color: #93c5fd;
+      color: #0066cc;
     }
 
     .menu-section.collapsible .menu-section-title {
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     .menu-section-title .menu-section-label {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
     }
 
     /* Oracle-style +/- toggle button */
@@ -214,14 +212,14 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 16px;
-      height: 16px;
-      font-size: 12px;
+      width: 14px;
+      height: 14px;
+      font-size: 11px;
       font-weight: 700;
-      color: #94a3b8;
-      background: #1e293b;
-      border: 1px solid #475569;
-      border-radius: 3px;
+      color: #666666;
+      background: #f0f0f0;
+      border: 1px solid #999999;
+      border-radius: 2px;
       flex-shrink: 0;
       line-height: 1;
     }
@@ -236,9 +234,9 @@
 
     .menu-section.collapsible .menu-section-body {
       display: block;
-      padding-left: 24px;
-      margin-left: 8px;
-      border-left: 1px solid #334155;
+      padding-left: 20px;
+      margin-left: 6px;
+      border-left: 1px dotted #cccccc;
     }
 
     .menu-section.collapsible.collapsed .menu-section-body {
@@ -246,33 +244,33 @@
     }
 
     .menu-item {
-      margin: 2px 12px 2px 8px;
-      padding: 7px 12px;
-      color: #60a5fa;
+      margin: 1px 8px 1px 4px;
+      padding: 5px 10px;
+      color: #0066cc;
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: background 0.1s ease;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       font-size: 13px;
       font-weight: 400;
-      border-radius: 4px;
+      border-radius: 2px;
       position: relative;
       text-decoration: underline;
     }
 
     .menu-item:hover {
-      background: rgba(51, 65, 85, 0.5);
-      color: #93c5fd;
+      background: #e8f0fe;
+      color: #004499;
       transform: none;
     }
 
     .menu-item.active {
-      background: rgba(37, 99, 235, 0.25);
-      color: #93c5fd;
+      background: #d4e5f7;
+      color: #003366;
       font-weight: 500;
-      border-left: 3px solid #3b82f6;
       text-decoration: none;
+      border-left: 2px solid #336699;
     }
 
     /* Hide all menu item icons - Oracle style uses text links only */
@@ -289,14 +287,14 @@
     }
 
     .topbar {
-      background: linear-gradient(180deg, #003d82 0%, #00316b 100%);
-      padding: 12px 24px;
-      border-bottom: 1px solid #001f3f;
+      background: linear-gradient(180deg, #003366 0%, #002244 100%);
+      padding: 10px 20px;
+      border-bottom: 1px solid #001a33;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      gap: 16px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
       position: sticky;
       top: 0;
       z-index: 90;
@@ -433,18 +431,19 @@
 
     .content {
       flex: 1;
-      padding: 24px;
+      padding: 16px;
       max-width: 1400px;
       margin: 0 auto;
       width: 100%;
     }
 
+    /* Oracle-style card/panel */
     .card {
-      background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+      background: #ffffff;
       border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: var(--shadow);
-      border: 1px solid #bae6fd;
+      padding: 0;
+      box-shadow: none;
+      border: 1px solid #cccccc;
       transition: var(--transition);
       position: relative;
       overflow: hidden;
@@ -452,9 +451,9 @@
     }
 
     .card:hover {
-      box-shadow: 0 8px 20px -4px rgba(59, 130, 246, 0.2);
-      border-color: #7dd3fc;
-      transform: translateY(-1px);
+      box-shadow: none;
+      border-color: #999999;
+      transform: none;
     }
 
     .card::after {
@@ -474,64 +473,63 @@
       background: #fafbfc;
     }
 
+    /* Oracle-style panel header */
     .section-hero {
-      background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
-      border: 2px solid #93c5fd;
-      border-radius: 12px;
-      padding: 14px 18px;
-      color: #0f172a;
+      background: linear-gradient(180deg, #d4e5f7 0%, #c4d9f0 100%);
+      border: 1px solid #99bbdd;
+      border-radius: 0;
+      padding: 8px 12px;
+      color: #333333;
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
+      gap: 10px;
+      margin-bottom: 0;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 4px 12px -4px rgba(30, 64, 175, 0.2);
+      box-shadow: none;
+      border-left: 3px solid #336699;
     }
 
     .section-hero::after {
       content: "";
-      position: absolute;
-      right: -18%;
-      top: -10%;
-      width: 45%;
-      height: 140%;
-      background: radial-gradient(circle, rgba(255, 255, 255, 0.6), transparent 70%);
+      display: none;
     }
 
     .section-hero__icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.9);
-      color: #1d4ed8;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background: #ffffff;
+      color: #336699;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 11px;
       font-weight: 700;
       letter-spacing: -0.02em;
       z-index: 1;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+      box-shadow: none;
+      border: 1px solid #99bbdd;
     }
 
     .section-hero__title {
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 2px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0;
+      margin-bottom: 0;
+      color: #333333;
     }
 
     .section-hero__subtitle {
       font-size: 11px;
-      color: #475569;
+      color: #666666;
       max-width: 560px;
-      line-height: 1.5;
+      line-height: 1.4;
     }
 
     .tone-green {
-      background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-      border: 2px solid #60a5fa;
+      background: linear-gradient(180deg, #d4e5f7 0%, #c4d9f0 100%);
+      border: 1px solid #99bbdd;
     }
 
     .card h2 {
@@ -748,14 +746,15 @@
     }
 
     .modal-header {
-      background: linear-gradient(180deg, #336699 0%, #2d5a85 100%);
-      color: #ffffff;
-      padding: 14px 20px;
+      background: linear-gradient(180deg, #d4e5f7 0%, #c4d9f0 100%);
+      color: #333333;
+      padding: 10px 16px;
       margin: 0;
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: -0.01em;
-      border-bottom: 1px solid #1e3a5f;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0;
+      border-bottom: 1px solid #99bbdd;
+      border-left: 3px solid #336699;
       display: flex;
       align-items: center;
       justify-content: space-between;
