@@ -13,12 +13,10 @@ const CONFIG = {
     DB_BANK: "DB_BANK",
     DB_BUDGET: "DB_BUDGET",
 
-    // PART 2: Procurement Module
+    // PART 2: Procurement Module (3 sheets - lines stored as JSON)
     SUPPLIERS: "SUPPLIERS",
     PURCHASE_ORDERS: "PURCHASE_ORDERS",
-    PO_LINES: "PO_LINES",
     GRN: "GRN",
-    GRN_LINES: "GRN_LINES",
 
     // PART 3: Master Data & System
     MASTER_DATA: "MASTER_DATA",
@@ -26,6 +24,34 @@ const CONFIG = {
     SYS_LOGS: "SYS_LOGS"
   }
 };
+
+// Sheet header definitions - single source of truth
+const SHEET_HEADERS = {
+  DB_JOURNAL: ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
+               'Bank_Ref', 'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
+               'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'],
+  DB_BANK: ['Account_Code', 'Financial_Year', 'Txn_Date', 'Value_Date', 'Bank_Ref',
+            'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'],
+  DB_BUDGET: ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type',
+              'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget',
+              'Actual_Amount', 'Variance', 'Auth_Ref', 'Description'],
+  SUPPLIERS: ['Supplier_ID', 'Supplier_Name', 'Contact_Person', 'Phone', 'Email',
+              'Address', 'KRA_PIN', 'Bank_Name', 'Bank_Account', 'Category',
+              'Payment_Terms', 'Status', 'Created_Date', 'Created_By'],
+  PURCHASE_ORDERS: ['PO_ID', 'PO_Number', 'PO_Date', 'Financial_Year', 'Supplier_ID',
+                    'Supplier_Name', 'Description', 'Total_Amount', 'Status',
+                    'Requested_By', 'Requested_Date', 'Approved_By', 'Approved_Date',
+                    'Delivery_Date', 'Notes', 'Line_Items'],
+  GRN: ['GRN_ID', 'GRN_Number', 'GRN_Date', 'PO_ID', 'PO_Number',
+        'Supplier_ID', 'Supplier_Name', 'Received_By', 'Status',
+        'Invoice_Number', 'Invoice_Date', 'Invoice_Amount', 'Notes', 'Line_Items'],
+  MASTER_DATA: ['Payees', 'Particulars', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'],
+  SYS_USERS: ['Email', 'PIN', 'Name', 'Role', 'Status'],
+  SYS_LOGS: ['Timestamp', 'User', 'Action', 'Target_ID', 'Details']
+};
+
+// Legacy sheets to remove
+const LEGACY_SHEETS = ['HOME', 'VIEW_LEDGER', 'VIEW_REPORTS', 'VIEW_RECON', 'PO_LINES', 'GRN_LINES'];
 
 /**
  * Main entry point - serves the web app
@@ -65,128 +91,109 @@ function doGet(e) {
 }
 
 /**
- * PUBLIC: Initialize spreadsheet and sheets
- * Run this once to set up your Financial System
+ * PUBLIC: Initialize/Sync spreadsheet and sheets
+ * Smart sync function that:
+ * - Creates missing sheets
+ * - Removes legacy/unused sheets
+ * - Updates headers on every run
  */
 function initializeSpreadsheet() {
   let ss = _getOrCreateSpreadsheet();
+  const results = {
+    created: [],
+    updated: [],
+    removed: []
+  };
 
-  // Initialize Core Transaction sheets
-  _initializeDbJournalSheet(ss);
-  _initializeDbBankSheet(ss);
-  _initializeDbBudgetSheet(ss);
+  // Step 1: Remove legacy sheets
+  LEGACY_SHEETS.forEach(name => {
+    const sheet = ss.getSheetByName(name);
+    if (sheet) {
+      ss.deleteSheet(sheet);
+      results.removed.push(name);
+      Logger.log('Removed legacy sheet: ' + name);
+    }
+  });
 
-  // Initialize Procurement sheets
-  _initializeSuppliersSheet(ss);
-  _initializePurchaseOrdersSheet(ss);
-  _initializePoLinesSheet(ss);
-  _initializeGrnSheet(ss);
-  _initializeGrnLinesSheet(ss);
+  // Step 2: Create/Update all required sheets
+  Object.keys(CONFIG.SHEETS).forEach(key => {
+    const sheetName = CONFIG.SHEETS[key];
+    const headers = SHEET_HEADERS[key];
+    if (!headers) return; // Skip if no headers defined
 
-  // Initialize Master Data & System sheets
-  _initializeMasterDataSheet(ss);
-  _initializeSysUsersSheet(ss);
-  _initializeSysLogsSheet(ss);
+    let sheet = ss.getSheetByName(sheetName);
+
+    if (!sheet) {
+      // Create new sheet
+      sheet = ss.insertSheet(sheetName);
+      results.created.push(sheetName);
+      Logger.log('Created sheet: ' + sheetName);
+    } else {
+      results.updated.push(sheetName);
+    }
+
+    // Always update headers (this ensures new columns are added)
+    _syncSheetHeaders(sheet, headers);
+  });
+
+  // Step 3: Handle special cases (default data)
+  _ensureDefaultUser(ss);
+
+  const message = `Sync complete: ${results.created.length} created, ${results.updated.length} updated, ${results.removed.length} removed`;
+  Logger.log(message);
 
   return {
     success: true,
-    message: "Spreadsheet initialized successfully with 11 sheets",
+    message: message,
+    created: results.created,
+    updated: results.updated,
+    removed: results.removed,
     spreadsheetId: ss.getId(),
     spreadsheetUrl: ss.getUrl()
   };
 }
 
 /**
- * PUBLIC: Clean up sheet headers on existing sheets
- * Run this to fix headers without recreating the entire spreadsheet
+ * PRIVATE: Sync sheet headers - updates headers to match definition
+ */
+function _syncSheetHeaders(sheet, headers) {
+  const numCols = headers.length;
+
+  // Set headers in row 1
+  sheet.getRange(1, 1, 1, numCols).setValues([headers]);
+
+  // Format header row
+  _formatHeaderRow(sheet, numCols);
+}
+
+/**
+ * PRIVATE: Ensure default admin user exists
+ */
+function _ensureDefaultUser(ss) {
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.SYS_USERS);
+  if (!sheet) return;
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    // Add default admin user
+    const defaultUser = [
+      'cabdisirlam@gmail.com',
+      '1234',
+      'Admin User',
+      'ADMIN',
+      'Active'
+    ];
+    sheet.getRange(2, 1, 1, defaultUser.length).setValues([defaultUser]);
+    Logger.log('Added default admin user');
+  }
+}
+
+/**
+ * PUBLIC: Alias for initializeSpreadsheet - for backwards compatibility
+ * Use initializeSpreadsheet() instead
  */
 function cleanupSheetHeaders() {
-  Logger.log('Starting manual sheet headers cleanup...');
-
-  const ss = _getOrCreateSpreadsheet();
-  let updatedSheets = [];
-
-  // Clean up DB_JOURNAL headers
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
-  if (sheet) {
-    const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
-                     'Bank_Ref', 'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
-                     'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-    updatedSheets.push('DB_JOURNAL');
-    Logger.log('✓ DB_JOURNAL headers cleaned');
-  }
-
-  // Clean up DB_BANK headers
-  sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BANK);
-  if (sheet) {
-    const headers = ['Account_Code', 'Financial_Year', 'Txn_Date', 'Value_Date', 'Bank_Ref',
-                     'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-    updatedSheets.push('DB_BANK');
-    Logger.log('✓ DB_BANK headers cleaned');
-  }
-
-  // Clean up DB_BUDGET headers
-  sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
-  if (sheet) {
-    const headers = ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type',
-                     'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget',
-                     'Actual_Amount', 'Variance', 'Auth_Ref', 'Description'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-    updatedSheets.push('DB_BUDGET');
-    Logger.log('✓ DB_BUDGET headers cleaned');
-  }
-
-  // Clean up MASTER_DATA headers
-  sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
-  if (sheet) {
-    const headers = ['Payees', 'Particulars', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-    updatedSheets.push('MASTER_DATA');
-    Logger.log('✓ MASTER_DATA headers cleaned');
-  }
-
-  // Clean up SYS_USERS headers
-  sheet = ss.getSheetByName(CONFIG.SHEETS.SYS_USERS);
-  if (sheet) {
-    const headers = ['Email', 'PIN', 'Name', 'Role', 'Status'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-    updatedSheets.push('SYS_USERS');
-    Logger.log('✓ SYS_USERS headers cleaned');
-  }
-
-  // Clean up SYS_LOGS headers
-  sheet = ss.getSheetByName(CONFIG.SHEETS.SYS_LOGS);
-  if (sheet) {
-    const headers = ['Timestamp', 'User', 'Action', 'Target_ID', 'Details'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-    updatedSheets.push('SYS_LOGS');
-    Logger.log('✓ SYS_LOGS headers cleaned');
-  }
-
-  const message = `Sheet headers cleanup completed!\nUpdated ${updatedSheets.length} sheets: ${updatedSheets.join(', ')}`;
-  Logger.log(message);
-
-  // Show result in a UI alert if running from editor
-  try {
-    SpreadsheetApp.getUi().alert('Cleanup Complete', message, SpreadsheetApp.getUi().ButtonSet.OK);
-  } catch (e) {
-    // If UI not available, just log
-    Logger.log('UI not available, logged to console instead');
-  }
-
-  return {
-    success: true,
-    message: message,
-    updatedSheets: updatedSheets
-  };
+  return initializeSpreadsheet();
 }
 
 /**
@@ -240,191 +247,17 @@ function _formatHeaderRow(sheet, numColumns) {
 }
 
 /**
- * PART 1: Core Transaction Database
+ * PRIVATE: Get or ensure a sheet exists (lightweight helper)
  */
-
-// 1. DB_JOURNAL Sheet
-function _initializeDbJournalSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+function _ensureSheet(ss, sheetKey) {
+  const sheetName = CONFIG.SHEETS[sheetKey];
+  let sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.DB_JOURNAL);
-    const headers = ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
-                     'Bank_Ref', 'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
-                     'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-  }
-  return sheet;
-}
-
-// 2. DB_BANK Sheet
-function _initializeDbBankSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BANK);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.DB_BANK);
-    const headers = ['Account_Code', 'Financial_Year', 'Txn_Date', 'Value_Date', 'Bank_Ref',
-                     'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-  }
-  return sheet;
-}
-
-// 3. DB_BUDGET Sheet
-function _initializeDbBudgetSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_BUDGET);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.DB_BUDGET);
-    const headers = ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type',
-                     'Original_Budget', 'Reallocation', 'Supplementary', 'Final_Budget',
-                     'Actual_Amount', 'Variance', 'Auth_Ref', 'Description'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-
-    // Add a note about never deleting rows
-    sheet.getRange('A2').setNote('CRITICAL RULE: Never delete rows! For adjustments, add new rows with Supplementary or Reallocation amounts.');
-  }
-  return sheet;
-}
-
-/**
- * PART 2: Procurement Module
- */
-
-// 4. SUPPLIERS Sheet
-function _initializeSuppliersSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.SUPPLIERS);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.SUPPLIERS);
-    const headers = [
-      'Supplier_ID', 'Supplier_Name', 'Contact_Person', 'Phone', 'Email',
-      'Address', 'KRA_PIN', 'Bank_Name', 'Bank_Account', 'Category',
-      'Payment_Terms', 'Status', 'Created_Date', 'Created_By'
-    ];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-  }
-  return sheet;
-}
-
-// 5. PURCHASE_ORDERS Sheet
-function _initializePurchaseOrdersSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.PURCHASE_ORDERS);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.PURCHASE_ORDERS);
-    const headers = [
-      'PO_ID', 'PO_Number', 'PO_Date', 'Financial_Year', 'Supplier_ID',
-      'Supplier_Name', 'Description', 'Total_Amount', 'Status',
-      'Requested_By', 'Requested_Date', 'Approved_By', 'Approved_Date',
-      'Delivery_Date', 'Notes'
-    ];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-  }
-  return sheet;
-}
-
-// 6. PO_LINES Sheet
-function _initializePoLinesSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.PO_LINES);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.PO_LINES);
-    const headers = [
-      'Line_ID', 'PO_ID', 'Line_No', 'Item_Description', 'Particulars',
-      'Sub_Category', 'Category', 'Quantity', 'Unit', 'Unit_Price',
-      'Total_Price', 'Received_Qty', 'Status'
-    ];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-  }
-  return sheet;
-}
-
-// 7. GRN Sheet (Goods Received Notes)
-function _initializeGrnSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.GRN);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.GRN);
-    const headers = [
-      'GRN_ID', 'GRN_Number', 'GRN_Date', 'PO_ID', 'PO_Number',
-      'Supplier_ID', 'Supplier_Name', 'Received_By', 'Status',
-      'Invoice_Number', 'Invoice_Date', 'Invoice_Amount', 'Notes'
-    ];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-  }
-  return sheet;
-}
-
-// 8. GRN_LINES Sheet
-function _initializeGrnLinesSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.GRN_LINES);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.GRN_LINES);
-    const headers = [
-      'Line_ID', 'GRN_ID', 'PO_Line_ID', 'Line_No', 'Item_Description',
-      'Qty_Ordered', 'Qty_Received', 'Qty_Accepted', 'Qty_Rejected',
-      'Unit_Price', 'Total_Price', 'Rejection_Reason'
-    ];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-  }
-  return sheet;
-}
-
-/**
- * PART 3: Master Data & System
- */
-
-// 9. MASTER_DATA Sheet
-function _initializeMasterDataSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.MASTER_DATA);
-
-    // Create headers - All data will come from user input
-    const headers = ['Payees', 'Particulars', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-
-    // Auto-resize columns for better visibility
-    sheet.autoResizeColumns(1, headers.length);
-  }
-  return sheet;
-}
-
-// 10. SYS_USERS Sheet
-function _initializeSysUsersSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.SYS_USERS);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.SYS_USERS);
-
-    // Set headers
-    const headers = ['Email', 'PIN', 'Name', 'Role', 'Status'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
-
-    // Add default admin user
-    const defaultUser = [
-      'cabdisirlam@gmail.com',
-      '1234',
-      'Admin User',
-      'ADMIN',
-      'Active'
-    ];
-    sheet.getRange(2, 1, 1, defaultUser.length).setValues([defaultUser]);
-  }
-  return sheet;
-}
-
-// 11. SYS_LOGS Sheet
-function _initializeSysLogsSheet(ss) {
-  let sheet = ss.getSheetByName(CONFIG.SHEETS.SYS_LOGS);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEETS.SYS_LOGS);
-    const headers = ['Timestamp', 'User', 'Action', 'Target_ID', 'Details'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    _formatHeaderRow(sheet, headers.length);
+    sheet = ss.insertSheet(sheetName);
+    const headers = SHEET_HEADERS[sheetKey];
+    if (headers) {
+      _syncSheetHeaders(sheet, headers);
+    }
   }
   return sheet;
 }
@@ -435,7 +268,7 @@ function _initializeSysLogsSheet(ss) {
 function logSystemEvent(user, action, targetId, details) {
   try {
     const ss = _getOrCreateSpreadsheet();
-    const logsSheet = _initializeSysLogsSheet(ss);
+    const logsSheet = _ensureSheet(ss, 'SYS_LOGS');
 
     const timestamp = new Date();
     const logEntry = [timestamp, user, action, targetId || '', details || ''];
@@ -453,7 +286,7 @@ function authenticateUser(email, pin) {
   try {
     // Initialize spreadsheet if needed
     const ss = _getOrCreateSpreadsheet();
-    const usersSheet = _initializeSysUsersSheet(ss);
+    const usersSheet = _ensureSheet(ss, 'SYS_USERS');
 
     // Get all user data
     const data = usersSheet.getDataRange().getValues();
@@ -596,7 +429,7 @@ function checkSession() {
 function getUsers() {
   _requireAdmin();
   const ss = _getOrCreateSpreadsheet();
-  const sheet = _initializeSysUsersSheet(ss);
+  const sheet = _ensureSheet(ss, 'SYS_USERS');
   const data = sheet.getDataRange().getValues();
 
   if (data.length <= 1) return [];
@@ -615,7 +448,7 @@ function getUsers() {
 function getUserByRowId(rowId) {
   _requireAdmin();
   const ss = _getOrCreateSpreadsheet();
-  const sheet = _initializeSysUsersSheet(ss);
+  const sheet = _ensureSheet(ss, 'SYS_USERS');
   const row = Number(rowId);
 
   if (!row || row < 2) return null;
@@ -636,7 +469,7 @@ function addUser(user) {
   _requireAdmin();
   const payload = _normalizeUserPayload(user);
   const ss = _getOrCreateSpreadsheet();
-  const sheet = _initializeSysUsersSheet(ss);
+  const sheet = _ensureSheet(ss, 'SYS_USERS');
 
   const data = sheet.getDataRange().getValues();
   const emailLower = payload.email.toLowerCase();
@@ -656,7 +489,7 @@ function updateUser(user) {
   if (!row || row < 2) throw new Error('Invalid user row.');
 
   const ss = _getOrCreateSpreadsheet();
-  const sheet = _initializeSysUsersSheet(ss);
+  const sheet = _ensureSheet(ss, 'SYS_USERS');
   const existingRow = sheet.getRange(row, 1, 1, 5).getValues()[0];
   const existingPin = String(existingRow[1] || '').trim();
   const providedPin = String(user.pin || '').trim();
@@ -693,7 +526,7 @@ function updateUser(user) {
 function deactivateUser(rowId) {
   _requireAdmin();
   const ss = _getOrCreateSpreadsheet();
-  const sheet = _initializeSysUsersSheet(ss);
+  const sheet = _ensureSheet(ss, 'SYS_USERS');
   const row = Number(rowId);
 
   if (!row || row < 2) {
@@ -1262,7 +1095,7 @@ function saveOriginalBudget(payload) {
   if (!rows.length) throw new Error('No budget rows provided.');
 
   const ss = _getOrCreateSpreadsheet();
-  const sheet = _initializeDbBudgetSheet(ss);
+  const sheet = _ensureSheet(ss, 'DB_BUDGET');
   const headerMap = _getBudgetHeaderMap(sheet);
   _ensureBudgetHeaders(headerMap);
 
@@ -1351,7 +1184,7 @@ function saveBudgetAdjustment(payload) {
   if (!description) throw new Error('Description is required.');
 
   const ss = _getOrCreateSpreadsheet();
-  const sheet = _initializeDbBudgetSheet(ss);
+  const sheet = _ensureSheet(ss, 'DB_BUDGET');
   const headerMap = _getBudgetHeaderMap(sheet);
   _ensureBudgetHeaders(headerMap);
   const headerCount = sheet.getLastColumn();
@@ -1576,7 +1409,7 @@ function saveSupplier(data) {
   const ss = _getOrCreateSpreadsheet();
   let sheet = ss.getSheetByName(CONFIG.SHEETS.SUPPLIERS);
   if (!sheet) {
-    sheet = _initializeSuppliersSheet(ss);
+    sheet = _ensureSheet(ss, 'SUPPLIERS');
   }
 
   const user = getCurrentUser();
@@ -1667,17 +1500,21 @@ function getPurchaseOrders(filters) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
 
-  const data = sheet.getRange(2, 1, lastRow - 1, 15).getValues();
-  const headers = ['PO_ID', 'PO_Number', 'PO_Date', 'Financial_Year', 'Supplier_ID',
-                   'Supplier_Name', 'Description', 'Total_Amount', 'Status',
-                   'Requested_By', 'Requested_Date', 'Approved_By', 'Approved_Date',
-                   'Delivery_Date', 'Notes'];
+  const headers = SHEET_HEADERS.PURCHASE_ORDERS;
+  const data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
 
   let results = data.map(row => {
     const obj = {};
     headers.forEach((h, i) => {
       if (h.includes('Date') && row[i] instanceof Date) {
         obj[h] = Utilities.formatDate(row[i], Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      } else if (h === 'Line_Items') {
+        // Parse JSON line items
+        try {
+          obj[h] = row[i] ? JSON.parse(row[i]) : [];
+        } catch (e) {
+          obj[h] = [];
+        }
       } else {
         obj[h] = row[i];
       }
@@ -1702,73 +1539,76 @@ function getPurchaseOrders(filters) {
 }
 
 /**
- * Get PO with lines
+ * Get PO with lines (lines are stored as JSON in Line_Items column)
  */
 function getPurchaseOrderWithLines(poId) {
   const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.PURCHASE_ORDERS);
+  if (!sheet) return null;
 
-  // Get PO header
-  const poSheet = ss.getSheetByName(CONFIG.SHEETS.PURCHASE_ORDERS);
-  if (!poSheet) return null;
+  const headers = SHEET_HEADERS.PURCHASE_ORDERS;
+  const data = sheet.getDataRange().getValues();
 
-  const poData = poSheet.getDataRange().getValues();
-  const poHeaders = poData[0];
-  let poRecord = null;
-
-  for (let i = 1; i < poData.length; i++) {
-    if (poData[i][0] === poId) {
-      poRecord = {};
-      poHeaders.forEach((h, idx) => poRecord[h] = poData[i][idx]);
-      break;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === poId) {
+      const poRecord = {};
+      headers.forEach((h, idx) => {
+        if (h.includes('Date') && data[i][idx] instanceof Date) {
+          poRecord[h] = Utilities.formatDate(data[i][idx], Session.getScriptTimeZone(), 'yyyy-MM-dd');
+        } else if (h === 'Line_Items') {
+          try {
+            poRecord.lines = data[i][idx] ? JSON.parse(data[i][idx]) : [];
+          } catch (e) {
+            poRecord.lines = [];
+          }
+        } else {
+          poRecord[h] = data[i][idx];
+        }
+      });
+      return poRecord;
     }
   }
 
-  if (!poRecord) return null;
-
-  // Get PO lines
-  const linesSheet = ss.getSheetByName(CONFIG.SHEETS.PO_LINES);
-  const lines = [];
-
-  if (linesSheet && linesSheet.getLastRow() > 1) {
-    const linesData = linesSheet.getDataRange().getValues();
-    const linesHeaders = linesData[0];
-
-    for (let i = 1; i < linesData.length; i++) {
-      if (linesData[i][1] === poId) { // PO_ID is column 2
-        const line = {};
-        linesHeaders.forEach((h, idx) => line[h] = linesData[i][idx]);
-        lines.push(line);
-      }
-    }
-  }
-
-  poRecord.lines = lines;
-  return poRecord;
+  return null;
 }
 
 /**
- * Save a new purchase order with lines
+ * Save a new purchase order with lines (lines stored as JSON)
  */
 function savePurchaseOrder(data) {
   const ss = _getOrCreateSpreadsheet();
-  let poSheet = ss.getSheetByName(CONFIG.SHEETS.PURCHASE_ORDERS);
-  let linesSheet = ss.getSheetByName(CONFIG.SHEETS.PO_LINES);
-
-  if (!poSheet) poSheet = _initializePurchaseOrdersSheet(ss);
-  if (!linesSheet) linesSheet = _initializePoLinesSheet(ss);
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.PURCHASE_ORDERS);
+  if (!sheet) sheet = _ensureSheet(ss, 'PURCHASE_ORDERS');
 
   const user = getCurrentUser();
   const poId = _generateId('PO');
-  const poNumber = _generateSequentialNumber('PO', poSheet, 2);
+  const poNumber = _generateSequentialNumber('PO', sheet, 2);
   const now = new Date();
 
-  // Calculate total
+  // Process line items and calculate total
   let totalAmount = 0;
-  (data.lines || []).forEach(line => {
-    totalAmount += (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
+  const lineItems = (data.lines || []).map((line, index) => {
+    const qty = parseFloat(line.quantity) || 0;
+    const price = parseFloat(line.unitPrice) || 0;
+    const lineTotal = qty * price;
+    totalAmount += lineTotal;
+
+    return {
+      lineNo: index + 1,
+      itemDescription: line.itemDescription || '',
+      particulars: line.particulars || '',
+      subCategory: line.subCategory || '',
+      category: line.category || '',
+      quantity: qty,
+      unit: line.unit || 'Each',
+      unitPrice: price,
+      totalPrice: lineTotal,
+      receivedQty: 0,
+      status: 'Pending'
+    };
   });
 
-  // Save PO header
+  // Save PO with lines as JSON
   const poRow = [
     poId,
     poNumber,
@@ -1784,36 +1624,11 @@ function savePurchaseOrder(data) {
     '', // Approved_By
     '', // Approved_Date
     data.deliveryDate ? new Date(data.deliveryDate) : '',
-    data.notes || ''
+    data.notes || '',
+    JSON.stringify(lineItems) // Line_Items as JSON
   ];
 
-  poSheet.appendRow(poRow);
-
-  // Save PO lines
-  (data.lines || []).forEach((line, index) => {
-    const lineId = _generateId('POL');
-    const qty = parseFloat(line.quantity) || 0;
-    const price = parseFloat(line.unitPrice) || 0;
-
-    const lineRow = [
-      lineId,
-      poId,
-      index + 1,
-      line.itemDescription || '',
-      line.particulars || '',
-      line.subCategory || '',
-      line.category || '',
-      qty,
-      line.unit || 'Each',
-      price,
-      qty * price,
-      0, // Received_Qty
-      'Pending'
-    ];
-
-    linesSheet.appendRow(lineRow);
-  });
-
+  sheet.appendRow(poRow);
   logSystemEvent(user.email, 'CREATE_PO', poId, poNumber);
 
   return { success: true, poId: poId, poNumber: poNumber };
@@ -1870,16 +1685,20 @@ function getGoodsReceivedNotes(filters) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
 
-  const data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
-  const headers = ['GRN_ID', 'GRN_Number', 'GRN_Date', 'PO_ID', 'PO_Number',
-                   'Supplier_ID', 'Supplier_Name', 'Received_By', 'Status',
-                   'Invoice_Number', 'Invoice_Date', 'Invoice_Amount', 'Notes'];
+  const headers = SHEET_HEADERS.GRN;
+  const data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
 
   let results = data.map(row => {
     const obj = {};
     headers.forEach((h, i) => {
       if (h.includes('Date') && row[i] instanceof Date) {
         obj[h] = Utilities.formatDate(row[i], Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      } else if (h === 'Line_Items') {
+        try {
+          obj[h] = row[i] ? JSON.parse(row[i]) : [];
+        } catch (e) {
+          obj[h] = [];
+        }
       } else {
         obj[h] = row[i];
       }
@@ -1895,22 +1714,40 @@ function getGoodsReceivedNotes(filters) {
 }
 
 /**
- * Save GRN (Goods Received Note)
+ * Save GRN (Goods Received Note) with lines as JSON
  */
 function saveGoodsReceivedNote(data) {
   const ss = _getOrCreateSpreadsheet();
   let grnSheet = ss.getSheetByName(CONFIG.SHEETS.GRN);
-  let grnLinesSheet = ss.getSheetByName(CONFIG.SHEETS.GRN_LINES);
-
-  if (!grnSheet) grnSheet = _initializeGrnSheet(ss);
-  if (!grnLinesSheet) grnLinesSheet = _initializeGrnLinesSheet(ss);
+  if (!grnSheet) grnSheet = _ensureSheet(ss, 'GRN');
 
   const user = getCurrentUser();
   const grnId = _generateId('GRN');
   const grnNumber = _generateSequentialNumber('GRN', grnSheet, 2);
   const now = new Date();
 
-  // Save GRN header
+  // Process GRN line items
+  const lineItems = (data.lines || []).map((line, index) => {
+    const qtyReceived = parseFloat(line.qtyReceived) || 0;
+    const qtyAccepted = parseFloat(line.qtyAccepted) || qtyReceived;
+    const qtyRejected = parseFloat(line.qtyRejected) || 0;
+    const unitPrice = parseFloat(line.unitPrice) || 0;
+
+    return {
+      lineNo: index + 1,
+      poLineNo: line.poLineNo || (index + 1),
+      itemDescription: line.itemDescription || '',
+      qtyOrdered: parseFloat(line.qtyOrdered) || 0,
+      qtyReceived: qtyReceived,
+      qtyAccepted: qtyAccepted,
+      qtyRejected: qtyRejected,
+      unitPrice: unitPrice,
+      totalPrice: qtyAccepted * unitPrice,
+      rejectionReason: line.rejectionReason || ''
+    };
+  });
+
+  // Save GRN with lines as JSON
   const grnRow = [
     grnId,
     grnNumber,
@@ -1924,59 +1761,15 @@ function saveGoodsReceivedNote(data) {
     data.invoiceNumber || '',
     data.invoiceDate ? new Date(data.invoiceDate) : '',
     parseFloat(data.invoiceAmount) || 0,
-    data.notes || ''
+    data.notes || '',
+    JSON.stringify(lineItems) // Line_Items as JSON
   ];
 
   grnSheet.appendRow(grnRow);
 
-  // Save GRN lines and update PO lines
-  const poLinesSheet = ss.getSheetByName(CONFIG.SHEETS.PO_LINES);
-
-  (data.lines || []).forEach((line, index) => {
-    const lineId = _generateId('GRNL');
-    const qtyReceived = parseFloat(line.qtyReceived) || 0;
-    const qtyAccepted = parseFloat(line.qtyAccepted) || qtyReceived;
-    const qtyRejected = parseFloat(line.qtyRejected) || 0;
-
-    const lineRow = [
-      lineId,
-      grnId,
-      line.poLineId || '',
-      index + 1,
-      line.itemDescription || '',
-      parseFloat(line.qtyOrdered) || 0,
-      qtyReceived,
-      qtyAccepted,
-      qtyRejected,
-      parseFloat(line.unitPrice) || 0,
-      qtyAccepted * (parseFloat(line.unitPrice) || 0),
-      line.rejectionReason || ''
-    ];
-
-    grnLinesSheet.appendRow(lineRow);
-
-    // Update PO line received qty
-    if (line.poLineId && poLinesSheet) {
-      const poLinesData = poLinesSheet.getDataRange().getValues();
-      for (let i = 1; i < poLinesData.length; i++) {
-        if (poLinesData[i][0] === line.poLineId) {
-          const currentReceived = parseFloat(poLinesData[i][11]) || 0;
-          poLinesSheet.getRange(i + 1, 12).setValue(currentReceived + qtyAccepted);
-
-          // Update line status
-          const ordered = parseFloat(poLinesData[i][7]) || 0;
-          const newReceived = currentReceived + qtyAccepted;
-          const status = newReceived >= ordered ? 'Received' : 'Partial';
-          poLinesSheet.getRange(i + 1, 13).setValue(status);
-          break;
-        }
-      }
-    }
-  });
-
-  // Update PO status if all lines received
+  // Update PO line items received quantities
   if (data.poId) {
-    _updatePoStatusFromLines(ss, data.poId);
+    _updatePOLineItemsReceived(ss, data.poId, lineItems);
   }
 
   logSystemEvent(user.email, 'CREATE_GRN', grnId, grnNumber);
@@ -1985,40 +1778,67 @@ function saveGoodsReceivedNote(data) {
 }
 
 /**
- * Update PO status based on line statuses
+ * Update PO line items received quantities (JSON-based)
  */
-function _updatePoStatusFromLines(ss, poId) {
-  const linesSheet = ss.getSheetByName(CONFIG.SHEETS.PO_LINES);
+function _updatePOLineItemsReceived(ss, poId, grnLines) {
   const poSheet = ss.getSheetByName(CONFIG.SHEETS.PURCHASE_ORDERS);
+  if (!poSheet) return;
 
-  if (!linesSheet || !poSheet) return;
+  const headers = SHEET_HEADERS.PURCHASE_ORDERS;
+  const lineItemsIndex = headers.indexOf('Line_Items');
+  const statusIndex = headers.indexOf('Status');
+  const data = poSheet.getDataRange().getValues();
 
-  const linesData = linesSheet.getDataRange().getValues();
-  let allReceived = true;
-  let anyReceived = false;
-
-  for (let i = 1; i < linesData.length; i++) {
-    if (linesData[i][1] === poId) {
-      const status = linesData[i][12];
-      if (status === 'Received') {
-        anyReceived = true;
-      } else {
-        allReceived = false;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === poId) {
+      // Parse existing line items
+      let poLines = [];
+      try {
+        poLines = data[i][lineItemsIndex] ? JSON.parse(data[i][lineItemsIndex]) : [];
+      } catch (e) {
+        poLines = [];
       }
-    }
-  }
 
-  // Update PO status
-  const poData = poSheet.getDataRange().getValues();
-  for (let i = 1; i < poData.length; i++) {
-    if (poData[i][0] === poId) {
-      let newStatus = poData[i][8]; // Current status
+      // Update received quantities
+      let allReceived = true;
+      let anyReceived = false;
+
+      poLines.forEach(poLine => {
+        // Find matching GRN line
+        const grnLine = grnLines.find(g => g.lineNo === poLine.lineNo || g.poLineNo === poLine.lineNo);
+        if (grnLine) {
+          poLine.receivedQty = (poLine.receivedQty || 0) + grnLine.qtyAccepted;
+          if (poLine.receivedQty >= poLine.quantity) {
+            poLine.status = 'Received';
+            anyReceived = true;
+          } else if (poLine.receivedQty > 0) {
+            poLine.status = 'Partial';
+            anyReceived = true;
+            allReceived = false;
+          } else {
+            allReceived = false;
+          }
+        } else {
+          if (poLine.status !== 'Received') {
+            allReceived = false;
+          } else {
+            anyReceived = true;
+          }
+        }
+      });
+
+      // Update PO line items JSON
+      poSheet.getRange(i + 1, lineItemsIndex + 1).setValue(JSON.stringify(poLines));
+
+      // Update PO status
+      let newStatus = data[i][statusIndex];
       if (allReceived && anyReceived) {
         newStatus = 'Completed';
       } else if (anyReceived) {
         newStatus = 'Partial';
       }
-      poSheet.getRange(i + 1, 9).setValue(newStatus);
+      poSheet.getRange(i + 1, statusIndex + 1).setValue(newStatus);
+
       break;
     }
   }
@@ -2034,26 +1854,8 @@ function getPendingPOsForGRN() {
 }
 
 /**
- * Clean up old unused sheets (HOME, VIEW_LEDGER, VIEW_REPORTS, VIEW_RECON)
- * Run this once to remove legacy sheets
+ * Alias for initializeSpreadsheet - for backwards compatibility
  */
 function cleanupLegacySheets() {
-  const ss = _getOrCreateSpreadsheet();
-  const legacySheets = ['HOME', 'VIEW_LEDGER', 'VIEW_REPORTS', 'VIEW_RECON'];
-  const removed = [];
-
-  legacySheets.forEach(name => {
-    const sheet = ss.getSheetByName(name);
-    if (sheet) {
-      ss.deleteSheet(sheet);
-      removed.push(name);
-      Logger.log('Removed legacy sheet: ' + name);
-    }
-  });
-
-  return {
-    success: true,
-    message: `Removed ${removed.length} legacy sheets`,
-    removed: removed
-  };
+  return initializeSpreadsheet();
 }

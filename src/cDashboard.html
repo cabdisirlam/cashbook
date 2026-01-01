@@ -8654,16 +8654,19 @@
       let linesHtml = '';
       let total = 0;
       (po.lines || []).forEach((line, idx) => {
-        const lineTotal = (parseFloat(line.Quantity) || 0) * (parseFloat(line.Unit_Price) || 0);
+        // Support both camelCase (JSON) and snake_case (legacy) property names
+        const qty = parseFloat(line.quantity || line.Quantity) || 0;
+        const price = parseFloat(line.unitPrice || line.Unit_Price) || 0;
+        const lineTotal = qty * price;
         total += lineTotal;
         linesHtml += `
           <tr>
             <td>${idx + 1}</td>
-            <td>${line.Item_Description || ''}</td>
-            <td>${line.Particulars || '-'}</td>
-            <td style="text-align:right;">${line.Quantity || 0}</td>
-            <td>${line.Unit || '-'}</td>
-            <td style="text-align:right;">${parseFloat(line.Unit_Price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            <td>${line.itemDescription || line.Item_Description || ''}</td>
+            <td>${line.particulars || line.Particulars || '-'}</td>
+            <td style="text-align:right;">${qty}</td>
+            <td>${line.unit || line.Unit || '-'}</td>
+            <td style="text-align:right;">${price.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
             <td style="text-align:right;">${lineTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
           </tr>
         `;
@@ -8968,19 +8971,24 @@
           `;
 
           po.lines.forEach((line, idx) => {
-            const ordered = parseFloat(line.Quantity) || 0;
-            const received = parseFloat(line.Received_Qty) || 0;
+            // Support both camelCase (JSON) and snake_case (legacy) property names
+            const ordered = parseFloat(line.quantity || line.Quantity) || 0;
+            const received = parseFloat(line.receivedQty || line.Received_Qty) || 0;
             const remaining = Math.max(0, ordered - received);
+            const lineNo = line.lineNo || line.Line_No || (idx + 1);
+            const desc = line.itemDescription || line.Item_Description || '';
+            const particulars = line.particulars || line.Particulars || '';
+            const price = line.unitPrice || line.Unit_Price || 0;
 
             html += `
               <tr>
                 <td>
-                  <strong>${line.Item_Description || ''}</strong>
-                  ${line.Particulars ? `<br><span style="font-size:11px;color:#6b7280;">${line.Particulars}</span>` : ''}
-                  <input type="hidden" class="grn-line-id" value="${line.Line_ID}">
-                  <input type="hidden" class="grn-line-desc" value="${line.Item_Description || ''}">
+                  <strong>${desc}</strong>
+                  ${particulars ? `<br><span style="font-size:11px;color:#6b7280;">${particulars}</span>` : ''}
+                  <input type="hidden" class="grn-line-no" value="${lineNo}">
+                  <input type="hidden" class="grn-line-desc" value="${desc}">
                   <input type="hidden" class="grn-line-ordered" value="${ordered}">
-                  <input type="hidden" class="grn-line-price" value="${line.Unit_Price || 0}">
+                  <input type="hidden" class="grn-line-price" value="${price}">
                 </td>
                 <td style="text-align:right;">${ordered}</td>
                 <td style="text-align:right;">${received}</td>
@@ -9038,7 +9046,7 @@
         if (qty > 0) {
           hasReceivedItems = true;
           data.lines.push({
-            poLineId: row.querySelector('.grn-line-id').value,
+            poLineNo: parseInt(row.querySelector('.grn-line-no').value) || 1,
             itemDescription: row.querySelector('.grn-line-desc').value,
             qtyOrdered: row.querySelector('.grn-line-ordered').value,
             qtyReceived: qty,
