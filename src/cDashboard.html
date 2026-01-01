@@ -8120,8 +8120,154 @@
     }
 
     function editSupplier(supplierId) {
-      // For now, show a simple alert. Full edit modal can be added later.
-      alert('Edit supplier: ' + supplierId + '\n\nFull edit functionality will be added in the next update.');
+      // Find the supplier data from the table
+      google.script.run
+        .withSuccessHandler(function(suppliers) {
+          const supplier = (suppliers || []).find(s => s.Supplier_ID === supplierId);
+          if (!supplier) {
+            alert('Supplier not found.');
+            return;
+          }
+          openEditSupplierModal(supplier);
+        })
+        .withFailureHandler(function(error) {
+          alert('Error loading supplier: ' + error.message);
+        })
+        .getSuppliers();
+    }
+
+    function openEditSupplierModal(supplier) {
+      const modalHtml = `
+        <div class="modal open" id="editSupplierModal">
+          <div class="modal-card" style="max-width:600px;">
+            <div class="modal-header">
+              <span>Edit Supplier</span>
+              <button class="btn btn-secondary" onclick="closeEditSupplierModal()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <input type="hidden" id="editSupplierId" value="${supplier.Supplier_ID}">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editSupplierName">Supplier Name *</label>
+                  <input type="text" id="editSupplierName" value="${supplier.Supplier_Name || ''}">
+                </div>
+                <div class="form-group">
+                  <label for="editContactPerson">Contact Person</label>
+                  <input type="text" id="editContactPerson" value="${supplier.Contact_Person || ''}">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editSupplierPhone">Phone</label>
+                  <input type="text" id="editSupplierPhone" value="${supplier.Phone || ''}">
+                </div>
+                <div class="form-group">
+                  <label for="editSupplierEmail">Email</label>
+                  <input type="email" id="editSupplierEmail" value="${supplier.Email || ''}">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="editSupplierAddress">Address</label>
+                <input type="text" id="editSupplierAddress" value="${supplier.Address || ''}">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editKraPin">KRA PIN</label>
+                  <input type="text" id="editKraPin" value="${supplier.KRA_PIN || ''}">
+                </div>
+                <div class="form-group">
+                  <label for="editSupplierCategory">Category</label>
+                  <select id="editSupplierCategory">
+                    <option value="General" ${supplier.Category === 'General' ? 'selected' : ''}>General</option>
+                    <option value="Goods" ${supplier.Category === 'Goods' ? 'selected' : ''}>Goods</option>
+                    <option value="Services" ${supplier.Category === 'Services' ? 'selected' : ''}>Services</option>
+                    <option value="Contractor" ${supplier.Category === 'Contractor' ? 'selected' : ''}>Contractor</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editBankName">Bank Name</label>
+                  <input type="text" id="editBankName" value="${supplier.Bank_Name || ''}">
+                </div>
+                <div class="form-group">
+                  <label for="editBankAccount">Bank Account</label>
+                  <input type="text" id="editBankAccount" value="${supplier.Bank_Account || ''}">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editPaymentTerms">Payment Terms</label>
+                  <select id="editPaymentTerms">
+                    <option value="Immediate" ${supplier.Payment_Terms === 'Immediate' ? 'selected' : ''}>Immediate</option>
+                    <option value="Net 7" ${supplier.Payment_Terms === 'Net 7' ? 'selected' : ''}>Net 7 Days</option>
+                    <option value="Net 14" ${supplier.Payment_Terms === 'Net 14' ? 'selected' : ''}>Net 14 Days</option>
+                    <option value="Net 30" ${supplier.Payment_Terms === 'Net 30' ? 'selected' : ''}>Net 30 Days</option>
+                    <option value="Net 60" ${supplier.Payment_Terms === 'Net 60' ? 'selected' : ''}>Net 60 Days</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="editSupplierStatus">Status</label>
+                  <select id="editSupplierStatus">
+                    <option value="Active" ${supplier.Status === 'Active' ? 'selected' : ''}>Active</option>
+                    <option value="Inactive" ${supplier.Status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                  </select>
+                </div>
+              </div>
+              <div id="editSupplierFormStatus" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
+            </div>
+            <div class="modal-footer" style="padding:12px 16px;border-top:1px solid #e5e7eb;background:#f9fafb;">
+              <button class="btn btn-secondary" onclick="closeEditSupplierModal()">Cancel</button>
+              <button class="btn btn-primary" onclick="updateSupplierForm()">Update Supplier</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function closeEditSupplierModal() {
+      const modal = document.getElementById('editSupplierModal');
+      if (modal) modal.remove();
+    }
+
+    function updateSupplierForm() {
+      const supplierId = document.getElementById('editSupplierId').value;
+      const data = {
+        supplierName: document.getElementById('editSupplierName').value.trim(),
+        contactPerson: document.getElementById('editContactPerson').value.trim(),
+        phone: document.getElementById('editSupplierPhone').value.trim(),
+        email: document.getElementById('editSupplierEmail').value.trim(),
+        address: document.getElementById('editSupplierAddress').value.trim(),
+        kraPin: document.getElementById('editKraPin').value.trim(),
+        category: document.getElementById('editSupplierCategory').value,
+        bankName: document.getElementById('editBankName').value.trim(),
+        bankAccount: document.getElementById('editBankAccount').value.trim(),
+        paymentTerms: document.getElementById('editPaymentTerms').value,
+        status: document.getElementById('editSupplierStatus').value
+      };
+
+      if (!data.supplierName) {
+        document.getElementById('editSupplierFormStatus').innerHTML = '<span style="color:#dc2626;">Supplier name is required.</span>';
+        return;
+      }
+
+      document.getElementById('editSupplierFormStatus').innerHTML = 'Updating...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            closeEditSupplierModal();
+            loadSuppliers();
+          } else {
+            document.getElementById('editSupplierFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to update') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('editSupplierFormStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .updateSupplier(supplierId, data);
     }
 
     // Purchase Orders Management
@@ -8203,12 +8349,393 @@
         .getPurchaseOrders();
     }
 
+    let poLineCounter = 0;
+
     function openCreatePOModal() {
-      alert('Create PO Modal\n\nThis feature will be fully implemented in the next update.\n\nYou will be able to:\n- Select a supplier\n- Add line items with particulars\n- Submit for approval');
+      poLineCounter = 0;
+      const today = new Date().toISOString().split('T')[0];
+
+      const modalHtml = `
+        <div class="modal open" id="createPOModal">
+          <div class="modal-card" style="max-width:900px;max-height:90vh;">
+            <div class="modal-header">
+              <span>Create Purchase Order</span>
+              <button class="btn btn-secondary" onclick="closePOModal()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;overflow-y:auto;max-height:calc(90vh - 140px);">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="poDate">PO Date *</label>
+                  <input type="date" id="poDate" value="${today}">
+                </div>
+                <div class="form-group">
+                  <label for="poFinancialYear">Financial Year *</label>
+                  <select id="poFinancialYear">
+                    <option value="">Loading...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="poDeliveryDate">Expected Delivery</label>
+                  <input type="date" id="poDeliveryDate">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group" style="flex:2;">
+                  <label for="poSupplier">Supplier *</label>
+                  <select id="poSupplier" onchange="onSupplierSelected()">
+                    <option value="">Loading suppliers...</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex:1;">
+                  <label>&nbsp;</label>
+                  <button class="btn btn-secondary" onclick="openAddSupplierModal()" style="width:100%;">+ New Supplier</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="poDescription">Description</label>
+                <input type="text" id="poDescription" placeholder="Brief description of this purchase order">
+              </div>
+
+              <div style="margin-top:16px;border-top:1px solid #e5e7eb;padding-top:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <h3 style="font-size:14px;font-weight:600;margin:0;">Line Items</h3>
+                  <button class="btn btn-primary" onclick="addPOLine()" style="padding:6px 12px;font-size:12px;">+ Add Line</button>
+                </div>
+                <div id="poLinesContainer">
+                  <!-- Lines will be added here -->
+                </div>
+                <div id="poTotalRow" style="display:flex;justify-content:flex-end;padding:12px 0;border-top:1px solid #e5e7eb;margin-top:12px;">
+                  <div style="text-align:right;">
+                    <span style="font-size:13px;color:#6b7280;">Total Amount:</span>
+                    <strong style="font-size:18px;margin-left:8px;" id="poTotalAmount">0.00</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-top:12px;">
+                <label for="poNotes">Notes</label>
+                <textarea id="poNotes" rows="2" placeholder="Additional notes or instructions" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;font-family:inherit;font-size:13px;"></textarea>
+              </div>
+
+              <div id="poFormStatus" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
+            </div>
+            <div class="modal-footer" style="padding:12px 16px;border-top:1px solid #e5e7eb;background:#f9fafb;">
+              <button class="btn btn-secondary" onclick="closePOModal()">Cancel</button>
+              <button class="btn btn-primary" onclick="savePurchaseOrderForm()">Create PO</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadPOFormData();
+      addPOLine(); // Add first line by default
+    }
+
+    function closePOModal() {
+      const modal = document.getElementById('createPOModal');
+      if (modal) modal.remove();
+    }
+
+    function loadPOFormData() {
+      // Load suppliers
+      google.script.run
+        .withSuccessHandler(function(suppliers) {
+          const select = document.getElementById('poSupplier');
+          select.innerHTML = '<option value="">-- Select Supplier --</option>';
+          (suppliers || []).forEach(s => {
+            select.innerHTML += `<option value="${s.Supplier_ID}" data-name="${s.Supplier_Name}">${s.Supplier_Name}</option>`;
+          });
+        })
+        .getActiveSuppliers();
+
+      // Load financial years
+      google.script.run
+        .withSuccessHandler(function(years) {
+          const select = document.getElementById('poFinancialYear');
+          select.innerHTML = '<option value="">-- Select Year --</option>';
+          (years || []).forEach(y => {
+            select.innerHTML += `<option value="${y}">${y}</option>`;
+          });
+          // Select most recent year
+          if (years && years.length > 0) {
+            select.value = years[years.length - 1];
+          }
+        })
+        .getFinancialYears();
+    }
+
+    function onSupplierSelected() {
+      // Can be used for future enhancements
+    }
+
+    function addPOLine() {
+      poLineCounter++;
+      const container = document.getElementById('poLinesContainer');
+
+      const lineHtml = `
+        <div class="po-line" id="poLine${poLineCounter}" style="display:flex;gap:8px;align-items:flex-start;padding:12px;background:#f9fafb;border-radius:6px;margin-bottom:8px;">
+          <div style="flex:3;">
+            <label style="font-size:11px;color:#6b7280;">Item Description *</label>
+            <input type="text" class="po-line-desc" placeholder="Description" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
+          </div>
+          <div style="flex:2;">
+            <label style="font-size:11px;color:#6b7280;">Particulars</label>
+            <select class="po-line-particulars" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
+              <option value="">-- Select --</option>
+            </select>
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:11px;color:#6b7280;">Qty *</label>
+            <input type="number" class="po-line-qty" value="1" min="1" onchange="calculatePOTotal()" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;text-align:right;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:11px;color:#6b7280;">Unit</label>
+            <select class="po-line-unit" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
+              <option value="Each">Each</option>
+              <option value="Box">Box</option>
+              <option value="Pack">Pack</option>
+              <option value="Kg">Kg</option>
+              <option value="Litre">Litre</option>
+              <option value="Ream">Ream</option>
+              <option value="Set">Set</option>
+            </select>
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:11px;color:#6b7280;">Unit Price *</label>
+            <input type="number" class="po-line-price" value="0" min="0" step="0.01" onchange="calculatePOTotal()" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;text-align:right;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:11px;color:#6b7280;">Total</label>
+            <input type="text" class="po-line-total" readonly value="0.00" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;text-align:right;background:#f3f4f6;">
+          </div>
+          <div style="width:32px;padding-top:20px;">
+            <button type="button" onclick="removePOLine(${poLineCounter})" style="width:28px;height:28px;border:none;background:#fee2e2;color:#dc2626;border-radius:4px;cursor:pointer;font-size:14px;">×</button>
+          </div>
+        </div>
+      `;
+
+      container.insertAdjacentHTML('beforeend', lineHtml);
+      loadParticularsForLine(poLineCounter);
+    }
+
+    function loadParticularsForLine(lineNum) {
+      google.script.run
+        .withSuccessHandler(function(particulars) {
+          const line = document.getElementById('poLine' + lineNum);
+          if (!line) return;
+          const select = line.querySelector('.po-line-particulars');
+          select.innerHTML = '<option value="">-- Select --</option>';
+          (particulars || []).forEach(p => {
+            select.innerHTML += `<option value="${p}">${p}</option>`;
+          });
+        })
+        .getParticulars();
+    }
+
+    function removePOLine(lineNum) {
+      const line = document.getElementById('poLine' + lineNum);
+      if (line) {
+        line.remove();
+        calculatePOTotal();
+      }
+    }
+
+    function calculatePOTotal() {
+      const lines = document.querySelectorAll('.po-line');
+      let total = 0;
+
+      lines.forEach(line => {
+        const qty = parseFloat(line.querySelector('.po-line-qty').value) || 0;
+        const price = parseFloat(line.querySelector('.po-line-price').value) || 0;
+        const lineTotal = qty * price;
+        line.querySelector('.po-line-total').value = lineTotal.toFixed(2);
+        total += lineTotal;
+      });
+
+      document.getElementById('poTotalAmount').textContent = total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function savePurchaseOrderForm() {
+      const supplierId = document.getElementById('poSupplier').value;
+      const supplierOption = document.getElementById('poSupplier').selectedOptions[0];
+      const supplierName = supplierOption ? supplierOption.dataset.name || supplierOption.text : '';
+
+      const data = {
+        poDate: document.getElementById('poDate').value,
+        financialYear: document.getElementById('poFinancialYear').value,
+        deliveryDate: document.getElementById('poDeliveryDate').value,
+        supplierId: supplierId,
+        supplierName: supplierName,
+        description: document.getElementById('poDescription').value.trim(),
+        notes: document.getElementById('poNotes').value.trim(),
+        lines: []
+      };
+
+      // Validate
+      if (!data.supplierId) {
+        document.getElementById('poFormStatus').innerHTML = '<span style="color:#dc2626;">Please select a supplier.</span>';
+        return;
+      }
+      if (!data.financialYear) {
+        document.getElementById('poFormStatus').innerHTML = '<span style="color:#dc2626;">Please select a financial year.</span>';
+        return;
+      }
+
+      // Collect lines
+      const lines = document.querySelectorAll('.po-line');
+      if (lines.length === 0) {
+        document.getElementById('poFormStatus').innerHTML = '<span style="color:#dc2626;">Please add at least one line item.</span>';
+        return;
+      }
+
+      let hasValidLine = false;
+      lines.forEach(line => {
+        const desc = line.querySelector('.po-line-desc').value.trim();
+        const qty = parseFloat(line.querySelector('.po-line-qty').value) || 0;
+        const price = parseFloat(line.querySelector('.po-line-price').value) || 0;
+
+        if (desc && qty > 0) {
+          hasValidLine = true;
+          data.lines.push({
+            itemDescription: desc,
+            particulars: line.querySelector('.po-line-particulars').value,
+            quantity: qty,
+            unit: line.querySelector('.po-line-unit').value,
+            unitPrice: price
+          });
+        }
+      });
+
+      if (!hasValidLine) {
+        document.getElementById('poFormStatus').innerHTML = '<span style="color:#dc2626;">Please add at least one valid line item with description and quantity.</span>';
+        return;
+      }
+
+      document.getElementById('poFormStatus').innerHTML = 'Creating purchase order...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            closePOModal();
+            loadPurchaseOrders();
+            alert('Purchase Order ' + result.poNumber + ' created successfully!\n\nStatus: Draft (pending approval)');
+          } else {
+            document.getElementById('poFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to create PO') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('poFormStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .savePurchaseOrder(data);
     }
 
     function viewPO(poId) {
-      alert('View PO: ' + poId + '\n\nDetailed PO view will be added in the next update.');
+      // Load PO details and show in modal
+      google.script.run
+        .withSuccessHandler(function(po) {
+          if (!po) {
+            alert('Purchase Order not found.');
+            return;
+          }
+          showPODetailsModal(po);
+        })
+        .withFailureHandler(function(error) {
+          alert('Error loading PO: ' + error.message);
+        })
+        .getPurchaseOrderWithLines(poId);
+    }
+
+    function showPODetailsModal(po) {
+      const statusClass = po.Status === 'Approved' ? 'status-badge--ok' :
+                         po.Status === 'Completed' ? 'status-badge--ok' :
+                         po.Status === 'Draft' ? 'status-badge--bad' : '';
+
+      let linesHtml = '';
+      let total = 0;
+      (po.lines || []).forEach((line, idx) => {
+        const lineTotal = (parseFloat(line.Quantity) || 0) * (parseFloat(line.Unit_Price) || 0);
+        total += lineTotal;
+        linesHtml += `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${line.Item_Description || ''}</td>
+            <td>${line.Particulars || '-'}</td>
+            <td style="text-align:right;">${line.Quantity || 0}</td>
+            <td>${line.Unit || '-'}</td>
+            <td style="text-align:right;">${parseFloat(line.Unit_Price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            <td style="text-align:right;">${lineTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+          </tr>
+        `;
+      });
+
+      const modalHtml = `
+        <div class="modal open" id="viewPOModal">
+          <div class="modal-card" style="max-width:800px;max-height:90vh;">
+            <div class="modal-header">
+              <span>Purchase Order: ${po.PO_Number || ''}</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('viewPOModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;overflow-y:auto;max-height:calc(90vh - 120px);">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div>
+                  <p style="font-size:12px;color:#6b7280;margin-bottom:4px;">Supplier</p>
+                  <p style="font-weight:600;">${po.Supplier_Name || '-'}</p>
+                </div>
+                <div>
+                  <p style="font-size:12px;color:#6b7280;margin-bottom:4px;">Status</p>
+                  <span class="status-badge ${statusClass}">${po.Status || 'Unknown'}</span>
+                </div>
+                <div>
+                  <p style="font-size:12px;color:#6b7280;margin-bottom:4px;">PO Date</p>
+                  <p>${po.PO_Date || '-'}</p>
+                </div>
+                <div>
+                  <p style="font-size:12px;color:#6b7280;margin-bottom:4px;">Financial Year</p>
+                  <p>${po.Financial_Year || '-'}</p>
+                </div>
+                <div>
+                  <p style="font-size:12px;color:#6b7280;margin-bottom:4px;">Requested By</p>
+                  <p>${po.Requested_By || '-'}</p>
+                </div>
+                <div>
+                  <p style="font-size:12px;color:#6b7280;margin-bottom:4px;">Approved By</p>
+                  <p>${po.Approved_By || '-'}</p>
+                </div>
+              </div>
+              ${po.Description ? `<div style="margin-bottom:16px;"><p style="font-size:12px;color:#6b7280;margin-bottom:4px;">Description</p><p>${po.Description}</p></div>` : ''}
+
+              <h3 style="font-size:14px;font-weight:600;margin:16px 0 8px;">Line Items</h3>
+              <table class="table" style="font-size:13px;">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Description</th>
+                    <th>Particulars</th>
+                    <th style="text-align:right;">Qty</th>
+                    <th>Unit</th>
+                    <th style="text-align:right;">Unit Price</th>
+                    <th style="text-align:right;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${linesHtml || '<tr><td colspan="7" style="text-align:center;color:#6b7280;">No line items</td></tr>'}
+                </tbody>
+                <tfoot>
+                  <tr style="font-weight:600;background:#f9fafb;">
+                    <td colspan="6" style="text-align:right;">Total Amount:</td>
+                    <td style="text-align:right;">${total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              ${po.Notes ? `<div style="margin-top:16px;"><p style="font-size:12px;color:#6b7280;margin-bottom:4px;">Notes</p><p style="font-size:13px;">${po.Notes}</p></div>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
     // Goods Received Notes Management
@@ -8287,7 +8814,263 @@
     }
 
     function openCreateGRNModal() {
-      alert('Create GRN Modal\n\nThis feature will be fully implemented in the next update.\n\nYou will be able to:\n- Select a PO\n- Record quantities received\n- Enter invoice details');
+      const today = new Date().toISOString().split('T')[0];
+
+      const modalHtml = `
+        <div class="modal open" id="createGRNModal">
+          <div class="modal-card" style="max-width:900px;max-height:90vh;">
+            <div class="modal-header">
+              <span>Record Goods Received</span>
+              <button class="btn btn-secondary" onclick="closeGRNModal()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;overflow-y:auto;max-height:calc(90vh - 140px);">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="grnDate">Receipt Date *</label>
+                  <input type="date" id="grnDate" value="${today}">
+                </div>
+                <div class="form-group" style="flex:2;">
+                  <label for="grnPO">Purchase Order *</label>
+                  <select id="grnPO" onchange="loadPOLinesForGRN()">
+                    <option value="">Loading approved POs...</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="grnPOInfo" style="display:none;background:#f0f9ff;border:1px solid #bae6fd;padding:12px;border-radius:6px;margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;">
+                  <span><strong>Supplier:</strong> <span id="grnSupplierName">-</span></span>
+                  <span><strong>PO Amount:</strong> <span id="grnPOAmount">-</span></span>
+                </div>
+              </div>
+
+              <div style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:16px;">
+                <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">Invoice Details</h3>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="grnInvoiceNumber">Invoice Number</label>
+                    <input type="text" id="grnInvoiceNumber" placeholder="Supplier invoice #">
+                  </div>
+                  <div class="form-group">
+                    <label for="grnInvoiceDate">Invoice Date</label>
+                    <input type="date" id="grnInvoiceDate">
+                  </div>
+                  <div class="form-group">
+                    <label for="grnInvoiceAmount">Invoice Amount</label>
+                    <input type="number" id="grnInvoiceAmount" step="0.01" min="0" placeholder="0.00">
+                  </div>
+                </div>
+              </div>
+
+              <div style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:16px;">
+                <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">Items Received</h3>
+                <div id="grnLinesContainer">
+                  <p style="color:#6b7280;font-size:13px;">Select a Purchase Order to see items.</p>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-top:16px;">
+                <label for="grnNotes">Notes</label>
+                <textarea id="grnNotes" rows="2" placeholder="Additional notes about this delivery" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;font-family:inherit;font-size:13px;"></textarea>
+              </div>
+
+              <div id="grnFormStatus" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
+            </div>
+            <div class="modal-footer" style="padding:12px 16px;border-top:1px solid #e5e7eb;background:#f9fafb;">
+              <button class="btn btn-secondary" onclick="closeGRNModal()">Cancel</button>
+              <button class="btn btn-primary" onclick="saveGRNForm()">Record GRN</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadPendingPOsForGRN();
+    }
+
+    function closeGRNModal() {
+      const modal = document.getElementById('createGRNModal');
+      if (modal) modal.remove();
+    }
+
+    let grnSelectedPO = null;
+
+    function loadPendingPOsForGRN() {
+      google.script.run
+        .withSuccessHandler(function(orders) {
+          const select = document.getElementById('grnPO');
+          select.innerHTML = '<option value="">-- Select PO --</option>';
+
+          const pendingPOs = (orders || []).filter(po =>
+            po.Status === 'Approved' || po.Status === 'Partial'
+          );
+
+          if (pendingPOs.length === 0) {
+            select.innerHTML = '<option value="">No approved POs available</option>';
+            return;
+          }
+
+          pendingPOs.forEach(po => {
+            const amount = parseFloat(po.Total_Amount) || 0;
+            select.innerHTML += `<option value="${po.PO_ID}"
+              data-number="${po.PO_Number}"
+              data-supplier-id="${po.Supplier_ID}"
+              data-supplier-name="${po.Supplier_Name}"
+              data-amount="${amount}">
+              ${po.PO_Number} - ${po.Supplier_Name} (${amount.toLocaleString()})
+            </option>`;
+          });
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('grnPO').innerHTML = '<option value="">Error loading POs</option>';
+        })
+        .getPurchaseOrders();
+    }
+
+    function loadPOLinesForGRN() {
+      const select = document.getElementById('grnPO');
+      const poId = select.value;
+
+      if (!poId) {
+        document.getElementById('grnPOInfo').style.display = 'none';
+        document.getElementById('grnLinesContainer').innerHTML = '<p style="color:#6b7280;font-size:13px;">Select a Purchase Order to see items.</p>';
+        grnSelectedPO = null;
+        return;
+      }
+
+      const option = select.selectedOptions[0];
+      document.getElementById('grnSupplierName').textContent = option.dataset.supplierName || '-';
+      document.getElementById('grnPOAmount').textContent = parseFloat(option.dataset.amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+      document.getElementById('grnPOInfo').style.display = 'block';
+
+      document.getElementById('grnLinesContainer').innerHTML = '<p>Loading PO lines...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(po) {
+          grnSelectedPO = po;
+          if (!po || !po.lines || po.lines.length === 0) {
+            document.getElementById('grnLinesContainer').innerHTML = '<p style="color:#6b7280;">No line items found for this PO.</p>';
+            return;
+          }
+
+          let html = `
+            <table class="table" style="font-size:13px;">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th style="text-align:right;">Ordered</th>
+                  <th style="text-align:right;">Already Received</th>
+                  <th style="text-align:right;width:100px;">Qty Received *</th>
+                  <th style="width:150px;">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          po.lines.forEach((line, idx) => {
+            const ordered = parseFloat(line.Quantity) || 0;
+            const received = parseFloat(line.Received_Qty) || 0;
+            const remaining = Math.max(0, ordered - received);
+
+            html += `
+              <tr>
+                <td>
+                  <strong>${line.Item_Description || ''}</strong>
+                  ${line.Particulars ? `<br><span style="font-size:11px;color:#6b7280;">${line.Particulars}</span>` : ''}
+                  <input type="hidden" class="grn-line-id" value="${line.Line_ID}">
+                  <input type="hidden" class="grn-line-desc" value="${line.Item_Description || ''}">
+                  <input type="hidden" class="grn-line-ordered" value="${ordered}">
+                  <input type="hidden" class="grn-line-price" value="${line.Unit_Price || 0}">
+                </td>
+                <td style="text-align:right;">${ordered}</td>
+                <td style="text-align:right;">${received}</td>
+                <td>
+                  <input type="number" class="grn-line-qty" value="${remaining}" min="0" max="${remaining}"
+                    style="width:100%;padding:6px;border:1px solid #e5e7eb;border-radius:4px;text-align:right;">
+                </td>
+                <td>
+                  <input type="text" class="grn-line-note" placeholder="Notes"
+                    style="width:100%;padding:6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;">
+                </td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+          document.getElementById('grnLinesContainer').innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('grnLinesContainer').innerHTML = '<p style="color:#dc2626;">Error loading PO lines: ' + error.message + '</p>';
+        })
+        .getPurchaseOrderWithLines(poId);
+    }
+
+    function saveGRNForm() {
+      const poSelect = document.getElementById('grnPO');
+      const poId = poSelect.value;
+
+      if (!poId) {
+        document.getElementById('grnFormStatus').innerHTML = '<span style="color:#dc2626;">Please select a Purchase Order.</span>';
+        return;
+      }
+
+      const option = poSelect.selectedOptions[0];
+
+      const data = {
+        grnDate: document.getElementById('grnDate').value,
+        poId: poId,
+        poNumber: option.dataset.number || '',
+        supplierId: option.dataset.supplierId || '',
+        supplierName: option.dataset.supplierName || '',
+        invoiceNumber: document.getElementById('grnInvoiceNumber').value.trim(),
+        invoiceDate: document.getElementById('grnInvoiceDate').value,
+        invoiceAmount: document.getElementById('grnInvoiceAmount').value,
+        notes: document.getElementById('grnNotes').value.trim(),
+        lines: []
+      };
+
+      // Collect lines
+      const rows = document.querySelectorAll('#grnLinesContainer tbody tr');
+      let hasReceivedItems = false;
+
+      rows.forEach(row => {
+        const qty = parseFloat(row.querySelector('.grn-line-qty').value) || 0;
+        if (qty > 0) {
+          hasReceivedItems = true;
+          data.lines.push({
+            poLineId: row.querySelector('.grn-line-id').value,
+            itemDescription: row.querySelector('.grn-line-desc').value,
+            qtyOrdered: row.querySelector('.grn-line-ordered').value,
+            qtyReceived: qty,
+            qtyAccepted: qty,
+            qtyRejected: 0,
+            unitPrice: row.querySelector('.grn-line-price').value,
+            rejectionReason: row.querySelector('.grn-line-note').value
+          });
+        }
+      });
+
+      if (!hasReceivedItems) {
+        document.getElementById('grnFormStatus').innerHTML = '<span style="color:#dc2626;">Please enter quantities received for at least one item.</span>';
+        return;
+      }
+
+      document.getElementById('grnFormStatus').innerHTML = 'Recording goods received...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            closeGRNModal();
+            loadGRNs();
+            alert('GRN ' + result.grnNumber + ' recorded successfully!');
+          } else {
+            document.getElementById('grnFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to record GRN') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('grnFormStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .saveGoodsReceivedNote(data);
     }
 
     // PO Approvals Management
