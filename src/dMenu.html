@@ -198,6 +198,31 @@
   <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
       <span class="menu-toggle-btn"></span>
+      <span class="menu-section-label">Procurement</span>
+    </div>
+    <div class="menu-section-body">
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Suppliers" onclick="navigateTo(this, 'Suppliers')">
+        <span class="menu-item-icon" data-icon="suppliers"></span>
+        <span>Suppliers</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="Purchase Orders" onclick="navigateTo(this, 'Purchase Orders')">
+        <span class="menu-item-icon" data-icon="po"></span>
+        <span>Purchase Orders</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="Goods Received" onclick="navigateTo(this, 'Goods Received')">
+        <span class="menu-item-icon" data-icon="grn"></span>
+        <span>Goods Received</span>
+      </div>
+      <div class="menu-item" data-role="admin" data-label="PO Approvals" onclick="navigateTo(this, 'PO Approvals')">
+        <span class="menu-item-icon" data-icon="approve"></span>
+        <span>PO Approvals</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu-section collapsible collapsed">
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">
+      <span class="menu-toggle-btn"></span>
       <span class="menu-section-label">Reports</span>
     </div>
     <div class="menu-section-body">

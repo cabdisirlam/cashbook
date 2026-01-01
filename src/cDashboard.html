@@ -1719,6 +1719,27 @@
         return;
       }
 
+      // Procurement Module
+      if (label === 'Suppliers') {
+        renderSuppliersContent();
+        return;
+      }
+
+      if (label === 'Purchase Orders') {
+        renderPurchaseOrdersContent();
+        return;
+      }
+
+      if (label === 'Goods Received') {
+        renderGoodsReceivedContent();
+        return;
+      }
+
+      if (label === 'PO Approvals') {
+        renderPOApprovalsContent();
+        return;
+      }
+
       if (label === 'Dashboard') {
         const contentArea = document.getElementById('contentArea');
         contentArea.innerHTML = `
@@ -7893,6 +7914,474 @@
             `Expires in ${minutes}:${secs.toString().padStart(2, '0')}`;
         }
       }, 1000);
+    }
+
+    // ============================================================
+    // PROCUREMENT MODULE - UI Functions
+    // ============================================================
+
+    // Suppliers Management
+    function renderSuppliersContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Suppliers', 'Manage your supplier registry, contacts, and banking details.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Supplier Registry</h2>
+              <p style="color:#6b7280;font-size:13px;">View and manage suppliers.</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="loadSuppliers()">Refresh</button>
+              <button class="btn btn-primary" onclick="openAddSupplierModal()">+ Add Supplier</button>
+            </div>
+          </div>
+          <div id="suppliersTableContainer" style="margin-top:16px;">
+            <p>Loading suppliers...</p>
+          </div>
+        </div>
+      `;
+      loadSuppliers();
+    }
+
+    function loadSuppliers() {
+      const container = document.getElementById('suppliersTableContainer');
+      container.innerHTML = '<p>Loading suppliers...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(suppliers) {
+          if (!suppliers || suppliers.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;">No suppliers found. Click "Add Supplier" to create one.</p>';
+            return;
+          }
+
+          let html = `
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Supplier Name</th>
+                  <th>Contact</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>KRA PIN</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          suppliers.forEach(s => {
+            const statusClass = s.Status === 'Active' ? 'status-badge--ok' : 'status-badge--bad';
+            html += `
+              <tr>
+                <td><strong>${s.Supplier_Name || ''}</strong></td>
+                <td>${s.Contact_Person || '-'}</td>
+                <td>${s.Phone || '-'}</td>
+                <td>${s.Email || '-'}</td>
+                <td>${s.KRA_PIN || '-'}</td>
+                <td><span class="status-badge ${statusClass}">${s.Status || 'Unknown'}</span></td>
+                <td>
+                  <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="editSupplier('${s.Supplier_ID}')">Edit</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load suppliers: ' + error.message + '</p>';
+        })
+        .getSuppliers();
+    }
+
+    function openAddSupplierModal() {
+      const modalHtml = `
+        <div class="modal open" id="supplierModal">
+          <div class="modal-card" style="max-width:600px;">
+            <div class="modal-header">
+              <span>Add New Supplier</span>
+              <button class="btn btn-secondary" onclick="closeSupplierModal()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="supplierName">Supplier Name *</label>
+                  <input type="text" id="supplierName" placeholder="Company name">
+                </div>
+                <div class="form-group">
+                  <label for="contactPerson">Contact Person</label>
+                  <input type="text" id="contactPerson" placeholder="Contact name">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="supplierPhone">Phone</label>
+                  <input type="text" id="supplierPhone" placeholder="+254...">
+                </div>
+                <div class="form-group">
+                  <label for="supplierEmail">Email</label>
+                  <input type="email" id="supplierEmail" placeholder="email@company.com">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="supplierAddress">Address</label>
+                <input type="text" id="supplierAddress" placeholder="Physical address">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="kraPin">KRA PIN</label>
+                  <input type="text" id="kraPin" placeholder="P0123456789X">
+                </div>
+                <div class="form-group">
+                  <label for="supplierCategory">Category</label>
+                  <select id="supplierCategory">
+                    <option value="General">General</option>
+                    <option value="Goods">Goods</option>
+                    <option value="Services">Services</option>
+                    <option value="Contractor">Contractor</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="bankName">Bank Name</label>
+                  <input type="text" id="bankName" placeholder="Bank name">
+                </div>
+                <div class="form-group">
+                  <label for="bankAccount">Bank Account</label>
+                  <input type="text" id="bankAccount" placeholder="Account number">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="paymentTerms">Payment Terms</label>
+                <select id="paymentTerms">
+                  <option value="Immediate">Immediate</option>
+                  <option value="Net 7">Net 7 Days</option>
+                  <option value="Net 14">Net 14 Days</option>
+                  <option value="Net 30" selected>Net 30 Days</option>
+                  <option value="Net 60">Net 60 Days</option>
+                </select>
+              </div>
+              <div id="supplierFormStatus" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
+            </div>
+            <div class="modal-footer" style="padding:12px 16px;border-top:1px solid #e5e7eb;background:#f9fafb;">
+              <button class="btn btn-secondary" onclick="closeSupplierModal()">Cancel</button>
+              <button class="btn btn-primary" onclick="saveSupplierForm()">Save Supplier</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function closeSupplierModal() {
+      const modal = document.getElementById('supplierModal');
+      if (modal) modal.remove();
+    }
+
+    function saveSupplierForm() {
+      const data = {
+        supplierName: document.getElementById('supplierName').value.trim(),
+        contactPerson: document.getElementById('contactPerson').value.trim(),
+        phone: document.getElementById('supplierPhone').value.trim(),
+        email: document.getElementById('supplierEmail').value.trim(),
+        address: document.getElementById('supplierAddress').value.trim(),
+        kraPin: document.getElementById('kraPin').value.trim(),
+        category: document.getElementById('supplierCategory').value,
+        bankName: document.getElementById('bankName').value.trim(),
+        bankAccount: document.getElementById('bankAccount').value.trim(),
+        paymentTerms: document.getElementById('paymentTerms').value
+      };
+
+      if (!data.supplierName) {
+        document.getElementById('supplierFormStatus').innerHTML = '<span style="color:#dc2626;">Supplier name is required.</span>';
+        return;
+      }
+
+      document.getElementById('supplierFormStatus').innerHTML = 'Saving...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            closeSupplierModal();
+            loadSuppliers();
+          } else {
+            document.getElementById('supplierFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to save') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('supplierFormStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .saveSupplier(data);
+    }
+
+    function editSupplier(supplierId) {
+      // For now, show a simple alert. Full edit modal can be added later.
+      alert('Edit supplier: ' + supplierId + '\n\nFull edit functionality will be added in the next update.');
+    }
+
+    // Purchase Orders Management
+    function renderPurchaseOrdersContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Purchase Orders', 'Create and manage purchase orders for goods and services.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Purchase Orders</h2>
+              <p style="color:#6b7280;font-size:13px;">View and create purchase orders.</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="loadPurchaseOrders()">Refresh</button>
+              <button class="btn btn-primary" onclick="openCreatePOModal()">+ New PO</button>
+            </div>
+          </div>
+          <div id="poTableContainer" style="margin-top:16px;">
+            <p>Loading purchase orders...</p>
+          </div>
+        </div>
+      `;
+      loadPurchaseOrders();
+    }
+
+    function loadPurchaseOrders() {
+      const container = document.getElementById('poTableContainer');
+      container.innerHTML = '<p>Loading purchase orders...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(orders) {
+          if (!orders || orders.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;">No purchase orders found. Click "New PO" to create one.</p>';
+            return;
+          }
+
+          let html = `
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>PO Number</th>
+                  <th>Date</th>
+                  <th>Supplier</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          orders.forEach(po => {
+            const statusClass = po.Status === 'Approved' ? 'status-badge--ok' :
+                               po.Status === 'Draft' ? 'status-badge--bad' : '';
+            const amount = parseFloat(po.Total_Amount) || 0;
+            html += `
+              <tr>
+                <td><strong>${po.PO_Number || ''}</strong></td>
+                <td>${po.PO_Date || ''}</td>
+                <td>${po.Supplier_Name || '-'}</td>
+                <td>${po.Description || '-'}</td>
+                <td style="text-align:right;">${amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td><span class="status-badge ${statusClass}">${po.Status || 'Unknown'}</span></td>
+                <td>
+                  <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="viewPO('${po.PO_ID}')">View</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load orders: ' + error.message + '</p>';
+        })
+        .getPurchaseOrders();
+    }
+
+    function openCreatePOModal() {
+      alert('Create PO Modal\n\nThis feature will be fully implemented in the next update.\n\nYou will be able to:\n- Select a supplier\n- Add line items with particulars\n- Submit for approval');
+    }
+
+    function viewPO(poId) {
+      alert('View PO: ' + poId + '\n\nDetailed PO view will be added in the next update.');
+    }
+
+    // Goods Received Notes Management
+    function renderGoodsReceivedContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Goods Received', 'Record goods received against purchase orders.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Goods Received Notes</h2>
+              <p style="color:#6b7280;font-size:13px;">Track deliveries and match to POs.</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="loadGRNs()">Refresh</button>
+              <button class="btn btn-primary" onclick="openCreateGRNModal()">+ Record GRN</button>
+            </div>
+          </div>
+          <div id="grnTableContainer" style="margin-top:16px;">
+            <p>Loading GRNs...</p>
+          </div>
+        </div>
+      `;
+      loadGRNs();
+    }
+
+    function loadGRNs() {
+      const container = document.getElementById('grnTableContainer');
+      container.innerHTML = '<p>Loading GRNs...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(grns) {
+          if (!grns || grns.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;">No GRNs found. Click "Record GRN" to create one.</p>';
+            return;
+          }
+
+          let html = `
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>GRN Number</th>
+                  <th>Date</th>
+                  <th>PO Number</th>
+                  <th>Supplier</th>
+                  <th>Invoice #</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          grns.forEach(grn => {
+            const amount = parseFloat(grn.Invoice_Amount) || 0;
+            html += `
+              <tr>
+                <td><strong>${grn.GRN_Number || ''}</strong></td>
+                <td>${grn.GRN_Date || ''}</td>
+                <td>${grn.PO_Number || '-'}</td>
+                <td>${grn.Supplier_Name || '-'}</td>
+                <td>${grn.Invoice_Number || '-'}</td>
+                <td style="text-align:right;">${amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td><span class="status-badge status-badge--ok">${grn.Status || 'Received'}</span></td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load GRNs: ' + error.message + '</p>';
+        })
+        .getGoodsReceivedNotes();
+    }
+
+    function openCreateGRNModal() {
+      alert('Create GRN Modal\n\nThis feature will be fully implemented in the next update.\n\nYou will be able to:\n- Select a PO\n- Record quantities received\n- Enter invoice details');
+    }
+
+    // PO Approvals Management
+    function renderPOApprovalsContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('PO Approvals', 'Review and approve pending purchase orders.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Pending Approvals</h2>
+              <p style="color:#6b7280;font-size:13px;">Purchase orders waiting for your approval.</p>
+            </div>
+            <button class="btn btn-secondary" onclick="loadPendingApprovals()">Refresh</button>
+          </div>
+          <div id="approvalsTableContainer" style="margin-top:16px;">
+            <p>Loading pending approvals...</p>
+          </div>
+        </div>
+      `;
+      loadPendingApprovals();
+    }
+
+    function loadPendingApprovals() {
+      const container = document.getElementById('approvalsTableContainer');
+      container.innerHTML = '<p>Loading pending approvals...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(orders) {
+          const pending = (orders || []).filter(po => po.Status === 'Draft');
+
+          if (pending.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;">No purchase orders pending approval.</p>';
+            return;
+          }
+
+          let html = `
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>PO Number</th>
+                  <th>Date</th>
+                  <th>Supplier</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Requested By</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          pending.forEach(po => {
+            const amount = parseFloat(po.Total_Amount) || 0;
+            html += `
+              <tr>
+                <td><strong>${po.PO_Number || ''}</strong></td>
+                <td>${po.PO_Date || ''}</td>
+                <td>${po.Supplier_Name || '-'}</td>
+                <td>${po.Description || '-'}</td>
+                <td style="text-align:right;">${amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td>${po.Requested_By || '-'}</td>
+                <td>
+                  <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="approvePO('${po.PO_ID}', '${po.PO_Number}')">Approve</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load approvals: ' + error.message + '</p>';
+        })
+        .getPurchaseOrders();
+    }
+
+    function approvePO(poId, poNumber) {
+      if (!confirm('Approve PO ' + poNumber + '?')) return;
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            alert('PO ' + poNumber + ' approved successfully.');
+            loadPendingApprovals();
+          } else {
+            alert('Failed to approve: ' + (result.message || 'Unknown error'));
+          }
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+        })
+        .approvePurchaseOrder(poId);
     }
   </script>
 
