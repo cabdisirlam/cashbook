@@ -119,7 +119,7 @@
 
     body {
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f5f5f5;
+      background: #d4dde5;
       min-height: 100vh;
       color: var(--ink);
       -webkit-font-smoothing: antialiased;
@@ -308,28 +308,26 @@
 
     .icon-btn {
       border: 1px solid rgba(255, 255, 255, 0.3);
-      background: rgba(255, 255, 255, 0.15);
+      background: transparent;
       color: #ffffff;
-      border-radius: 6px;
-      padding: 8px 14px;
-      font-size: 13px;
-      font-weight: 600;
+      border-radius: 2px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 500;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      transition: all 0.2s ease;
+      gap: 6px;
+      transition: all 0.15s ease;
     }
 
     .icon-btn:hover {
-      background: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.2);
       border-color: rgba(255, 255, 255, 0.5);
-      transform: translateY(-1px);
     }
 
     .icon-btn:active {
-      transform: translateY(0);
-      box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      background: rgba(255, 255, 255, 0.3);
     }
 
     .menu-toggle {
@@ -368,70 +366,65 @@
     }
 
     .btn {
-      border: none;
-      border-radius: 10px;
-      padding: 10px 18px;
-      font-size: 14px;
-      font-weight: 600;
+      border: 1px solid #999999;
+      border-radius: 2px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 500;
       cursor: pointer;
       transition: all 0.15s ease;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      letter-spacing: -0.01em;
+      box-shadow: none;
+      letter-spacing: 0;
       font-family: inherit;
-      min-height: 44px;
+      min-height: 26px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 4px;
       touch-action: manipulation;
     }
 
     .btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     }
 
     .btn:active {
-      transform: translateY(0) scale(0.98);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      background: linear-gradient(180deg, #336699 0%, #2d5a85 100%);
       color: #ffffff;
-      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+      border-color: #2d5a85;
     }
 
     .btn-primary:hover {
-      background: linear-gradient(135deg, var(--brand-light) 0%, var(--brand) 100%);
-      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+      background: linear-gradient(180deg, #3d7ab8 0%, #336699 100%);
     }
 
     .btn-secondary {
-      background: #ffffff;
-      color: #374151;
-      border: 1px solid #d1d5db;
+      background: linear-gradient(180deg, #f5f5f5 0%, #e5e5e5 100%);
+      color: #333333;
+      border-color: #999999;
     }
 
     .btn-secondary:hover {
-      background: #f9fafb;
-      border-color: #9ca3af;
+      background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%);
     }
 
     .btn-danger {
-      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      background: linear-gradient(180deg, #cc3333 0%, #aa2222 100%);
       color: #ffffff;
-      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+      border-color: #aa2222;
     }
 
     .btn-danger:hover {
-      background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
-      box-shadow: 0 6px 16px -2px rgba(239, 68, 68, 0.5);
+      background: linear-gradient(180deg, #dd4444 0%, #cc3333 100%);
     }
 
     .content {
       flex: 1;
-      padding: 16px;
+      padding: 12px;
       max-width: 1400px;
       margin: 0 auto;
       width: 100%;
@@ -440,37 +433,33 @@
     /* Oracle-style card/panel */
     .card {
       background: #ffffff;
-      border-radius: var(--radius);
+      border-radius: 0;
       padding: 0;
-      box-shadow: none;
-      border: 1px solid #cccccc;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      border: 1px solid #999999;
       transition: var(--transition);
       position: relative;
       overflow: hidden;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .card:hover {
-      box-shadow: none;
-      border-color: #999999;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      border-color: #666666;
       transform: none;
     }
 
     .card::after {
       content: "";
-      position: absolute;
-      inset: -40% -30% auto -30%;
-      height: 140%;
-      background: radial-gradient(circle at top, rgba(59, 130, 246, 0.03), transparent 60%);
-      pointer-events: none;
+      display: none;
     }
 
     .card-spacious {
-      margin-bottom: 28px;
+      margin-bottom: 16px;
     }
 
     .content .card:nth-of-type(even) {
-      background: #fafbfc;
+      background: #ffffff;
     }
 
     /* Oracle-style panel header */
@@ -561,28 +550,35 @@
       flex-wrap: wrap;
     }
 
+    /* Oracle-style card body */
+    .card-body {
+      padding: 10px;
+    }
+
     /* Desktop: Normal table layout */
     .table {
       width: 100%;
-      font-size: 12px;
-      margin-top: 6px;
+      font-size: 11px;
+      margin-top: 0;
       border-collapse: collapse;
+      border: 1px solid #cccccc;
     }
 
     .table thead {
-      background: linear-gradient(180deg, #003d82 0%, #00316b 100%);
+      background: linear-gradient(180deg, #003366 0%, #002244 100%);
     }
 
     .table th {
-      padding: 6px 8px;
+      padding: 4px 6px;
       text-align: left;
-      font-weight: 700;
-      font-size: 11px;
+      font-weight: 600;
+      font-size: 10px;
       color: #ffffff;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
-      border-right: 1px solid rgba(255, 255, 255, 0.1);
-      border-bottom: 1px solid #001f3f;
+      letter-spacing: 0.02em;
+      border-right: 1px solid rgba(255, 255, 255, 0.15);
+      border-bottom: 1px solid #001a33;
+      white-space: nowrap;
     }
 
     .table th:last-child {
@@ -590,27 +586,34 @@
     }
 
     .table tbody tr {
-      border-bottom: 1px solid #e2e8f0;
-      transition: background 0.15s ease;
+      border-bottom: 1px solid #cccccc;
+      transition: background 0.1s ease;
     }
 
     .table tbody tr:nth-child(even) {
-      background: #f8fafc;
+      background: #f5f5f5;
     }
 
     .table tbody tr:hover {
-      background: #e0f2fe;
+      background: #d4e5f7;
     }
 
     .table td {
-      padding: 6px 8px;
-      border-right: 1px solid #f1f5f9;
-      border-bottom: 1px solid #e2e8f0;
-      font-size: 12px;
+      padding: 3px 6px;
+      border-right: 1px solid #dddddd;
+      border-bottom: 1px solid #cccccc;
+      font-size: 11px;
+      color: #333333;
     }
 
     .table td:last-child {
       border-right: none;
+    }
+
+    .table td .btn {
+      padding: 2px 8px;
+      font-size: 10px;
+      min-height: 22px;
     }
 
     /* Mobile: Card layout with horizontal rows */
@@ -728,17 +731,14 @@
 
     .modal-card {
       background: #ffffff;
-      border-radius: 16px;
+      border-radius: 4px;
       padding: 0;
       width: 95%;
       max-width: 480px;
       max-height: 90vh;
       overflow: hidden;
-      box-shadow:
-        0 0 0 1px rgba(0, 0, 0, 0.05),
-        0 10px 40px -10px rgba(0, 0, 0, 0.3),
-        0 20px 60px -20px rgba(0, 0, 0, 0.2);
-      border: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      border: 1px solid #999999;
       will-change: transform, opacity;
       transform: translateZ(0);
       display: flex;
@@ -782,16 +782,13 @@
 
     .confirm-modal-card {
       background: #ffffff;
-      border-radius: 16px;
+      border-radius: 4px;
       padding: 0;
       width: 95%;
       max-width: 400px;
       max-height: 90vh;
-      box-shadow:
-        0 0 0 1px rgba(0, 0, 0, 0.05),
-        0 10px 40px -10px rgba(0, 0, 0, 0.3),
-        0 20px 60px -20px rgba(0, 0, 0, 0.2);
-      border: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      border: 1px solid #999999;
       overflow: hidden;
       will-change: transform, opacity;
       transform: translateZ(0);
@@ -824,44 +821,44 @@
     }
 
     .form-group {
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
 
     .form-group label {
       display: block;
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 600;
-      margin-bottom: 6px;
-      color: #374151;
-      letter-spacing: -0.01em;
+      margin-bottom: 3px;
+      color: #333333;
+      letter-spacing: 0;
     }
 
     .form-group input,
     .form-group select {
       width: 100%;
-      padding: 12px 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      font-size: 15px;
+      padding: 4px 8px;
+      border: 1px solid #999999;
+      border-radius: 2px;
+      font-size: 12px;
       font-family: inherit;
       transition: all 0.15s ease;
-      background: #ffffff;
+      background: #ffffcc;
       font-weight: 400;
-      min-height: 48px;
+      min-height: 28px;
       -webkit-appearance: none;
     }
 
     .form-group input:focus,
     .form-group select:focus {
       outline: none;
-      border-color: #2563eb;
+      border-color: #336699;
       background: #ffffff;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      box-shadow: 0 0 0 1px #336699;
     }
 
     .form-group input:hover,
     .form-group select:hover {
-      border-color: #9ca3af;
+      border-color: #666666;
     }
 
     .form-group input:valid:not(:focus),
@@ -869,15 +866,10 @@
       background: #ffffff;
     }
 
-    .form-group input:hover,
-    .form-group select:hover {
-      border-color: #94a3b8;
-    }
-
     .form-group input[readonly] {
-      background: #f1f5f9;
-      border-color: #cbd5e1;
-      color: #64748b;
+      background: #f0f0f0;
+      border-color: #cccccc;
+      color: #666666;
     }
 
     .form-actions {
@@ -1230,20 +1222,20 @@
       }
 
       .form-group {
-        margin-bottom: 12px;
+        margin-bottom: 8px;
       }
 
       .form-group label {
-        font-size: 12px;
-        margin-bottom: 6px;
+        font-size: 11px;
+        margin-bottom: 3px;
       }
 
       .form-group input,
       .form-group select {
         padding: 6px 8px;
         font-size: 12px;
-        min-height: 32px;
-        border-radius: 8px;
+        min-height: 36px;
+        border-radius: 2px;
       }
 
       .form-actions {
