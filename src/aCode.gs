@@ -876,7 +876,7 @@ function logSystemEventSafe(action, targetId, details) {
  * Get all unique sub-categories with category + account type for budget input.
  * @returns {Array} Array of { subCategory, category, accountType }
  */
-function getBudgetSubCategoryCatalog() {
+function getBudgetCategoryCatalog() {
   try {
     const ss = _getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
@@ -892,43 +892,22 @@ function getBudgetSubCategoryCatalog() {
 
     const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
       .map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_'));
-    const particularsIndex = headers.indexOf('particulars');
-    const subIndex = headers.indexOf('sub_category');
     const categoryIndex = headers.indexOf('category');
     const accountTypeIndex = headers.indexOf('account_type');
-    if (particularsIndex < 0 || subIndex < 0 || categoryIndex < 0) {
-      Logger.log('MASTER_DATA headers missing Particulars, Sub_Category, or Category');
+    if (categoryIndex < 0) {
+      Logger.log('MASTER_DATA headers missing Category');
       return [];
     }
 
     const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
     const catalogMap = new Map();
 
-    const excludedParticulars = new Set([
-      'advance',
-      'advances',
-      'account payable',
-      'accounts payable',
-      'revaluation reserve'
-    ]);
-
-    const normalizeParticulars = (value) => String(value || '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
-
     data.forEach(row => {
-      const particulars = String(row[particularsIndex] || '').trim();
-      const subCategory = String(row[subIndex] || '').trim();
       const category = String(row[categoryIndex] || '').trim();
       const accountType = accountTypeIndex >= 0 ? String(row[accountTypeIndex] || '').trim() : '';
-      if (!particulars) return;
-      const normalized = normalizeParticulars(particulars);
-      if (excludedParticulars.has(normalized)) return;
-      if (!catalogMap.has(particulars)) {
-        catalogMap.set(particulars, {
-          particulars: particulars,
-          subCategory: subCategory,
+      if (!category) return;
+      if (!catalogMap.has(category)) {
+        catalogMap.set(category, {
           category: category,
           accountType: accountType
         });
@@ -963,16 +942,17 @@ function getBudgetSubCategoryCatalog() {
       const orderA = getOrder(a.accountType);
       const orderB = getOrder(b.accountType);
       if (orderA !== orderB) return orderA - orderB;
-      if (a.category === b.category) {
-        if (a.subCategory === b.subCategory) return a.particulars.localeCompare(b.particulars);
-        return a.subCategory.localeCompare(b.subCategory);
-      }
       return a.category.localeCompare(b.category);
     });
   } catch (error) {
-    Logger.log('Error in getBudgetSubCategoryCatalog: ' + error.toString());
+    Logger.log('Error in getBudgetCategoryCatalog: ' + error.toString());
     return [];
   }
+}
+
+// Keep old function for backward compatibility
+function getBudgetSubCategoryCatalog() {
+  return getBudgetCategoryCatalog();
 }
 
 /**
@@ -1079,9 +1059,9 @@ function getOriginalBudgetByYear(financialYear) {
     if (rowYear !== year) return;
     const originalValue = row[headerMap.Original_Budget];
     if (originalValue === '' || originalValue == null) return;
-    const particulars = String(row[headerMap.Particulars] || '').trim();
-    if (!particulars) return;
-    amounts[particulars] = Number(originalValue);
+    const category = String(row[headerMap.Category] || '').trim();
+    if (!category) return;
+    amounts[category] = Number(originalValue);
     if (!firstDate) {
       const dateValue = row[headerMap.Date];
       if (dateValue instanceof Date) {
@@ -1143,22 +1123,17 @@ function saveOriginalBudget(payload) {
   }
 
   const rowsToInsert = rows.map(item => {
-    const particulars = String(item.particulars || '').trim();
-    const subCategory = String(item.subCategory || '').trim();
     const category = String(item.category || '').trim();
     const accountType = String(item.accountType || '').trim();
     const amount = Number(item.amount);
 
-    if (!particulars) throw new Error('Particulars is required.');
-    if (!subCategory) throw new Error('Sub-Category is required.');
-    if (!Number.isFinite(amount)) throw new Error('Invalid amount for ' + subCategory + '.');
-    if (amount < 0) throw new Error('Original budget must be positive for ' + subCategory + '.');
+    if (!category) throw new Error('Category is required.');
+    if (!Number.isFinite(amount)) throw new Error('Invalid amount for ' + category + '.');
+    if (amount < 0) throw new Error('Original budget must be positive for ' + category + '.');
 
     const row = new Array(headerCount).fill('');
     row[headerMap.Date] = dateValue;
     row[headerMap.Financial_Year] = financialYear;
-    row[headerMap.Particulars] = particulars;
-    row[headerMap.Sub_Category] = subCategory;
     row[headerMap.Category] = category;
     row[headerMap.Account_Type] = accountType;
     row[headerMap.Original_Budget] = amount;

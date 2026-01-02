@@ -113,12 +113,12 @@
   <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
       <span class="menu-toggle-btn"></span>
-      <span class="menu-section-label">Transactions</span>
+      <span class="menu-section-label">Banking & Cash</span>
     </div>
     <div class="menu-section-body">
-      <div class="menu-item" data-role="admin,inputter" data-label="New Journal" onclick="navigateTo(this, 'New Journal')">
-        <span class="menu-item-icon" data-icon="journal"></span>
-        <span>New Journal</span>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Bank Accounts" onclick="navigateTo(this, 'Bank Accounts')">
+        <span class="menu-item-icon" data-icon="bank"></span>
+        <span>Bank Accounts</span>
       </div>
       <div class="menu-item" data-role="admin,inputter" data-label="New Payment" onclick="navigateTo(this, 'New Payment')">
         <span class="menu-item-icon" data-icon="payment"></span>
@@ -128,13 +128,21 @@
         <span class="menu-item-icon" data-icon="receipt"></span>
         <span>New Receipt</span>
       </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="New Journal" onclick="navigateTo(this, 'New Journal')">
+        <span class="menu-item-icon" data-icon="journal"></span>
+        <span>New Journal</span>
+      </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Search / Edit" onclick="navigateTo(this, 'Search / Edit')">
         <span class="menu-item-icon" data-icon="search"></span>
         <span>Search / Edit</span>
       </div>
-      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Add/Edit Budget" onclick="navigateTo(this, 'Add/Edit Budget')">
-        <span class="menu-item-icon" data-icon="budget"></span>
-        <span>Add/Edit Budget</span>
+      <div class="menu-item" data-role="admin,inputter" data-label="Import Statement" onclick="navigateTo(this, 'Import Statement')">
+        <span class="menu-item-icon" data-icon="import"></span>
+        <span>Import Statement</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="Reconciliation" onclick="navigateTo(this, 'Reconciliation')">
+        <span class="menu-item-icon" data-icon="reconcile"></span>
+        <span>Reconciliation</span>
       </div>
     </div>
   </div>
@@ -142,7 +150,7 @@
   <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
       <span class="menu-toggle-btn"></span>
-      <span class="menu-section-label">Receivables</span>
+      <span class="menu-section-label">Sales & Receivables</span>
     </div>
     <div class="menu-section-body">
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Customers" onclick="navigateTo(this, 'Customers')">
@@ -165,15 +173,35 @@
         <span class="menu-item-icon" data-icon="aging"></span>
         <span>Aging Report</span>
       </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Customer Statements" onclick="navigateTo(this, 'Customer Statements')">
+        <span class="menu-item-icon" data-icon="statement"></span>
+        <span>Statements</span>
+      </div>
     </div>
   </div>
 
   <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
       <span class="menu-toggle-btn"></span>
-      <span class="menu-section-label">Payables</span>
+      <span class="menu-section-label">Purchases & Payables</span>
     </div>
     <div class="menu-section-body">
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Suppliers" onclick="navigateTo(this, 'Suppliers')">
+        <span class="menu-item-icon" data-icon="suppliers"></span>
+        <span>Suppliers</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="Purchase Orders" onclick="navigateTo(this, 'Purchase Orders')">
+        <span class="menu-item-icon" data-icon="po"></span>
+        <span>Purchase Orders</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="Goods Received" onclick="navigateTo(this, 'Goods Received')">
+        <span class="menu-item-icon" data-icon="grn"></span>
+        <span>Goods Received</span>
+      </div>
+      <div class="menu-item" data-role="admin" data-label="PO Approvals" onclick="navigateTo(this, 'PO Approvals')">
+        <span class="menu-item-icon" data-icon="approve"></span>
+        <span>PO Approvals</span>
+      </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Invoices to Pay" onclick="navigateTo(this, 'Invoices to Pay')">
         <span class="menu-item-icon" data-icon="invoice"></span>
         <span>Invoices to Pay</span>
@@ -182,9 +210,38 @@
         <span class="menu-item-icon" data-icon="payment"></span>
         <span>Pay Supplier</span>
       </div>
-      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Aging Report" onclick="navigateTo(this, 'Aging Report')">
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="AP Aging Report" onclick="navigateTo(this, 'AP Aging Report')">
         <span class="menu-item-icon" data-icon="aging"></span>
         <span>Aging Report</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Supplier Statements" onclick="navigateTo(this, 'Supplier Statements')">
+        <span class="menu-item-icon" data-icon="statement"></span>
+        <span>Statements</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu-section collapsible collapsed">
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">
+      <span class="menu-toggle-btn"></span>
+      <span class="menu-section-label">Staff & Payroll</span>
+    </div>
+    <div class="menu-section-body">
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Staff" onclick="navigateTo(this, 'Staff')">
+        <span class="menu-item-icon" data-icon="staff"></span>
+        <span>Staff List</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="Staff Advance" onclick="navigateTo(this, 'Staff Advance')">
+        <span class="menu-item-icon" data-icon="advance"></span>
+        <span>Issue Advance</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Staff Balances" onclick="navigateTo(this, 'Staff Balances')">
+        <span class="menu-item-icon" data-icon="balance"></span>
+        <span>Balances</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Staff Statements" onclick="navigateTo(this, 'Staff Statements')">
+        <span class="menu-item-icon" data-icon="statement"></span>
+        <span>Statements</span>
       </div>
     </div>
   </div>
@@ -205,41 +262,16 @@
   <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
       <span class="menu-toggle-btn"></span>
-      <span class="menu-section-label">Banking</span>
+      <span class="menu-section-label">Budgets</span>
     </div>
     <div class="menu-section-body">
-      <div class="menu-item" data-role="admin,inputter" data-label="Import Statement" onclick="navigateTo(this, 'Import Statement')">
-        <span class="menu-item-icon" data-icon="bank"></span>
-        <span>Import Statement</span>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Add/Edit Budget" onclick="navigateTo(this, 'Add/Edit Budget')">
+        <span class="menu-item-icon" data-icon="budget"></span>
+        <span>Add/Edit Budget</span>
       </div>
-      <div class="menu-item" data-role="admin,inputter" data-label="Reconciliation" onclick="navigateTo(this, 'Reconciliation')">
-        <span class="menu-item-icon" data-icon="reconcile"></span>
-        <span>Reconciliation</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="menu-section collapsible collapsed">
-    <div class="menu-section-title" onclick="toggleMenuSection(this)">
-      <span class="menu-toggle-btn"></span>
-      <span class="menu-section-label">Procurement</span>
-    </div>
-    <div class="menu-section-body">
-      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Suppliers" onclick="navigateTo(this, 'Suppliers')">
-        <span class="menu-item-icon" data-icon="suppliers"></span>
-        <span>Suppliers</span>
-      </div>
-      <div class="menu-item" data-role="admin,inputter" data-label="Purchase Orders" onclick="navigateTo(this, 'Purchase Orders')">
-        <span class="menu-item-icon" data-icon="po"></span>
-        <span>Purchase Orders</span>
-      </div>
-      <div class="menu-item" data-role="admin,inputter" data-label="Goods Received" onclick="navigateTo(this, 'Goods Received')">
-        <span class="menu-item-icon" data-icon="grn"></span>
-        <span>Goods Received</span>
-      </div>
-      <div class="menu-item" data-role="admin" data-label="PO Approvals" onclick="navigateTo(this, 'PO Approvals')">
-        <span class="menu-item-icon" data-icon="approve"></span>
-        <span>PO Approvals</span>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Budget vs Actual" onclick="navigateTo(this, 'Budget vs Actual')">
+        <span class="menu-item-icon" data-icon="compare"></span>
+        <span>Budget vs Actual</span>
       </div>
     </div>
   </div>
@@ -266,10 +298,6 @@
         <span class="menu-item-icon" data-icon="net"></span>
         <span>Net Assets</span>
       </div>
-      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Budget vs Actual" onclick="navigateTo(this, 'Budget vs Actual')">
-        <span class="menu-item-icon" data-icon="budget"></span>
-        <span>Budget vs Actual</span>
-      </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Notes" onclick="navigateTo(this, 'Notes')">
         <span class="menu-item-icon" data-icon="notes"></span>
         <span>Notes</span>
@@ -283,13 +311,13 @@
       <span class="menu-section-label">Admin</span>
     </div>
     <div class="menu-section-body">
-      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Staff" onclick="navigateTo(this, 'Staff')">
-        <span class="menu-item-icon" data-icon="staff"></span>
-        <span>Staff</span>
-      </div>
       <div class="menu-item" data-role="admin" data-label="Users" onclick="navigateTo(this, 'Users')">
         <span class="menu-item-icon" data-icon="users"></span>
         <span>Users</span>
+      </div>
+      <div class="menu-item" data-role="admin" data-label="Master Data" onclick="navigateTo(this, 'Master Data')">
+        <span class="menu-item-icon" data-icon="data"></span>
+        <span>Master Data</span>
       </div>
       <div class="menu-item" data-role="admin" data-label="Settings" onclick="navigateTo(this, 'Settings')">
         <span class="menu-item-icon" data-icon="settings"></span>

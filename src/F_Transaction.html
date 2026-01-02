@@ -1165,9 +1165,64 @@
   }
 
   function openAddPayeeModal() {
+    // Reset all fields
+    document.getElementById('addPayeeType').value = '';
     document.getElementById('addPayeeInput').value = '';
+    document.getElementById('addPayeeContactPerson').value = '';
+    document.getElementById('addPayeePhone').value = '';
+    document.getElementById('addPayeeEmail').value = '';
+    document.getElementById('addPayeeAddress').value = '';
+    document.getElementById('addPayeeTaxPin').value = '';
+    document.getElementById('addPayeeBankName').value = '';
+    document.getElementById('addPayeeBankAccount').value = '';
+    document.getElementById('addPayeeCategory').value = '';
+    document.getElementById('addPayeeCreditLimit').value = '';
+    document.getElementById('addPayeePaymentTerms').value = 'Net 30';
+    // Reset visibility
+    onContactTypeChange();
     document.getElementById('addPayeeModal').classList.add('open');
-    document.getElementById('addPayeeInput').focus();
+    document.getElementById('addPayeeType').focus();
+  }
+
+  function onContactTypeChange() {
+    const type = document.getElementById('addPayeeType').value;
+    const rowContactPerson = document.getElementById('rowContactPerson');
+    const rowAddress = document.getElementById('rowAddress');
+    const rowTaxPin = document.getElementById('rowTaxPin');
+    const rowBankDetails = document.getElementById('rowBankDetails');
+    const rowCreditTerms = document.getElementById('rowCreditTerms');
+    const lblCategory = document.getElementById('lblCategory');
+    const lblContactName = document.getElementById('lblContactName');
+
+    // Hide all optional fields first
+    rowContactPerson.style.display = 'none';
+    rowAddress.style.display = 'none';
+    rowTaxPin.style.display = 'none';
+    rowBankDetails.style.display = 'none';
+    rowCreditTerms.style.display = 'none';
+
+    if (type === 'Supplier') {
+      lblContactName.innerHTML = 'Supplier Name <span style="color:#dc2626">*</span>';
+      lblCategory.textContent = 'Category';
+      rowContactPerson.style.display = 'block';
+      rowAddress.style.display = 'block';
+      rowTaxPin.style.display = 'block';
+      rowBankDetails.style.display = 'grid';
+      rowCreditTerms.style.display = 'grid';
+    } else if (type === 'Customer') {
+      lblContactName.innerHTML = 'Customer Name <span style="color:#dc2626">*</span>';
+      lblCategory.textContent = 'Customer Type';
+      rowContactPerson.style.display = 'block';
+      rowAddress.style.display = 'block';
+      rowTaxPin.style.display = 'block';
+      rowCreditTerms.style.display = 'grid';
+    } else if (type === 'Staff') {
+      lblContactName.innerHTML = 'Staff Name <span style="color:#dc2626">*</span>';
+      lblCategory.textContent = 'Department';
+    } else {
+      lblContactName.innerHTML = 'Name <span style="color:#dc2626">*</span>';
+      lblCategory.textContent = 'Category';
+    }
   }
 
   function openAddSubCategoryModal() {
@@ -1361,8 +1416,16 @@
   function saveNewPayee() {
     const contactType = document.getElementById('addPayeeType').value.trim();
     const contactName = document.getElementById('addPayeeInput').value.trim();
+    const contactPerson = document.getElementById('addPayeeContactPerson').value.trim();
     const phone = document.getElementById('addPayeePhone').value.trim();
     const email = document.getElementById('addPayeeEmail').value.trim();
+    const address = document.getElementById('addPayeeAddress').value.trim();
+    const taxPin = document.getElementById('addPayeeTaxPin').value.trim();
+    const bankName = document.getElementById('addPayeeBankName').value.trim();
+    const bankAccount = document.getElementById('addPayeeBankAccount').value.trim();
+    const category = document.getElementById('addPayeeCategory').value.trim();
+    const creditLimit = document.getElementById('addPayeeCreditLimit').value.trim();
+    const paymentTerms = document.getElementById('addPayeePaymentTerms').value.trim();
 
     if (!contactType) {
       setStatus('Please select a contact type.');
@@ -1377,21 +1440,24 @@
 
     const data = {
       contactName: contactName,
+      contactPerson: contactPerson,
       phone: phone,
-      email: email
+      email: email,
+      address: address,
+      taxPin: taxPin,
+      bankName: bankName,
+      bankAccount: bankAccount,
+      category: category,
+      creditLimit: creditLimit ? parseFloat(creditLimit) : 0,
+      paymentTerms: paymentTerms || 'Net 30'
     };
 
-    setStatus('Saving contact...');
+    setStatus('Saving ' + contactType.toLowerCase() + '...');
     google.script.run
       .withSuccessHandler(function(result) {
-        // Clear form fields
-        document.getElementById('addPayeeType').value = '';
-        document.getElementById('addPayeeInput').value = '';
-        document.getElementById('addPayeePhone').value = '';
-        document.getElementById('addPayeeEmail').value = '';
         closeSubModal('addPayeeModal');
         loadDropdowns();
-        setStatus('Contact saved successfully.');
+        setStatus(contactType + ' saved successfully.');
         isSaving = false;
       })
       .withFailureHandler(function(error) {
@@ -1905,33 +1971,79 @@
 </div>
 
 <div class="submodal" id="addPayeeModal">
-  <div class="submodal-card" style="max-width: 450px;">
+  <div class="submodal-card" style="max-width: 560px;">
     <div class="submodal-header">
       <span>Add Contact</span>
       <button class="close-btn" type="button" onclick="closeSubModal('addPayeeModal')">X</button>
     </div>
-    <div>
-      <label class="form-label" for="addPayeeType">Contact Type <span style="color:#dc2626">*</span></label>
-      <select id="addPayeeType" class="select-field">
-        <option value="">Select type</option>
-        <option value="Supplier">Supplier</option>
-        <option value="Customer">Customer</option>
-        <option value="Staff">Staff</option>
-      </select>
+    <div style="display:grid;gap:12px;max-height:70vh;overflow-y:auto;padding-right:8px;">
+      <div>
+        <label class="form-label">Contact Type <span style="color:#dc2626">*</span></label>
+        <select id="addPayeeType" class="select-field" onchange="onContactTypeChange()">
+          <option value="">Select type</option>
+          <option value="Supplier">Supplier</option>
+          <option value="Customer">Customer</option>
+          <option value="Staff">Staff</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label" id="lblContactName">Name <span style="color:#dc2626">*</span></label>
+        <input id="addPayeeInput" class="input-field" type="text" placeholder="Full name or company name">
+      </div>
+      <div id="rowContactPerson" style="display:none;">
+        <label class="form-label">Contact Person</label>
+        <input id="addPayeeContactPerson" class="input-field" type="text" placeholder="Primary contact person">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label class="form-label">Phone</label>
+          <input id="addPayeePhone" class="input-field" type="text" placeholder="Phone number">
+        </div>
+        <div>
+          <label class="form-label">Email</label>
+          <input id="addPayeeEmail" class="input-field" type="email" placeholder="Email address">
+        </div>
+      </div>
+      <div id="rowAddress" style="display:none;">
+        <label class="form-label">Address</label>
+        <input id="addPayeeAddress" class="input-field" type="text" placeholder="Physical or postal address">
+      </div>
+      <div id="rowTaxPin" style="display:none;">
+        <label class="form-label">Tax PIN / KRA PIN</label>
+        <input id="addPayeeTaxPin" class="input-field" type="text" placeholder="Tax identification number">
+      </div>
+      <div id="rowBankDetails" style="display:none;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label class="form-label">Bank Name</label>
+          <input id="addPayeeBankName" class="input-field" type="text" placeholder="Bank name">
+        </div>
+        <div>
+          <label class="form-label">Bank Account</label>
+          <input id="addPayeeBankAccount" class="input-field" type="text" placeholder="Account number">
+        </div>
+      </div>
+      <div id="rowCategory">
+        <label class="form-label" id="lblCategory">Category</label>
+        <input id="addPayeeCategory" class="input-field" type="text" placeholder="Category or department">
+      </div>
+      <div id="rowCreditTerms" style="display:none;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label class="form-label">Credit Limit</label>
+          <input id="addPayeeCreditLimit" class="input-field" type="number" step="0.01" placeholder="0.00">
+        </div>
+        <div>
+          <label class="form-label">Payment Terms</label>
+          <select id="addPayeePaymentTerms" class="select-field">
+            <option value="Net 30">Net 30</option>
+            <option value="Net 15">Net 15</option>
+            <option value="Net 7">Net 7</option>
+            <option value="Due on Receipt">Due on Receipt</option>
+            <option value="Net 60">Net 60</option>
+          </select>
+        </div>
+      </div>
     </div>
-    <div>
-      <label class="form-label" for="addPayeeInput">Contact Name <span style="color:#dc2626">*</span></label>
-      <input id="addPayeeInput" class="input-field" type="text" placeholder="Full name or company name">
-    </div>
-    <div>
-      <label class="form-label" for="addPayeePhone">Phone</label>
-      <input id="addPayeePhone" class="input-field" type="text" placeholder="Phone number">
-    </div>
-    <div>
-      <label class="form-label" for="addPayeeEmail">Email</label>
-      <input id="addPayeeEmail" class="input-field" type="email" placeholder="Email address">
-    </div>
-    <div class="submodal-actions">
+    <div class="submodal-actions" style="margin-top:16px;">
       <button class="btn btn-secondary" type="button" onclick="closeSubModal('addPayeeModal')">Cancel</button>
       <button class="btn btn-primary" type="button" onclick="saveNewPayee()">Save</button>
     </div>

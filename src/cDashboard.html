@@ -2898,7 +2898,7 @@
               <div class="form-group">
                 <label>&nbsp;</label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                  <button class="btn btn-secondary" type="button" onclick="loadBudgetCatalog()">Load Particulars</button>
+                  <button class="btn btn-secondary" type="button" onclick="loadBudgetCatalog()">Load Categories</button>
                   <button class="btn btn-secondary" type="button" onclick="downloadBudgetTemplate()">Download CSV</button>
                   <button class="btn btn-secondary" type="button" onclick="downloadBudgetTemplateXlsx()">Download XLSX</button>
                 </div>
@@ -3204,7 +3204,7 @@
     function loadBudgetCatalog() {
       const container = document.getElementById('bulkBudgetTable');
       if (!container) return;
-      container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading particulars...</p>';
+      container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading categories...</p>';
       ensureBudgetCatalog(renderBudgetBulkTable);
     }
 
@@ -3309,7 +3309,7 @@
           input.value = '';
           return;
         }
-        const amount = amounts[String(item.particulars || '').trim()];
+        const amount = amounts[String(item.category || '').trim()];
         input.value = amount == null ? '' : amount;
       });
     }
@@ -3350,7 +3350,7 @@
     function downloadBudgetTemplate() {
       ensureBudgetCatalog(function() {
         if (!budgetCatalog.length) {
-          showBudgetAlert('No particulars available for template.', 'error');
+          showBudgetAlert('No categories available for template.', 'error');
           return;
         }
         const financialYear = document.getElementById('bulkFinancialYear').value.trim();
@@ -3364,12 +3364,10 @@
           return;
         }
 
-        const headers = ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
+        const headers = ['Date', 'Financial_Year', 'Category', 'Account_Type', 'Original_Budget'];
         const rows = budgetCatalog.map(item => ([
           budgetDate,
           financialYear,
-          item.particulars || '',
-          item.subCategory || '',
           item.category || '',
           item.accountType || '',
           ''
@@ -3392,7 +3390,7 @@
     function downloadBudgetTemplateXlsx() {
       ensureBudgetCatalog(function() {
         if (!budgetCatalog.length) {
-          showBudgetAlert('No particulars available for template.', 'error');
+          showBudgetAlert('No categories available for template.', 'error');
           return;
         }
         if (typeof XLSX === 'undefined') {
@@ -3410,12 +3408,10 @@
           return;
         }
 
-        const headers = ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type', 'Original_Budget'];
+        const headers = ['Date', 'Financial_Year', 'Category', 'Account_Type', 'Original_Budget'];
         const rows = budgetCatalog.map(item => ([
           budgetDate,
           financialYear,
-          item.particulars || '',
-          item.subCategory || '',
           item.category || '',
           item.accountType || '',
           ''
@@ -3670,28 +3666,26 @@
         .withSuccessHandler(function(rows) {
           budgetCatalog = rows || [];
           if (!budgetCatalog.length) {
-            showBudgetAlert('No particulars found. Add them in Master Data first.', 'error');
+            showBudgetAlert('No categories found. Add them in Master Data first.', 'error');
           }
           if (callback) callback();
         })
         .withFailureHandler(function(error) {
-          showBudgetAlert(error.message || 'Failed to load particulars.', 'error');
+          showBudgetAlert(error.message || 'Failed to load categories.', 'error');
         })
-        .getBudgetSubCategoryCatalog();
+        .getBudgetCategoryCatalog();
     }
 
     function renderBudgetBulkTable() {
       const container = document.getElementById('bulkBudgetTable');
       if (!container) return;
       if (!budgetCatalog.length) {
-        container.innerHTML = '<p style="color:#6b7280;font-size:13px;">No particulars available.</p>';
+        container.innerHTML = '<p style="color:#6b7280;font-size:13px;">No categories available.</p>';
         return;
       }
 
       const rows = budgetCatalog.map((item, index) => `
         <tr>
-          <td data-label="Particulars">${item.particulars || ''}</td>
-          <td data-label="Sub-Category">${item.subCategory || ''}</td>
           <td data-label="Category">${item.category || ''}</td>
           <td data-label="Account Type">${item.accountType || ''}</td>
           <td data-label="Original Budget">
@@ -3704,8 +3698,6 @@
         <table class="table">
           <thead>
             <tr>
-              <th>Particulars</th>
-              <th>Sub-Category</th>
               <th>Category</th>
               <th>Account Type</th>
               <th>Original Budget</th>
@@ -6247,7 +6239,7 @@
       }
 
       if (!budgetCatalog.length) {
-        showBudgetAlert('No particulars available to save.', 'error');
+        showBudgetAlert('No categories available to save.', 'error');
         return;
       }
 
@@ -6257,16 +6249,14 @@
         const value = input ? input.value.trim() : '';
         const amount = value === '' ? 0 : Number(value);
         if (!Number.isFinite(amount)) {
-          showBudgetAlert('Invalid amount for ' + budgetCatalog[i].particulars + '.', 'error');
+          showBudgetAlert('Invalid amount for ' + budgetCatalog[i].category + '.', 'error');
           return;
         }
         if (amount < 0) {
-          showBudgetAlert('Original budget must be positive for ' + budgetCatalog[i].particulars + '.', 'error');
+          showBudgetAlert('Original budget must be positive for ' + budgetCatalog[i].category + '.', 'error');
           return;
         }
         rows.push({
-          particulars: budgetCatalog[i].particulars,
-          subCategory: budgetCatalog[i].subCategory,
           category: budgetCatalog[i].category,
           accountType: budgetCatalog[i].accountType,
           amount: amount
@@ -6295,7 +6285,7 @@
     }
 
     function populateBudgetAdjustmentSelects() {
-      const options = budgetCatalog.map(item => item.particulars);
+      const options = budgetCatalog.map(item => item.category);
       fillSelectOptions('adjustSubCategory', options);
       fillSelectOptions('reallocFromSubCategory', options);
       fillSelectOptions('reallocToSubCategory', options);
