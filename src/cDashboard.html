@@ -1762,6 +1762,12 @@
         return;
       }
 
+      // Admin Module - Staff
+      if (label === 'Staff') {
+        renderStaffContent();
+        return;
+      }
+
       if (label === 'Issue Invoice') {
         renderIssueInvoiceContent();
         return;
@@ -6324,6 +6330,420 @@
       });
     }
 
+    // ============================================================
+    // CASCADING DROPDOWNS: Category → Sub-Category → Particulars
+    // ============================================================
+
+    var masterDataCache = null;
+
+    function loadMasterDataForCascade(callback) {
+      if (masterDataCache) {
+        callback(masterDataCache);
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          masterDataCache = data || {};
+          callback(masterDataCache);
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load master data:', error);
+          callback({});
+        })
+        .getDropdownData();
+    }
+
+    function initCascadingDropdowns(prefix, options) {
+      // prefix: unique identifier for this form (e.g., 'invoice', 'payment', 'journal')
+      // options: { onParticularSelect: function(meta) }
+      loadMasterDataForCascade(function(data) {
+        const categories = data.categories || [];
+        const subCats = data.subCats || [];
+        const particulars = data.particulars || [];
+        const subToCatMap = data.subToCatMap || {};
+        const particularMeta = data.particularMeta || {};
+
+        // Store data for this prefix
+        window[prefix + 'CascadeData'] = {
+          categories: categories,
+          subCats: subCats,
+          particulars: particulars,
+          subToCatMap: subToCatMap,
+          particularMeta: particularMeta
+        };
+
+        // Populate Category dropdown
+        const catSelect = document.getElementById(prefix + 'Category');
+        if (catSelect) {
+          catSelect.innerHTML = '<option value="">-- Select Category --</option>';
+          categories.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat;
+            opt.textContent = cat;
+            catSelect.appendChild(opt);
+          });
+        }
+
+        // Initialize empty Sub-Category and Particulars
+        const subCatSelect = document.getElementById(prefix + 'SubCategory');
+        if (subCatSelect) {
+          subCatSelect.innerHTML = '<option value="">-- Select Category first --</option>';
+        }
+
+        const partSelect = document.getElementById(prefix + 'Particulars');
+        if (partSelect) {
+          partSelect.innerHTML = '<option value="">-- Select Sub-Category first --</option>';
+        }
+      });
+    }
+
+    function onCategoryChange(prefix) {
+      const data = window[prefix + 'CascadeData'] || {};
+      const selectedCat = document.getElementById(prefix + 'Category').value;
+      const subCatSelect = document.getElementById(prefix + 'SubCategory');
+      const partSelect = document.getElementById(prefix + 'Particulars');
+
+      // Filter sub-categories by selected category
+      const filteredSubCats = data.subCats.filter(sc => data.subToCatMap[sc] === selectedCat);
+
+      subCatSelect.innerHTML = '<option value="">-- Select Sub-Category --</option>';
+      filteredSubCats.forEach(sc => {
+        const opt = document.createElement('option');
+        opt.value = sc;
+        opt.textContent = sc;
+        subCatSelect.appendChild(opt);
+      });
+
+      // Reset particulars
+      partSelect.innerHTML = '<option value="">-- Select Sub-Category first --</option>';
+    }
+
+    function onSubCategoryChange(prefix) {
+      const data = window[prefix + 'CascadeData'] || {};
+      const selectedSubCat = document.getElementById(prefix + 'SubCategory').value;
+      const partSelect = document.getElementById(prefix + 'Particulars');
+
+      // Filter particulars by selected sub-category
+      const filteredParts = data.particulars.filter(p => {
+        const meta = data.particularMeta[p] || {};
+        return meta.subCategory === selectedSubCat;
+      });
+
+      partSelect.innerHTML = '<option value="">-- Select Particulars --</option>';
+      filteredParts.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p;
+        partSelect.appendChild(opt);
+      });
+    }
+
+    function onParticularsChange(prefix, callback) {
+      const data = window[prefix + 'CascadeData'] || {};
+      const selectedPart = document.getElementById(prefix + 'Particulars').value;
+      const meta = data.particularMeta[selectedPart] || {};
+      if (callback) callback(meta);
+    }
+
+    // Add new Category
+    function openAddCategoryModal(prefix) {
+      const modalHtml = `
+        <div class="modal open" id="addCategoryModal">
+          <div class="modal-card" style="max-width:400px;">
+            <div class="modal-header">
+              <span>Add New Category</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('addCategoryModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">X</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-group">
+                <label for="newCategoryName">Category Name *</label>
+                <input type="text" id="newCategoryName" placeholder="e.g., Transport" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+              <div id="addCategoryStatus" style="min-height:24px;margin:12px 0;"></div>
+              <button class="btn btn-primary" onclick="saveNewCategory('${prefix}')" style="width:100%;">Save Category</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function saveNewCategory(prefix) {
+      const name = document.getElementById('newCategoryName').value.trim();
+      if (!name) {
+        document.getElementById('addCategoryStatus').innerHTML = '<span style="color:#dc2626;">Category name is required.</span>';
+        return;
+      }
+      document.getElementById('addCategoryStatus').innerHTML = 'Saving...';
+      google.script.run
+        .withSuccessHandler(function() {
+          masterDataCache = null; // Clear cache
+          document.getElementById('addCategoryModal').remove();
+          initCascadingDropdowns(prefix);
+          // Set the new category as selected
+          setTimeout(() => {
+            const catSelect = document.getElementById(prefix + 'Category');
+            if (catSelect) catSelect.value = name;
+          }, 500);
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('addCategoryStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .addMasterItem('category', name);
+    }
+
+    // Add new Sub-Category
+    function openAddSubCategoryModal(prefix) {
+      const selectedCat = document.getElementById(prefix + 'Category').value;
+      if (!selectedCat) {
+        alert('Please select a Category first.');
+        return;
+      }
+      const modalHtml = `
+        <div class="modal open" id="addSubCategoryModal">
+          <div class="modal-card" style="max-width:400px;">
+            <div class="modal-header">
+              <span>Add New Sub-Category</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('addSubCategoryModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">X</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-group">
+                <label>Parent Category</label>
+                <input type="text" value="${selectedCat}" readonly style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;background:#f3f4f6;">
+              </div>
+              <div class="form-group">
+                <label for="newSubCategoryName">Sub-Category Name *</label>
+                <input type="text" id="newSubCategoryName" placeholder="e.g., Fuel" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+              <div id="addSubCategoryStatus" style="min-height:24px;margin:12px 0;"></div>
+              <button class="btn btn-primary" onclick="saveNewSubCategory('${prefix}', '${selectedCat}')" style="width:100%;">Save Sub-Category</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function saveNewSubCategory(prefix, category) {
+      const name = document.getElementById('newSubCategoryName').value.trim();
+      if (!name) {
+        document.getElementById('addSubCategoryStatus').innerHTML = '<span style="color:#dc2626;">Sub-Category name is required.</span>';
+        return;
+      }
+      document.getElementById('addSubCategoryStatus').innerHTML = 'Saving...';
+      google.script.run
+        .withSuccessHandler(function() {
+          masterDataCache = null; // Clear cache
+          document.getElementById('addSubCategoryModal').remove();
+          initCascadingDropdowns(prefix);
+          // Restore selections
+          setTimeout(() => {
+            const catSelect = document.getElementById(prefix + 'Category');
+            if (catSelect) {
+              catSelect.value = category;
+              onCategoryChange(prefix);
+              setTimeout(() => {
+                const subCatSelect = document.getElementById(prefix + 'SubCategory');
+                if (subCatSelect) subCatSelect.value = name;
+              }, 300);
+            }
+          }, 500);
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('addSubCategoryStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .addMasterItem('subCategory', name, category);
+    }
+
+    // Add new Particulars
+    function openAddParticularsModal(prefix) {
+      const selectedCat = document.getElementById(prefix + 'Category').value;
+      const selectedSubCat = document.getElementById(prefix + 'SubCategory').value;
+      if (!selectedSubCat) {
+        alert('Please select a Sub-Category first.');
+        return;
+      }
+      const modalHtml = `
+        <div class="modal open" id="addParticularsModal">
+          <div class="modal-card" style="max-width:400px;">
+            <div class="modal-header">
+              <span>Add New Particulars</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('addParticularsModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">X</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Category</label>
+                  <input type="text" value="${selectedCat}" readonly style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;background:#f3f4f6;">
+                </div>
+                <div class="form-group">
+                  <label>Sub-Category</label>
+                  <input type="text" value="${selectedSubCat}" readonly style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;background:#f3f4f6;">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="newParticularsName">Particulars Name *</label>
+                <input type="text" id="newParticularsName" placeholder="e.g., Petrol" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="newParticularsAccountType">Account Type</label>
+                  <select id="newParticularsAccountType" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="Expense">Expense</option>
+                    <option value="Income">Income</option>
+                    <option value="Asset">Asset</option>
+                    <option value="Liability">Liability</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="newParticularsReportMapping">Report Mapping</label>
+                  <select id="newParticularsReportMapping" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="Operating expense">Operating expense</option>
+                    <option value="Operating income">Operating income</option>
+                    <option value="Current Asset">Current Asset</option>
+                    <option value="Non-Current Asset">Non-Current Asset</option>
+                    <option value="Current Liability">Current Liability</option>
+                  </select>
+                </div>
+              </div>
+              <div id="addParticularsStatus" style="min-height:24px;margin:12px 0;"></div>
+              <button class="btn btn-primary" onclick="saveNewParticulars('${prefix}', '${selectedCat}', '${selectedSubCat}')" style="width:100%;">Save Particulars</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function saveNewParticulars(prefix, category, subCategory) {
+      const name = document.getElementById('newParticularsName').value.trim();
+      const accountType = document.getElementById('newParticularsAccountType').value;
+      const reportMapping = document.getElementById('newParticularsReportMapping').value;
+      if (!name) {
+        document.getElementById('addParticularsStatus').innerHTML = '<span style="color:#dc2626;">Particulars name is required.</span>';
+        return;
+      }
+      document.getElementById('addParticularsStatus').innerHTML = 'Saving...';
+      google.script.run
+        .withSuccessHandler(function() {
+          masterDataCache = null; // Clear cache
+          document.getElementById('addParticularsModal').remove();
+          initCascadingDropdowns(prefix);
+          // Restore selections
+          setTimeout(() => {
+            const catSelect = document.getElementById(prefix + 'Category');
+            if (catSelect) {
+              catSelect.value = category;
+              onCategoryChange(prefix);
+              setTimeout(() => {
+                const subCatSelect = document.getElementById(prefix + 'SubCategory');
+                if (subCatSelect) {
+                  subCatSelect.value = subCategory;
+                  onSubCategoryChange(prefix);
+                  setTimeout(() => {
+                    const partSelect = document.getElementById(prefix + 'Particulars');
+                    if (partSelect) partSelect.value = name;
+                  }, 300);
+                }
+              }, 300);
+            }
+          }, 500);
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('addParticularsStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .addMasterItem('particular', name, subCategory, category, accountType, reportMapping);
+    }
+
+    // Load dropdowns for contact forms (Supplier, Customer, Staff)
+    function loadContactFormDropdowns(formType) {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const financialYears = (data && data.financialYears) || [];
+
+          // Define dropdown configs based on form type
+          const configs = {
+            supplier: {
+              fySelect: 'supplierFinancialYear',
+              termsSelect: 'paymentTerms',
+              termsOptions: ['Immediate', 'Net 7', 'Net 14', 'Net 30', 'Net 60']
+            },
+            editSupplier: {
+              fySelect: 'editSupplierFinancialYear',
+              termsSelect: 'editPaymentTerms',
+              currentFY: 'editSupplierCurrentFY',
+              currentTerms: 'editSupplierCurrentTerms',
+              termsOptions: ['Immediate', 'Net 7', 'Net 14', 'Net 30', 'Net 60']
+            },
+            customer: {
+              fySelect: 'customerFinancialYear',
+              termsSelect: 'customerPaymentTerms',
+              termsOptions: ['Net 30', 'Net 15', 'Net 60', 'Due on Receipt']
+            },
+            editCustomer: {
+              fySelect: 'editCustomerFinancialYear',
+              termsSelect: 'editCustomerPaymentTerms',
+              currentFY: 'editCustomerCurrentFY',
+              currentTerms: 'editCustomerCurrentTerms',
+              termsOptions: ['Net 30', 'Net 15', 'Net 60', 'Due on Receipt']
+            },
+            staff: {
+              fySelect: 'staffFinancialYear'
+            },
+            editStaff: {
+              fySelect: 'editStaffFinancialYear',
+              currentFY: 'editStaffCurrentFY'
+            }
+          };
+
+          const config = configs[formType];
+          if (!config) return;
+
+          // Populate Financial Year dropdown
+          const fySelect = document.getElementById(config.fySelect);
+          if (fySelect) {
+            fySelect.innerHTML = '<option value="">Select Year</option>';
+            financialYears.forEach(fy => {
+              const opt = document.createElement('option');
+              opt.value = fy;
+              opt.textContent = fy;
+              fySelect.appendChild(opt);
+            });
+            // Set current value for edit forms
+            if (config.currentFY) {
+              const currentVal = document.getElementById(config.currentFY)?.value;
+              if (currentVal) fySelect.value = currentVal;
+            }
+          }
+
+          // Populate Payment Terms dropdown
+          if (config.termsSelect && config.termsOptions) {
+            const termsSelect = document.getElementById(config.termsSelect);
+            if (termsSelect) {
+              termsSelect.innerHTML = '<option value="">Select...</option>';
+              config.termsOptions.forEach(term => {
+                const opt = document.createElement('option');
+                opt.value = term;
+                opt.textContent = term;
+                termsSelect.appendChild(opt);
+              });
+              // Set current value for edit forms
+              if (config.currentTerms) {
+                const currentVal = document.getElementById(config.currentTerms)?.value;
+                if (currentVal) termsSelect.value = currentVal;
+              } else {
+                // Default to Net 30 for new entries
+                termsSelect.value = 'Net 30';
+              }
+            }
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load contact form dropdowns:', error);
+        })
+        .getDropdownData();
+    }
+
     function saveBudgetAdjustment() {
       const date = document.getElementById('adjustDate').value;
       const financialYear = document.getElementById('adjustFinancialYear').value.trim();
@@ -8054,19 +8474,25 @@
                   <input type="text" id="supplierName" placeholder="Company name">
                 </div>
                 <div class="form-group">
-                  <label for="contactPerson">Contact Person</label>
-                  <input type="text" id="contactPerson" placeholder="Contact name">
+                  <label for="supplierFinancialYear">Financial Year</label>
+                  <select id="supplierFinancialYear">
+                    <option value="">Loading...</option>
+                  </select>
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-group">
+                  <label for="contactPerson">Contact Person</label>
+                  <input type="text" id="contactPerson" placeholder="Contact name">
+                </div>
+                <div class="form-group">
                   <label for="supplierPhone">Phone</label>
                   <input type="text" id="supplierPhone" placeholder="+254...">
                 </div>
-                <div class="form-group">
-                  <label for="supplierEmail">Email</label>
-                  <input type="email" id="supplierEmail" placeholder="email@company.com">
-                </div>
+              </div>
+              <div class="form-group">
+                <label for="supplierEmail">Email</label>
+                <input type="email" id="supplierEmail" placeholder="email@company.com">
               </div>
               <div class="form-group">
                 <label for="supplierAddress">Address</label>
@@ -8078,12 +8504,9 @@
                   <input type="text" id="kraPin" placeholder="P0123456789X">
                 </div>
                 <div class="form-group">
-                  <label for="supplierCategory">Category</label>
-                  <select id="supplierCategory">
-                    <option value="General">General</option>
-                    <option value="Goods">Goods</option>
-                    <option value="Services">Services</option>
-                    <option value="Contractor">Contractor</option>
+                  <label for="paymentTerms">Payment Terms</label>
+                  <select id="paymentTerms">
+                    <option value="">Loading...</option>
                   </select>
                 </div>
               </div>
@@ -8097,16 +8520,6 @@
                   <input type="text" id="bankAccount" placeholder="Account number">
                 </div>
               </div>
-              <div class="form-group">
-                <label for="paymentTerms">Payment Terms</label>
-                <select id="paymentTerms">
-                  <option value="Immediate">Immediate</option>
-                  <option value="Net 7">Net 7 Days</option>
-                  <option value="Net 14">Net 14 Days</option>
-                  <option value="Net 30" selected>Net 30 Days</option>
-                  <option value="Net 60">Net 60 Days</option>
-                </select>
-              </div>
               <div id="supplierFormStatus" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
             </div>
             <div class="modal-footer" style="padding:12px 16px;border-top:1px solid #e5e7eb;background:#f9fafb;">
@@ -8118,6 +8531,7 @@
       `;
 
       document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadContactFormDropdowns('supplier');
     }
 
     function closeSupplierModal() {
@@ -8128,12 +8542,12 @@
     function saveSupplierForm() {
       const data = {
         supplierName: document.getElementById('supplierName').value.trim(),
+        financialYear: document.getElementById('supplierFinancialYear').value,
         contactPerson: document.getElementById('contactPerson').value.trim(),
         phone: document.getElementById('supplierPhone').value.trim(),
         email: document.getElementById('supplierEmail').value.trim(),
         address: document.getElementById('supplierAddress').value.trim(),
         kraPin: document.getElementById('kraPin').value.trim(),
-        category: document.getElementById('supplierCategory').value,
         bankName: document.getElementById('bankName').value.trim(),
         bankAccount: document.getElementById('bankAccount').value.trim(),
         paymentTerms: document.getElementById('paymentTerms').value
@@ -8188,25 +8602,33 @@
             </div>
             <div class="modal-body" style="padding:16px;">
               <input type="hidden" id="editSupplierId" value="${supplier.Supplier_ID}">
+              <input type="hidden" id="editSupplierCurrentFY" value="${supplier.Financial_Year || ''}">
+              <input type="hidden" id="editSupplierCurrentTerms" value="${supplier.Payment_Terms || ''}">
               <div class="form-row">
                 <div class="form-group">
                   <label for="editSupplierName">Supplier Name *</label>
                   <input type="text" id="editSupplierName" value="${supplier.Supplier_Name || ''}">
                 </div>
                 <div class="form-group">
-                  <label for="editContactPerson">Contact Person</label>
-                  <input type="text" id="editContactPerson" value="${supplier.Contact_Person || ''}">
+                  <label for="editSupplierFinancialYear">Financial Year</label>
+                  <select id="editSupplierFinancialYear">
+                    <option value="">Loading...</option>
+                  </select>
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-group">
+                  <label for="editContactPerson">Contact Person</label>
+                  <input type="text" id="editContactPerson" value="${supplier.Contact_Person || ''}">
+                </div>
+                <div class="form-group">
                   <label for="editSupplierPhone">Phone</label>
                   <input type="text" id="editSupplierPhone" value="${supplier.Phone || ''}">
                 </div>
-                <div class="form-group">
-                  <label for="editSupplierEmail">Email</label>
-                  <input type="email" id="editSupplierEmail" value="${supplier.Email || ''}">
-                </div>
+              </div>
+              <div class="form-group">
+                <label for="editSupplierEmail">Email</label>
+                <input type="email" id="editSupplierEmail" value="${supplier.Email || ''}">
               </div>
               <div class="form-group">
                 <label for="editSupplierAddress">Address</label>
@@ -8218,12 +8640,9 @@
                   <input type="text" id="editKraPin" value="${supplier.KRA_PIN || ''}">
                 </div>
                 <div class="form-group">
-                  <label for="editSupplierCategory">Category</label>
-                  <select id="editSupplierCategory">
-                    <option value="General" ${supplier.Category === 'General' ? 'selected' : ''}>General</option>
-                    <option value="Goods" ${supplier.Category === 'Goods' ? 'selected' : ''}>Goods</option>
-                    <option value="Services" ${supplier.Category === 'Services' ? 'selected' : ''}>Services</option>
-                    <option value="Contractor" ${supplier.Category === 'Contractor' ? 'selected' : ''}>Contractor</option>
+                  <label for="editPaymentTerms">Payment Terms</label>
+                  <select id="editPaymentTerms">
+                    <option value="">Loading...</option>
                   </select>
                 </div>
               </div>
@@ -8237,24 +8656,12 @@
                   <input type="text" id="editBankAccount" value="${supplier.Bank_Account || ''}">
                 </div>
               </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="editPaymentTerms">Payment Terms</label>
-                  <select id="editPaymentTerms">
-                    <option value="Immediate" ${supplier.Payment_Terms === 'Immediate' ? 'selected' : ''}>Immediate</option>
-                    <option value="Net 7" ${supplier.Payment_Terms === 'Net 7' ? 'selected' : ''}>Net 7 Days</option>
-                    <option value="Net 14" ${supplier.Payment_Terms === 'Net 14' ? 'selected' : ''}>Net 14 Days</option>
-                    <option value="Net 30" ${supplier.Payment_Terms === 'Net 30' ? 'selected' : ''}>Net 30 Days</option>
-                    <option value="Net 60" ${supplier.Payment_Terms === 'Net 60' ? 'selected' : ''}>Net 60 Days</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="editSupplierStatus">Status</label>
-                  <select id="editSupplierStatus">
-                    <option value="Active" ${supplier.Status === 'Active' ? 'selected' : ''}>Active</option>
-                    <option value="Inactive" ${supplier.Status === 'Inactive' ? 'selected' : ''}>Inactive</option>
-                  </select>
-                </div>
+              <div class="form-group">
+                <label for="editSupplierStatus">Status</label>
+                <select id="editSupplierStatus">
+                  <option value="Active" ${supplier.Status === 'Active' ? 'selected' : ''}>Active</option>
+                  <option value="Inactive" ${supplier.Status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                </select>
               </div>
               <div id="editSupplierFormStatus" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
             </div>
@@ -8267,6 +8674,7 @@
       `;
 
       document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadContactFormDropdowns('editSupplier');
     }
 
     function closeEditSupplierModal() {
@@ -8278,12 +8686,12 @@
       const supplierId = document.getElementById('editSupplierId').value;
       const data = {
         supplierName: document.getElementById('editSupplierName').value.trim(),
+        financialYear: document.getElementById('editSupplierFinancialYear').value,
         contactPerson: document.getElementById('editContactPerson').value.trim(),
         phone: document.getElementById('editSupplierPhone').value.trim(),
         email: document.getElementById('editSupplierEmail').value.trim(),
         address: document.getElementById('editSupplierAddress').value.trim(),
         kraPin: document.getElementById('editKraPin').value.trim(),
-        category: document.getElementById('editSupplierCategory').value,
         bankName: document.getElementById('editBankName').value.trim(),
         bankAccount: document.getElementById('editBankAccount').value.trim(),
         paymentTerms: document.getElementById('editPaymentTerms').value,
@@ -9708,13 +10116,9 @@
                   <input type="text" id="customerName" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
                 </div>
                 <div class="form-group">
-                  <label for="customerType">Customer Type</label>
-                  <select id="customerType" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                    <option value="School">School</option>
-                    <option value="Project">Project</option>
-                    <option value="Donor">Donor</option>
-                    <option value="Government">Government</option>
-                    <option value="General">General</option>
+                  <label for="customerFinancialYear">Financial Year</label>
+                  <select id="customerFinancialYear" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="">Loading...</option>
                   </select>
                 </div>
               </div>
@@ -9728,28 +10132,25 @@
                   <input type="text" id="customerPhone" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
                 </div>
               </div>
+              <div class="form-group">
+                <label for="customerEmail">Email</label>
+                <input type="email" id="customerEmail" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
               <div class="form-row">
-                <div class="form-group">
-                  <label for="customerEmail">Email</label>
-                  <input type="email" id="customerEmail" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                </div>
                 <div class="form-group">
                   <label for="customerCreditLimit">Credit Limit</label>
                   <input type="number" id="customerCreditLimit" value="0" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="customerPaymentTerms">Payment Terms</label>
+                  <select id="customerPaymentTerms" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="">Loading...</option>
+                  </select>
                 </div>
               </div>
               <div class="form-group">
                 <label for="customerAddress">Address</label>
                 <textarea id="customerAddress" rows="2" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;"></textarea>
-              </div>
-              <div class="form-group">
-                <label for="customerPaymentTerms">Payment Terms</label>
-                <select id="customerPaymentTerms" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                  <option value="Net 30">Net 30</option>
-                  <option value="Net 15">Net 15</option>
-                  <option value="Net 60">Net 60</option>
-                  <option value="Due on Receipt">Due on Receipt</option>
-                </select>
               </div>
               <div id="customerFormStatus" style="min-height:24px;margin:12px 0;"></div>
               <button class="btn btn-primary" onclick="saveCustomerForm()" style="width:100%;">Save Customer</button>
@@ -9758,6 +10159,7 @@
         </div>
       `;
       document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadContactFormDropdowns('customer');
     }
 
     function saveCustomerForm() {
@@ -9769,7 +10171,7 @@
 
       const data = {
         customerName: name,
-        customerType: document.getElementById('customerType').value,
+        financialYear: document.getElementById('customerFinancialYear').value,
         contactPerson: document.getElementById('customerContact').value.trim(),
         phone: document.getElementById('customerPhone').value.trim(),
         email: document.getElementById('customerEmail').value.trim(),
@@ -9819,19 +10221,17 @@
             </div>
             <div class="modal-body" style="padding:16px;">
               <input type="hidden" id="editCustomerId" value="${c.Customer_ID}">
+              <input type="hidden" id="editCustomerCurrentFY" value="${c.Financial_Year || ''}">
+              <input type="hidden" id="editCustomerCurrentTerms" value="${c.Payment_Terms || ''}">
               <div class="form-row">
                 <div class="form-group">
                   <label for="editCustomerName">Customer Name *</label>
                   <input type="text" id="editCustomerName" value="${c.Customer_Name || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
                 </div>
                 <div class="form-group">
-                  <label for="editCustomerType">Customer Type</label>
-                  <select id="editCustomerType" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                    <option value="School" ${c.Customer_Type === 'School' ? 'selected' : ''}>School</option>
-                    <option value="Project" ${c.Customer_Type === 'Project' ? 'selected' : ''}>Project</option>
-                    <option value="Donor" ${c.Customer_Type === 'Donor' ? 'selected' : ''}>Donor</option>
-                    <option value="Government" ${c.Customer_Type === 'Government' ? 'selected' : ''}>Government</option>
-                    <option value="General" ${c.Customer_Type === 'General' ? 'selected' : ''}>General</option>
+                  <label for="editCustomerFinancialYear">Financial Year</label>
+                  <select id="editCustomerFinancialYear" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="">Loading...</option>
                   </select>
                 </div>
               </div>
@@ -9845,37 +10245,32 @@
                   <input type="text" id="editCustomerPhone" value="${c.Phone || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
                 </div>
               </div>
+              <div class="form-group">
+                <label for="editCustomerEmail">Email</label>
+                <input type="email" id="editCustomerEmail" value="${c.Email || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
               <div class="form-row">
-                <div class="form-group">
-                  <label for="editCustomerEmail">Email</label>
-                  <input type="email" id="editCustomerEmail" value="${c.Email || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                </div>
                 <div class="form-group">
                   <label for="editCustomerCreditLimit">Credit Limit</label>
                   <input type="number" id="editCustomerCreditLimit" value="${c.Credit_Limit || 0}" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="editCustomerPaymentTerms">Payment Terms</label>
+                  <select id="editCustomerPaymentTerms" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="">Loading...</option>
+                  </select>
                 </div>
               </div>
               <div class="form-group">
                 <label for="editCustomerAddress">Address</label>
                 <textarea id="editCustomerAddress" rows="2" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">${c.Address || ''}</textarea>
               </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="editCustomerPaymentTerms">Payment Terms</label>
-                  <select id="editCustomerPaymentTerms" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                    <option value="Net 30" ${c.Payment_Terms === 'Net 30' ? 'selected' : ''}>Net 30</option>
-                    <option value="Net 15" ${c.Payment_Terms === 'Net 15' ? 'selected' : ''}>Net 15</option>
-                    <option value="Net 60" ${c.Payment_Terms === 'Net 60' ? 'selected' : ''}>Net 60</option>
-                    <option value="Due on Receipt" ${c.Payment_Terms === 'Due on Receipt' ? 'selected' : ''}>Due on Receipt</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="editCustomerStatus">Status</label>
-                  <select id="editCustomerStatus" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                    <option value="Active" ${c.Status === 'Active' ? 'selected' : ''}>Active</option>
-                    <option value="Inactive" ${c.Status === 'Inactive' ? 'selected' : ''}>Inactive</option>
-                  </select>
-                </div>
+              <div class="form-group">
+                <label for="editCustomerStatus">Status</label>
+                <select id="editCustomerStatus" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                  <option value="Active" ${c.Status === 'Active' ? 'selected' : ''}>Active</option>
+                  <option value="Inactive" ${c.Status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                </select>
               </div>
               <div id="editCustomerFormStatus" style="min-height:24px;margin:12px 0;"></div>
               <button class="btn btn-primary" onclick="updateCustomerForm()" style="width:100%;">Update Customer</button>
@@ -9884,6 +10279,7 @@
         </div>
       `;
       document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadContactFormDropdowns('editCustomer');
     }
 
     function updateCustomerForm() {
@@ -9896,7 +10292,7 @@
 
       const data = {
         customerName: name,
-        customerType: document.getElementById('editCustomerType').value,
+        financialYear: document.getElementById('editCustomerFinancialYear').value,
         contactPerson: document.getElementById('editCustomerContact').value.trim(),
         phone: document.getElementById('editCustomerPhone').value.trim(),
         email: document.getElementById('editCustomerEmail').value.trim(),
@@ -9924,6 +10320,254 @@
         .updateCustomer(customerId, data);
     }
 
+    // ============================================================
+    // ADMIN MODULE - Staff Management
+    // ============================================================
+
+    function renderStaffContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Staff', 'Manage staff members for payroll and expense tracking.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Staff List</h2>
+              <p style="color:#6b7280;font-size:13px;">All registered staff members.</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="loadStaff()">Refresh</button>
+              <button class="btn btn-primary" onclick="openAddStaffModal()">+ Add Staff</button>
+            </div>
+          </div>
+          <div id="staffTableContainer" style="margin-top:16px;">
+            <p>Loading staff...</p>
+          </div>
+        </div>
+      `;
+      loadStaff();
+    }
+
+    function loadStaff() {
+      const container = document.getElementById('staffTableContainer');
+      container.innerHTML = '<p>Loading staff...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(staffList) {
+          if (!staffList || staffList.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;">No staff found. Click "Add Staff" to create one.</p>';
+            return;
+          }
+
+          let html = `
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Department</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          staffList.forEach(s => {
+            const statusClass = s.Status === 'Active' ? 'status-badge--ok' : 'status-badge--bad';
+            html += `
+              <tr>
+                <td><strong>${s.Staff_Name || ''}</strong></td>
+                <td>${s.Department || '-'}</td>
+                <td>${s.Phone || '-'}</td>
+                <td>${s.Email || '-'}</td>
+                <td><span class="status-badge ${statusClass}">${s.Status || 'Unknown'}</span></td>
+                <td>
+                  <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="editStaff('${s.Staff_ID}')">Edit</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load staff: ' + error.message + '</p>';
+        })
+        .getStaff();
+    }
+
+    function openAddStaffModal() {
+      const modalHtml = `
+        <div class="modal open" id="addStaffModal">
+          <div class="modal-card" style="max-width:500px;">
+            <div class="modal-header">
+              <span>Add New Staff</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('addStaffModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="staffName">Staff Name *</label>
+                  <input type="text" id="staffName" placeholder="Full name" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="staffFinancialYear">Financial Year</label>
+                  <select id="staffFinancialYear" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="">Loading...</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="staffPhone">Phone</label>
+                  <input type="text" id="staffPhone" placeholder="+254..." style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="staffEmail">Email</label>
+                  <input type="email" id="staffEmail" placeholder="email@company.com" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+              </div>
+              <div id="staffFormStatus" style="min-height:24px;margin:12px 0;"></div>
+              <button class="btn btn-primary" onclick="saveStaffForm()" style="width:100%;">Save Staff</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadContactFormDropdowns('staff');
+    }
+
+    function saveStaffForm() {
+      const name = document.getElementById('staffName').value.trim();
+      if (!name) {
+        document.getElementById('staffFormStatus').innerHTML = '<span style="color:#dc2626;">Staff name is required.</span>';
+        return;
+      }
+
+      const data = {
+        staffName: name,
+        financialYear: document.getElementById('staffFinancialYear').value,
+        phone: document.getElementById('staffPhone').value.trim(),
+        email: document.getElementById('staffEmail').value.trim()
+      };
+
+      document.getElementById('staffFormStatus').innerHTML = 'Saving staff...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            document.getElementById('addStaffModal').remove();
+            loadStaff();
+            alert('Staff saved successfully!');
+          } else {
+            document.getElementById('staffFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to save') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('staffFormStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .saveStaff(data);
+    }
+
+    function editStaff(staffId) {
+      google.script.run
+        .withSuccessHandler(function(staffList) {
+          const staff = (staffList || []).find(s => s.Staff_ID === staffId);
+          if (!staff) {
+            alert('Staff not found.');
+            return;
+          }
+          openEditStaffModal(staff);
+        })
+        .getStaff();
+    }
+
+    function openEditStaffModal(s) {
+      const modalHtml = `
+        <div class="modal open" id="editStaffModal">
+          <div class="modal-card" style="max-width:500px;">
+            <div class="modal-header">
+              <span>Edit Staff</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('editStaffModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <input type="hidden" id="editStaffId" value="${s.Staff_ID}">
+              <input type="hidden" id="editStaffCurrentFY" value="${s.Financial_Year || ''}">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editStaffName">Staff Name *</label>
+                  <input type="text" id="editStaffName" value="${s.Staff_Name || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="editStaffFinancialYear">Financial Year</label>
+                  <select id="editStaffFinancialYear" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="">Loading...</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editStaffPhone">Phone</label>
+                  <input type="text" id="editStaffPhone" value="${s.Phone || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="editStaffEmail">Email</label>
+                  <input type="email" id="editStaffEmail" value="${s.Email || ''}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="editStaffStatus">Status</label>
+                <select id="editStaffStatus" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                  <option value="Active" ${s.Status === 'Active' ? 'selected' : ''}>Active</option>
+                  <option value="Inactive" ${s.Status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                </select>
+              </div>
+              <div id="editStaffFormStatus" style="min-height:24px;margin:12px 0;"></div>
+              <button class="btn btn-primary" onclick="updateStaffForm()" style="width:100%;">Update Staff</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadContactFormDropdowns('editStaff');
+    }
+
+    function updateStaffForm() {
+      const staffId = document.getElementById('editStaffId').value;
+      const name = document.getElementById('editStaffName').value.trim();
+      if (!name) {
+        document.getElementById('editStaffFormStatus').innerHTML = '<span style="color:#dc2626;">Staff name is required.</span>';
+        return;
+      }
+
+      const data = {
+        staffName: name,
+        financialYear: document.getElementById('editStaffFinancialYear').value,
+        phone: document.getElementById('editStaffPhone').value.trim(),
+        email: document.getElementById('editStaffEmail').value.trim(),
+        status: document.getElementById('editStaffStatus').value
+      };
+
+      document.getElementById('editStaffFormStatus').innerHTML = 'Updating staff...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            document.getElementById('editStaffModal').remove();
+            loadStaff();
+            alert('Staff updated successfully!');
+          } else {
+            document.getElementById('editStaffFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to update') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('editStaffFormStatus').innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        .updateStaff(staffId, data);
+    }
+
     // Issue Invoice
     function renderIssueInvoiceContent() {
       const contentArea = document.getElementById('contentArea');
@@ -9948,7 +10592,9 @@
           <div class="form-row">
             <div class="form-group">
               <label for="invoiceFinancialYear">Financial Year</label>
-              <input type="text" id="invoiceFinancialYear" placeholder="e.g., 2024/2025" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              <select id="invoiceFinancialYear" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                <option value="">Loading...</option>
+              </select>
             </div>
             <div class="form-group">
               <label for="invoicePaymentTerms">Payment Terms</label>
@@ -9960,13 +10606,47 @@
               </select>
             </div>
           </div>
-          <div class="form-group">
-            <label for="invoiceDescription">Description</label>
-            <input type="text" id="invoiceDescription" placeholder="Invoice description" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="invoiceCategory">Category</label>
+              <div style="display:flex;gap:8px;">
+                <select id="invoiceCategory" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:6px;" onchange="onCategoryChange('invoice')">
+                  <option value="">-- Select Category --</option>
+                </select>
+                <button type="button" class="btn btn-secondary" onclick="openAddCategoryModal('invoice')" style="padding:8px 12px;font-size:14px;" title="Add Category">+</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="invoiceSubCategory">Sub-Category</label>
+              <div style="display:flex;gap:8px;">
+                <select id="invoiceSubCategory" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:6px;" onchange="onSubCategoryChange('invoice')">
+                  <option value="">-- Select Category first --</option>
+                </select>
+                <button type="button" class="btn btn-secondary" onclick="openAddSubCategoryModal('invoice')" style="padding:8px 12px;font-size:14px;" title="Add Sub-Category">+</button>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="invoiceAmount">Amount *</label>
-            <input type="number" id="invoiceAmount" min="0.01" step="0.01" placeholder="0.00" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="invoiceParticulars">Particulars</label>
+              <div style="display:flex;gap:8px;">
+                <select id="invoiceParticulars" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                  <option value="">-- Select Sub-Category first --</option>
+                </select>
+                <button type="button" class="btn btn-secondary" onclick="openAddParticularsModal('invoice')" style="padding:8px 12px;font-size:14px;" title="Add Particulars">+</button>
+              </div>
+            </div>
+            <div class="form-group"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="invoiceDescription">Description</label>
+              <input type="text" id="invoiceDescription" placeholder="Invoice description" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+            </div>
+            <div class="form-group">
+              <label for="invoiceAmount">Amount *</label>
+              <input type="number" id="invoiceAmount" min="0.01" step="0.01" placeholder="0.00" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+            </div>
           </div>
           <div id="invoiceFormStatus" style="min-height:24px;margin:12px 0;"></div>
           <button class="btn btn-primary" onclick="saveInvoice()" style="width:200px;">Issue Invoice</button>
@@ -9976,6 +10656,7 @@
     }
 
     function loadCustomersForInvoice() {
+      // Load customers
       google.script.run
         .withSuccessHandler(function(customers) {
           const select = document.getElementById('invoiceCustomer');
@@ -9996,6 +10677,24 @@
           });
         })
         .getCustomers();
+
+      // Initialize cascading dropdowns for Category → Sub-Category → Particulars
+      initCascadingDropdowns('invoice');
+
+      // Load financial year dropdown
+      loadMasterDataForCascade(function(data) {
+        const fySelect = document.getElementById('invoiceFinancialYear');
+        if (fySelect && fySelect.tagName === 'SELECT') {
+          const financialYears = (data && data.financialYears) || [];
+          fySelect.innerHTML = '<option value="">Select Year</option>';
+          financialYears.forEach(fy => {
+            const opt = document.createElement('option');
+            opt.value = fy;
+            opt.textContent = fy;
+            fySelect.appendChild(opt);
+          });
+        }
+      });
     }
 
     function saveInvoice() {
@@ -10014,12 +10713,18 @@
       }
 
       const selectedOption = customerSelect.selectedOptions[0];
+      const category = document.getElementById('invoiceCategory').value;
+      const subCategory = document.getElementById('invoiceSubCategory').value;
+      const particulars = document.getElementById('invoiceParticulars').value;
       const data = {
         customerId: customerId,
         customerName: selectedOption.dataset.name || '',
         invoiceDate: document.getElementById('invoiceDate').value,
-        financialYear: document.getElementById('invoiceFinancialYear').value.trim(),
+        financialYear: document.getElementById('invoiceFinancialYear').value,
         paymentTerms: document.getElementById('invoicePaymentTerms').value,
+        category: category,
+        subCategory: subCategory,
+        particulars: particulars,
         description: document.getElementById('invoiceDescription').value.trim(),
         amount: amount
       };

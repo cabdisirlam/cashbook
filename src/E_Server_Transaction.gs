@@ -3,7 +3,7 @@
  */
 function getDropdownData() {
   const cache = CacheService.getScriptCache();
-  const cacheKey = 'dropdownData_v2';
+  const cacheKey = 'dropdownData_v3';
   const cached = cache.get(cacheKey);
   if (cached) {
     try {
@@ -25,45 +25,63 @@ function getDropdownData() {
   };
 
   const ss = _getOrCreateSpreadsheet();
+
+  // Get master data for accounts, particulars, categories, etc.
   const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
-  if (!sheet) return payload;
+  if (sheet) {
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow >= 2) {
+      const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+      const cols = _getMasterColumns_(headers);
+      const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
-  const lastRow = sheet.getLastRow();
-  const lastCol = sheet.getLastColumn();
-  if (lastRow < 2) return payload;
+      data.forEach(function(row) {
+        const account = cols.accountCodes ? String(row[cols.accountCodes - 1]).trim() : '';
+        const particulars = cols.particulars ? String(row[cols.particulars - 1]).trim() : '';
+        const subCat = cols.subCategory ? String(row[cols.subCategory - 1]).trim() : '';
+        const category = cols.category ? String(row[cols.category - 1]).trim() : '';
+        const financialYear = cols.financialYear ? String(row[cols.financialYear - 1]).trim() : '';
+        const accountType = cols.accountType ? String(row[cols.accountType - 1]).trim() : '';
+        const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1]).trim() : '';
 
-  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
-  const cols = _getMasterColumns_(headers);
-  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-
-  data.forEach(function(row) {
-    const account = cols.accountCodes ? String(row[cols.accountCodes - 1]).trim() : '';
-    const payee = cols.payees ? String(row[cols.payees - 1]).trim() : '';
-    const particulars = cols.particulars ? String(row[cols.particulars - 1]).trim() : '';
-    const subCat = cols.subCategory ? String(row[cols.subCategory - 1]).trim() : '';
-    const category = cols.category ? String(row[cols.category - 1]).trim() : '';
-    const financialYear = cols.financialYear ? String(row[cols.financialYear - 1]).trim() : '';
-    const accountType = cols.accountType ? String(row[cols.accountType - 1]).trim() : '';
-    const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1]).trim() : '';
-
-    if (account) payload.accounts.push(account);
-    if (payee) payload.payees.push(payee);
-    if (category) payload.categories.push(category);
-    if (financialYear) payload.financialYears.push(financialYear);
-    if (subCat) {
-      payload.subCats.push(subCat);
-      if (category) payload.subToCatMap[subCat] = category;
+        if (account) payload.accounts.push(account);
+        if (category) payload.categories.push(category);
+        if (financialYear) payload.financialYears.push(financialYear);
+        if (subCat) {
+          payload.subCats.push(subCat);
+          if (category) payload.subToCatMap[subCat] = category;
+        }
+        if (particulars) {
+          payload.particulars.push(particulars);
+          payload.particularMeta[particulars] = {
+            subCategory: subCat,
+            category: category,
+            accountType: accountType,
+            reportMapping: reportMapping
+          };
+        }
+      });
     }
-    if (particulars) {
-      payload.particulars.push(particulars);
-      payload.particularMeta[particulars] = {
-        subCategory: subCat,
-        category: category,
-        accountType: accountType,
-        reportMapping: reportMapping
-      };
+  }
+
+  // Get payees from CONTACTS sheet (Suppliers, Customers, Staff)
+  const contactsSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
+  if (contactsSheet) {
+    const contactsLastRow = contactsSheet.getLastRow();
+    if (contactsLastRow >= 2) {
+      // CONTACTS columns: Contact_ID, Contact_Type, Contact_Name, ...
+      const contactsData = contactsSheet.getRange(2, 1, contactsLastRow - 1, 3).getValues();
+      contactsData.forEach(function(row) {
+        const contactId = String(row[0] || '').trim();
+        const contactName = String(row[2] || '').trim();
+        // Only add active contacts with valid names
+        if (contactId && contactName) {
+          payload.payees.push(contactName);
+        }
+      });
     }
-  });
+  }
 
   payload.accounts = _uniqueSorted_(payload.accounts);
   payload.payees = _uniqueSorted_(payload.payees);
@@ -2652,6 +2670,16 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
       [cols.reportMapping]: reportValue
     });
     logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: account');
+    return;
+  }
+
+  if (typeKey === 'category') {
+    if (_valueExistsInColumn_(data, cols.category, trimmed)) return;
+    const targetRow = _findRowForInsert_(data, cols.category, [cols.subCategory, cols.accountCodes]);
+    _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+      [cols.category]: trimmed
+    });
+    logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: category');
     return;
   }
 

@@ -737,9 +737,9 @@
       <table class="split-table">
         <thead>
           <tr>
-            <th>Particulars</th>
-            <th>Sub-Category</th>
             <th>Category</th>
+            <th>Sub-Category</th>
+            <th>Particulars</th>
             <th>Description</th>
             <th>Amount</th>
             <th>Action</th>
@@ -801,10 +801,10 @@
       <table class="split-table">
         <thead>
           <tr>
-            <th>Line Type</th>
-            <th>Account / Particulars</th>
+            <th>Type</th>
+            <th>Category / Account</th>
             <th>Sub-Category</th>
-            <th>Category</th>
+            <th>Particulars</th>
             <th>Details</th>
             <th>Debit</th>
             <th>Credit</th>
@@ -850,6 +850,7 @@
     payees: [],
     particulars: [],
     subCats: [],
+    categories: [],
     subToCatMap: {},
     particularMeta: {}
   };
@@ -910,6 +911,7 @@
         paymentState.particulars = payload.particulars || [];
         allParticulars = paymentState.particulars.slice();
         paymentState.subCats = payload.subCats || [];
+        paymentState.categories = payload.categories || [];
         paymentState.subToCatMap = payload.subToCatMap || {};
         paymentState.particularMeta = payload.particularMeta || {};
 
@@ -919,6 +921,7 @@
         fillList('subCatList', paymentState.subCats);
         fillList('categoryList', payload.categories || []);
         fillList('financialYearList', payload.financialYears || []);
+        refreshLineCategories();
         setStatus('');
       })
       .withFailureHandler(function(error) {
@@ -951,46 +954,191 @@
     fillList('particularList', filtered);
   }
 
+  var lineCounter = 0;
+
   function addLine() {
+    const lineId = 'line' + (lineCounter++);
     const row = document.createElement('tr');
+    row.dataset.lineId = lineId;
     row.innerHTML = `
-      <td data-label="Particulars">
+      <td data-label="Category">
         <div class="input-action">
-          <input list="particularList" class="input-field particular-input" placeholder="Particulars">
-          <button class="btn-icon" type="button" onclick="openAddParticularModal()">+</button>
+          <select class="input-field category-select" id="${lineId}Category" onchange="onLineCategoryChange('${lineId}')">
+            <option value="">-- Category --</option>
+          </select>
+          <button class="btn-icon" type="button" onclick="openAddCategoryModalTxn('${lineId}')">+</button>
         </div>
       </td>
-      <td data-label="Sub-Category"><input type="text" class="input-field subcat-input" readonly></td>
-      <td data-label="Category"><input type="text" class="input-field category-input" readonly></td>
+      <td data-label="Sub-Category">
+        <div class="input-action">
+          <select class="input-field subcat-select" id="${lineId}SubCategory" onchange="onLineSubCategoryChange('${lineId}')">
+            <option value="">-- Select Category first --</option>
+          </select>
+          <button class="btn-icon" type="button" onclick="openAddSubCategoryModalTxn('${lineId}')">+</button>
+        </div>
+      </td>
+      <td data-label="Particulars">
+        <div class="input-action">
+          <select class="input-field particular-select" id="${lineId}Particulars">
+            <option value="">-- Select Sub-Cat first --</option>
+          </select>
+          <button class="btn-icon" type="button" onclick="openAddParticularsModalTxn('${lineId}')">+</button>
+        </div>
+      </td>
       <td data-label="Description"><input type="text" class="input-field desc-input" placeholder="Description"></td>
       <td data-label="Amount"><input type="number" class="input-field amount-input" min="0" step="0.01" placeholder="0.00"></td>
       <td data-label="Action"><button class="btn btn-danger" type="button" onclick="removeLine(this)">Delete</button></td>
     `;
 
-    row.querySelector('.particular-input').addEventListener('change', function() {
+    // Populate categories
+    const catSelect = row.querySelector('.category-select');
+    (paymentState.categories || []).forEach(function(cat) {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      catSelect.appendChild(opt);
+    });
+
+    // Validate particulars on change
+    row.querySelector('.particular-select').addEventListener('change', function() {
       const particulars = this.value.trim();
       const meta = paymentState.particularMeta[particulars] || {};
       if (isIncomeMappedParticular(meta) && transactionMode === 'Payment') {
         this.value = '';
-        row.querySelector('.subcat-input').value = '';
-        row.querySelector('.category-input').value = '';
         setStatus('Payments cannot use particulars mapped as operating income.');
         return;
       }
       if (!isOperatingIncomeParticular(meta) && transactionMode === 'Receipt') {
         this.value = '';
-        row.querySelector('.subcat-input').value = '';
-        row.querySelector('.category-input').value = '';
         setStatus('Receipts can only use particulars mapped as operating income.');
         return;
       }
-      row.querySelector('.subcat-input').value = meta.subCategory || '';
-      row.querySelector('.category-input').value = meta.category || '';
     });
 
     row.querySelector('.amount-input').addEventListener('input', updateTotal);
 
     document.getElementById('splitBody').appendChild(row);
+  }
+
+  function onLineCategoryChange(lineId) {
+    const selectedCat = document.getElementById(lineId + 'Category').value;
+    const subCatSelect = document.getElementById(lineId + 'SubCategory');
+    const partSelect = document.getElementById(lineId + 'Particulars');
+
+    // Filter sub-categories by selected category
+    const filteredSubCats = (paymentState.subCats || []).filter(function(sc) {
+      return paymentState.subToCatMap[sc] === selectedCat;
+    });
+
+    subCatSelect.innerHTML = '<option value="">-- Sub-Category --</option>';
+    filteredSubCats.forEach(function(sc) {
+      const opt = document.createElement('option');
+      opt.value = sc;
+      opt.textContent = sc;
+      subCatSelect.appendChild(opt);
+    });
+
+    // Reset particulars
+    partSelect.innerHTML = '<option value="">-- Select Sub-Cat first --</option>';
+  }
+
+  function onLineSubCategoryChange(lineId) {
+    const selectedSubCat = document.getElementById(lineId + 'SubCategory').value;
+    const partSelect = document.getElementById(lineId + 'Particulars');
+
+    // Filter particulars by selected sub-category and transaction mode
+    const filteredParts = (allParticulars || []).filter(function(p) {
+      const meta = paymentState.particularMeta[p] || {};
+      if (meta.subCategory !== selectedSubCat) return false;
+      if (transactionMode === 'Receipt') {
+        return isOperatingIncomeParticular(meta);
+      }
+      if (transactionMode === 'Payment') {
+        return !isIncomeMappedParticular(meta);
+      }
+      return true;
+    });
+
+    partSelect.innerHTML = '<option value="">-- Particulars --</option>';
+    filteredParts.forEach(function(p) {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      partSelect.appendChild(opt);
+    });
+  }
+
+  function refreshLineCategories() {
+    // Refresh all category dropdowns in existing payment lines
+    document.querySelectorAll('#splitBody tr').forEach(function(row) {
+      const catSelect = row.querySelector('.category-select');
+      if (!catSelect) return;
+      const currentVal = catSelect.value;
+      catSelect.innerHTML = '<option value="">-- Category --</option>';
+      (paymentState.categories || []).forEach(function(cat) {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        catSelect.appendChild(opt);
+      });
+      if (currentVal) catSelect.value = currentVal;
+    });
+
+    // Refresh all category dropdowns in existing journal lines
+    document.querySelectorAll('#journalBody tr').forEach(function(row) {
+      const catSelect = row.querySelector('.journal-category-select');
+      if (!catSelect) return;
+      const currentVal = catSelect.value;
+      catSelect.innerHTML = '<option value="">-- Category --</option>';
+      (paymentState.categories || []).forEach(function(cat) {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        catSelect.appendChild(opt);
+      });
+      if (currentVal) catSelect.value = currentVal;
+    });
+  }
+
+  function onJournalCategoryChange(lineId) {
+    const selectedCat = document.getElementById(lineId + 'Category').value;
+    const subCatSelect = document.getElementById(lineId + 'SubCategory');
+    const partSelect = document.getElementById(lineId + 'Particulars');
+
+    // Filter sub-categories by selected category
+    const filteredSubCats = (paymentState.subCats || []).filter(function(sc) {
+      return paymentState.subToCatMap[sc] === selectedCat;
+    });
+
+    subCatSelect.innerHTML = '<option value="">-- Sub-Category --</option>';
+    filteredSubCats.forEach(function(sc) {
+      const opt = document.createElement('option');
+      opt.value = sc;
+      opt.textContent = sc;
+      subCatSelect.appendChild(opt);
+    });
+
+    // Reset particulars
+    partSelect.innerHTML = '<option value="">-- Select Sub --</option>';
+  }
+
+  function onJournalSubCategoryChange(lineId) {
+    const selectedSubCat = document.getElementById(lineId + 'SubCategory').value;
+    const partSelect = document.getElementById(lineId + 'Particulars');
+
+    // Filter particulars by selected sub-category (no transaction mode filter for journals)
+    const filteredParts = (allParticulars || []).filter(function(p) {
+      const meta = paymentState.particularMeta[p] || {};
+      return meta.subCategory === selectedSubCat;
+    });
+
+    partSelect.innerHTML = '<option value="">-- Particulars --</option>';
+    filteredParts.forEach(function(p) {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      partSelect.appendChild(opt);
+    });
   }
 
   function removeLine(button) {
@@ -1047,6 +1195,142 @@
     document.getElementById('addFinancialYearInput').focus();
   }
 
+  // Transaction line inline modal openers
+  let activeLineId = null;
+
+  function openAddCategoryModalTxn(lineId) {
+    activeLineId = lineId;
+    document.getElementById('addCategoryNameTxn').value = '';
+    document.getElementById('addCategoryModal').classList.add('open');
+    document.getElementById('addCategoryNameTxn').focus();
+  }
+
+  function openAddSubCategoryModalTxn(lineId) {
+    activeLineId = lineId;
+    const catSelect = document.getElementById(lineId + 'Category');
+    const selectedCat = catSelect ? catSelect.value : '';
+    document.getElementById('addSubNameTxn').value = '';
+    document.getElementById('addSubCategoryTxn').value = selectedCat;
+    document.getElementById('addSubAccountTypeTxn').value = '';
+    document.getElementById('addSubReportTxn').value = '';
+    document.getElementById('addSubModalTxn').classList.add('open');
+    document.getElementById('addSubNameTxn').focus();
+  }
+
+  function openAddParticularsModalTxn(lineId) {
+    activeLineId = lineId;
+    const catSelect = document.getElementById(lineId + 'Category');
+    const subCatSelect = document.getElementById(lineId + 'SubCategory');
+    const selectedCat = catSelect ? catSelect.value : '';
+    const selectedSubCat = subCatSelect ? subCatSelect.value : '';
+    document.getElementById('addParticularNameTxn').value = '';
+    document.getElementById('addParticularSubCategoryTxn').value = selectedSubCat;
+    document.getElementById('addParticularCategoryTxn').value = selectedCat;
+    document.getElementById('addParticularAccountTypeTxn').value = '';
+    document.getElementById('addParticularReportTxn').value = '';
+    document.getElementById('addParticularModalTxn').classList.add('open');
+    document.getElementById('addParticularNameTxn').focus();
+  }
+
+  function saveNewCategoryTxn() {
+    const name = document.getElementById('addCategoryNameTxn').value.trim();
+    if (!name) return;
+    if (isSaving) return;
+    isSaving = true;
+
+    setStatus('Saving category...');
+    google.script.run
+      .withSuccessHandler(function() {
+        closeSubModal('addCategoryModal');
+        loadDropdowns();
+        // Auto-select the new category in the line
+        setTimeout(function() {
+          if (activeLineId) {
+            const catSelect = document.getElementById(activeLineId + 'Category');
+            if (catSelect) {
+              catSelect.value = name;
+              onLineCategoryChange(activeLineId);
+            }
+          }
+        }, 500);
+        setStatus('Category saved.');
+        isSaving = false;
+      })
+      .withFailureHandler(function(error) {
+        setStatus(error.message || 'Failed to add category.');
+        isSaving = false;
+      })
+      .addMasterItem('category', name);
+  }
+
+  function saveNewSubCategoryTxn() {
+    const name = document.getElementById('addSubNameTxn').value.trim();
+    const parent = document.getElementById('addSubCategoryTxn').value.trim();
+    const accountType = document.getElementById('addSubAccountTypeTxn').value.trim();
+    const reportMapping = document.getElementById('addSubReportTxn').value.trim();
+    if (!name || !parent || !accountType || !reportMapping) return;
+    if (isSaving) return;
+    isSaving = true;
+
+    setStatus('Saving sub-category...');
+    google.script.run
+      .withSuccessHandler(function() {
+        closeSubModal('addSubModalTxn');
+        loadDropdowns();
+        // Auto-select the new sub-category in the line
+        setTimeout(function() {
+          if (activeLineId) {
+            const subCatSelect = document.getElementById(activeLineId + 'SubCategory');
+            if (subCatSelect) {
+              subCatSelect.value = name;
+              onLineSubCategoryChange(activeLineId);
+            }
+          }
+        }, 500);
+        setStatus('Sub-category saved.');
+        isSaving = false;
+      })
+      .withFailureHandler(function(error) {
+        setStatus(error.message || 'Failed to add sub-category.');
+        isSaving = false;
+      })
+      .addMasterItem('subCategory', name, parent, accountType, reportMapping);
+  }
+
+  function saveNewParticularTxn() {
+    const name = document.getElementById('addParticularNameTxn').value.trim();
+    const parent = document.getElementById('addParticularSubCategoryTxn').value.trim();
+    const category = document.getElementById('addParticularCategoryTxn').value.trim();
+    const accountType = document.getElementById('addParticularAccountTypeTxn').value.trim();
+    const reportMapping = document.getElementById('addParticularReportTxn').value.trim();
+    if (!name || !parent || !category || !accountType || !reportMapping) return;
+    if (isSaving) return;
+    isSaving = true;
+
+    setStatus('Saving particulars...');
+    google.script.run
+      .withSuccessHandler(function() {
+        closeSubModal('addParticularModalTxn');
+        loadDropdowns();
+        // Auto-select the new particular in the line
+        setTimeout(function() {
+          if (activeLineId) {
+            const partSelect = document.getElementById(activeLineId + 'Particulars');
+            if (partSelect) {
+              partSelect.value = name;
+            }
+          }
+        }, 500);
+        setStatus('Particulars saved.');
+        isSaving = false;
+      })
+      .withFailureHandler(function(error) {
+        setStatus(error.message || 'Failed to add particulars.');
+        isSaving = false;
+      })
+      .addMasterItem('particular', name, parent, category, accountType, reportMapping);
+  }
+
   function closeSubModal(id) {
     document.getElementById(id).classList.remove('open');
   }
@@ -1075,24 +1359,46 @@
   }
 
   function saveNewPayee() {
-    const value = document.getElementById('addPayeeInput').value.trim();
-    if (!value) return;
+    const contactType = document.getElementById('addPayeeType').value.trim();
+    const contactName = document.getElementById('addPayeeInput').value.trim();
+    const phone = document.getElementById('addPayeePhone').value.trim();
+    const email = document.getElementById('addPayeeEmail').value.trim();
+
+    if (!contactType) {
+      setStatus('Please select a contact type.');
+      return;
+    }
+    if (!contactName) {
+      setStatus('Please enter a contact name.');
+      return;
+    }
     if (isSaving) return;
     isSaving = true;
 
-    setStatus('Saving master data...');
+    const data = {
+      contactName: contactName,
+      phone: phone,
+      email: email
+    };
+
+    setStatus('Saving contact...');
     google.script.run
-      .withSuccessHandler(function() {
+      .withSuccessHandler(function(result) {
+        // Clear form fields
+        document.getElementById('addPayeeType').value = '';
+        document.getElementById('addPayeeInput').value = '';
+        document.getElementById('addPayeePhone').value = '';
+        document.getElementById('addPayeeEmail').value = '';
         closeSubModal('addPayeeModal');
         loadDropdowns();
-        setStatus('Master data saved.');
+        setStatus('Contact saved successfully.');
         isSaving = false;
       })
       .withFailureHandler(function(error) {
-        setStatus(error.message || 'Failed to add master data.');
+        setStatus(error.message || 'Failed to save contact.');
         isSaving = false;
       })
-      .addMasterItem('payee', value);
+      .saveContact(contactType, data);
   }
 
   function saveNewSubCategory() {
@@ -1179,9 +1485,9 @@
     const rows = [];
     let hasInvalid = false;
     document.querySelectorAll('#splitBody tr').forEach(function(row) {
-      const particulars = row.querySelector('.particular-input').value.trim();
-      const subCategory = row.querySelector('.subcat-input').value.trim();
-      const category = row.querySelector('.category-input').value.trim();
+      const particulars = row.querySelector('.particular-select').value.trim();
+      const subCategory = row.querySelector('.subcat-select').value.trim();
+      const category = row.querySelector('.category-select').value.trim();
       const description = row.querySelector('.desc-input').value.trim();
       const amount = parseFloat(row.querySelector('.amount-input').value);
 
@@ -1292,8 +1598,12 @@
       .getNextJournalRef();
   }
 
+  var journalLineCounter = 0;
+
   function addJournalLine() {
+    const jLineId = 'jline' + (journalLineCounter++);
     const row = document.createElement('tr');
+    row.dataset.lineId = jLineId;
     row.innerHTML = `
       <td data-label="Line Type">
         <select class="input-field journal-line-type">
@@ -1301,65 +1611,78 @@
           <option value="bank">Bank</option>
         </select>
       </td>
-      <td data-label="Account / Particulars">
-        <div class="input-action journal-particular-wrap">
-          <input list="particularList" class="input-field journal-particular-input" placeholder="Particulars">
-          <button class="btn-icon" type="button" onclick="openAddParticularModal()">+</button>
+      <td data-label="Category" class="journal-cat-cell">
+        <div class="input-action">
+          <select class="input-field journal-category-select" id="${jLineId}Category" onchange="onJournalCategoryChange('${jLineId}')">
+            <option value="">-- Category --</option>
+          </select>
+          <button class="btn-icon" type="button" onclick="openAddCategoryModalTxn('${jLineId}')">+</button>
         </div>
         <div class="input-action journal-bank-wrap" style="display:none;">
           <input list="accountList" class="input-field journal-bank-input" placeholder="Bank account">
+          <button class="btn-icon" type="button" onclick="openAddAccountModal()">+</button>
         </div>
       </td>
-      <td data-label="Sub-Category"><input type="text" class="input-field journal-subcat-input" readonly></td>
-      <td data-label="Category"><input type="text" class="input-field journal-category-input" readonly></td>
+      <td data-label="Sub-Category" class="journal-subcat-cell">
+        <div class="input-action journal-subcat-wrap">
+          <select class="input-field journal-subcat-select" id="${jLineId}SubCategory" onchange="onJournalSubCategoryChange('${jLineId}')">
+            <option value="">-- Select Cat --</option>
+          </select>
+          <button class="btn-icon" type="button" onclick="openAddSubCategoryModalTxn('${jLineId}')">+</button>
+        </div>
+      </td>
+      <td data-label="Particulars" class="journal-part-cell">
+        <div class="input-action journal-particular-wrap">
+          <select class="input-field journal-particular-select" id="${jLineId}Particulars">
+            <option value="">-- Select Sub --</option>
+          </select>
+          <button class="btn-icon" type="button" onclick="openAddParticularsModalTxn('${jLineId}')">+</button>
+        </div>
+      </td>
       <td data-label="Details"><input type="text" class="input-field journal-desc-input" placeholder="Details"></td>
       <td data-label="Debit"><input type="number" class="input-field journal-debit-input" min="0" step="0.01" placeholder="0.00"></td>
       <td data-label="Credit"><input type="number" class="input-field journal-credit-input" min="0" step="0.01" placeholder="0.00"></td>
-      <td data-label="Action"><button class="btn btn-danger" type="button" onclick="removeJournalLine(this)">🗑</button></td>
+      <td data-label="Action"><button class="btn btn-danger" type="button" onclick="removeJournalLine(this)">X</button></td>
     `;
 
     const lineTypeSelect = row.querySelector('.journal-line-type');
-    const particularsInput = row.querySelector('.journal-particular-input');
-    const bankInput = row.querySelector('.journal-bank-input');
-    const particularsWrap = row.querySelector('.journal-particular-wrap');
+    const catSelect = row.querySelector('.journal-category-select');
+    const subcatWrap = row.querySelector('.journal-subcat-wrap');
+    const partWrap = row.querySelector('.journal-particular-wrap');
     const bankWrap = row.querySelector('.journal-bank-wrap');
-    const subcatInput = row.querySelector('.journal-subcat-input');
-    const categoryInput = row.querySelector('.journal-category-input');
+    const bankInput = row.querySelector('.journal-bank-input');
+    const subcatCell = row.querySelector('.journal-subcat-cell');
+    const partCell = row.querySelector('.journal-part-cell');
     const debitInput = row.querySelector('.journal-debit-input');
     const creditInput = row.querySelector('.journal-credit-input');
+
+    // Populate categories
+    (paymentState.categories || []).forEach(function(cat) {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      catSelect.appendChild(opt);
+    });
 
     bankInput.disabled = true;
 
     lineTypeSelect.addEventListener('change', function() {
       const mode = this.value;
       if (mode === 'bank') {
-        particularsInput.value = '';
-        subcatInput.value = '';
-        categoryInput.value = '';
-        particularsInput.disabled = true;
+        catSelect.value = '';
+        catSelect.parentElement.style.display = 'none';
+        bankWrap.style.display = 'flex';
         bankInput.disabled = false;
-        particularsWrap.style.display = 'none';
-        bankWrap.style.display = 'block';
+        subcatCell.style.display = 'none';
+        partCell.style.display = 'none';
       } else {
         bankInput.value = '';
         bankInput.disabled = true;
-        particularsInput.disabled = false;
-        particularsWrap.style.display = 'flex';
+        catSelect.parentElement.style.display = 'flex';
         bankWrap.style.display = 'none';
+        subcatCell.style.display = '';
+        partCell.style.display = '';
       }
-    });
-
-    particularsInput.addEventListener('change', function() {
-      const particulars = this.value.trim();
-      const meta = paymentState.particularMeta[particulars] || {};
-      if (!meta.subCategory || !meta.category) {
-        subcatInput.value = '';
-        categoryInput.value = '';
-        if (particulars) setJournalStatus('Particulars not found in master data.');
-        return;
-      }
-      subcatInput.value = meta.subCategory || '';
-      categoryInput.value = meta.category || '';
     });
 
     debitInput.addEventListener('input', function() {
@@ -1446,7 +1769,7 @@
     let hasInvalid = false;
     document.querySelectorAll('#journalBody tr').forEach(function(row) {
       const lineType = row.querySelector('.journal-line-type').value;
-      const particulars = row.querySelector('.journal-particular-input').value.trim();
+      const particulars = row.querySelector('.journal-particular-select').value.trim();
       const bankAccount = row.querySelector('.journal-bank-input').value.trim();
       const description = row.querySelector('.journal-desc-input').value.trim();
       const debit = parseFloat(row.querySelector('.journal-debit-input').value) || 0;
@@ -1582,14 +1905,31 @@
 </div>
 
 <div class="submodal" id="addPayeeModal">
-  <div class="submodal-card">
+  <div class="submodal-card" style="max-width: 450px;">
     <div class="submodal-header">
-      <span>Add Payee</span>
+      <span>Add Contact</span>
       <button class="close-btn" type="button" onclick="closeSubModal('addPayeeModal')">X</button>
     </div>
     <div>
-      <label class="form-label" for="addPayeeInput">Payee Name</label>
-      <input id="addPayeeInput" class="input-field" type="text" placeholder="Supplier or staff name">
+      <label class="form-label" for="addPayeeType">Contact Type <span style="color:#dc2626">*</span></label>
+      <select id="addPayeeType" class="select-field">
+        <option value="">Select type</option>
+        <option value="Supplier">Supplier</option>
+        <option value="Customer">Customer</option>
+        <option value="Staff">Staff</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label" for="addPayeeInput">Contact Name <span style="color:#dc2626">*</span></label>
+      <input id="addPayeeInput" class="input-field" type="text" placeholder="Full name or company name">
+    </div>
+    <div>
+      <label class="form-label" for="addPayeePhone">Phone</label>
+      <input id="addPayeePhone" class="input-field" type="text" placeholder="Phone number">
+    </div>
+    <div>
+      <label class="form-label" for="addPayeeEmail">Email</label>
+      <input id="addPayeeEmail" class="input-field" type="email" placeholder="Email address">
     </div>
     <div class="submodal-actions">
       <button class="btn btn-secondary" type="button" onclick="closeSubModal('addPayeeModal')">Cancel</button>
@@ -1703,6 +2043,115 @@
     <div class="submodal-actions">
       <button class="btn btn-secondary" type="button" onclick="closeSubModal('addFinancialYearModal')">Cancel</button>
       <button class="btn btn-primary" type="button" onclick="saveNewFinancialYear()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="submodal" id="addCategoryModal">
+  <div class="submodal-card">
+    <div class="submodal-header">
+      <span>Add Category</span>
+      <button class="close-btn" type="button" onclick="closeSubModal('addCategoryModal')">X</button>
+    </div>
+    <div>
+      <label class="form-label" for="addCategoryNameTxn">Category Name</label>
+      <input id="addCategoryNameTxn" class="input-field" type="text" placeholder="e.g. Transport">
+    </div>
+    <div class="submodal-actions">
+      <button class="btn btn-secondary" type="button" onclick="closeSubModal('addCategoryModal')">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="saveNewCategoryTxn()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="submodal" id="addSubModalTxn">
+  <div class="submodal-card">
+    <div class="submodal-header">
+      <span>Add Sub-Category</span>
+      <button class="close-btn" type="button" onclick="closeSubModal('addSubModalTxn')">X</button>
+    </div>
+    <div>
+      <label class="form-label" for="addSubNameTxn">Sub-Category Name</label>
+      <input id="addSubNameTxn" class="input-field" type="text" placeholder="e.g. Fuel">
+    </div>
+    <div>
+      <label class="form-label" for="addSubCategoryTxn">Category</label>
+      <input list="categoryList" id="addSubCategoryTxn" class="input-field" type="text" placeholder="Select category">
+    </div>
+    <div>
+      <label class="form-label" for="addSubAccountTypeTxn">Account Type</label>
+      <select id="addSubAccountTypeTxn" class="select-field">
+        <option value="">Select account type</option>
+        <option value="Asset">Asset</option>
+        <option value="Liabilities">Liabilities</option>
+        <option value="Income">Income</option>
+        <option value="Expense">Expense</option>
+        <option value="Equity">Equity</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label" for="addSubReportTxn">Report Mapping</label>
+      <select id="addSubReportTxn" class="select-field">
+        <option value="">Select report mapping</option>
+        <option value="Current Asset">Current Asset</option>
+        <option value="Current liability">Current liability</option>
+        <option value="Non-Current liability">Non-Current liability</option>
+        <option value="Operating expense">Operating expense</option>
+        <option value="Operating income">Operating income</option>
+        <option value="Non-Current Asset">Non-Current Asset</option>
+      </select>
+    </div>
+    <div class="submodal-actions">
+      <button class="btn btn-secondary" type="button" onclick="closeSubModal('addSubModalTxn')">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="saveNewSubCategoryTxn()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="submodal" id="addParticularModalTxn">
+  <div class="submodal-card">
+    <div class="submodal-header">
+      <span>Add Particulars</span>
+      <button class="close-btn" type="button" onclick="closeSubModal('addParticularModalTxn')">X</button>
+    </div>
+    <div>
+      <label class="form-label" for="addParticularNameTxn">Particulars Name</label>
+      <input id="addParticularNameTxn" class="input-field" type="text" placeholder="e.g. Petrol">
+    </div>
+    <div>
+      <label class="form-label" for="addParticularSubCategoryTxn">Sub-Category</label>
+      <input list="subCatList" id="addParticularSubCategoryTxn" class="input-field" type="text" placeholder="Select sub-category">
+    </div>
+    <div>
+      <label class="form-label" for="addParticularCategoryTxn">Category</label>
+      <input list="categoryList" id="addParticularCategoryTxn" class="input-field" type="text" placeholder="Select category">
+    </div>
+    <div>
+      <label class="form-label" for="addParticularAccountTypeTxn">Account Type</label>
+      <select id="addParticularAccountTypeTxn" class="select-field">
+        <option value="">Select account type</option>
+        <option value="Asset">Asset</option>
+        <option value="Liabilities">Liabilities</option>
+        <option value="Income">Income</option>
+        <option value="Expense">Expense</option>
+        <option value="Equity">Equity</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label" for="addParticularReportTxn">Report Mapping</label>
+      <select id="addParticularReportTxn" class="select-field">
+        <option value="">Select report mapping</option>
+        <option value="Current Asset">Current Asset</option>
+        <option value="Current liability">Current liability</option>
+        <option value="Non-Current liability">Non-Current liability</option>
+        <option value="Operating expense">Operating expense</option>
+        <option value="Operating income">Operating income</option>
+        <option value="Non-Current Asset">Non-Current Asset</option>
+      </select>
+    </div>
+    <div class="submodal-actions">
+      <button class="btn btn-secondary" type="button" onclick="closeSubModal('addParticularModalTxn')">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="saveNewParticularTxn()">Save</button>
     </div>
   </div>
 </div>

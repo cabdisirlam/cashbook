@@ -1588,6 +1588,45 @@ function updateCustomer(customerId, data) {
 }
 
 // ============================================================
+// STAFF - Wrapper functions for contact type Staff
+// ============================================================
+
+function getStaff(filters) {
+  let results = getContacts('Staff').map(c => ({
+    Staff_ID: c.Contact_ID,
+    Staff_Name: c.Contact_Name,
+    Phone: c.Phone,
+    Email: c.Email,
+    Department: c.Category,
+    Status: c.Status,
+    Created_Date: c.Created_Date,
+    Created_By: c.Created_By
+  }));
+
+  if (filters && filters.status) {
+    results = results.filter(s => s.Status === filters.status);
+  }
+  return results;
+}
+
+function getActiveStaff() {
+  return getStaff().filter(s => s.Status === 'Active');
+}
+
+function saveStaff(data) {
+  data.contactName = data.staffName;
+  data.category = data.department || 'General';
+  const result = saveContact('Staff', data);
+  return { success: result.success, staffId: result.contactId };
+}
+
+function updateStaff(staffId, data) {
+  data.contactName = data.staffName;
+  data.category = data.department;
+  return updateContact(staffId, data);
+}
+
+// ============================================================
 // PURCHASE ORDERS CRUD
 // ============================================================
 
