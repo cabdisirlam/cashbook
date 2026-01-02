@@ -188,6 +188,11 @@
     border-color: #e5e7eb;
   }
 
+  .journal-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
   .form-header {
     display: flex;
     align-items: center;
@@ -809,8 +814,8 @@
             <th>Sub-Category</th>
             <th>Particulars</th>
             <th>Details</th>
-            <th>Debit</th>
-            <th>Credit</th>
+              <th>Dr</th>
+              <th>Cr</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -1892,8 +1897,8 @@
         </div>
       </td>
       <td data-label="Details"><input type="text" class="input-field journal-desc-input" placeholder="Details"></td>
-      <td data-label="Debit"><input type="number" class="input-field journal-debit-input" min="0" step="0.01" placeholder="0.00"></td>
-      <td data-label="Credit"><input type="number" class="input-field journal-credit-input" min="0" step="0.01" placeholder="0.00"></td>
+      <td data-label="Dr"><input type="number" class="input-field journal-debit-input" min="0" step="0.01" placeholder="0.00"></td>
+      <td data-label="Cr"><input type="number" class="input-field journal-credit-input" min="0" step="0.01" placeholder="0.00"></td>
       <td data-label="Action"><button class="btn btn-danger" type="button" onclick="removeJournalLine(this)">X</button></td>
     `;
 
@@ -1925,15 +1930,25 @@
         catSelect.parentElement.style.display = 'none';
         bankWrap.style.display = 'flex';
         bankInput.disabled = false;
-        subcatCell.style.display = 'none';
-        partCell.style.display = 'none';
+        subcatWrap.querySelector('select').value = '';
+        partWrap.querySelector('select').value = '';
+        subcatWrap.classList.add('journal-disabled');
+        partWrap.classList.add('journal-disabled');
+        subcatWrap.querySelector('select').disabled = true;
+        partWrap.querySelector('select').disabled = true;
+        subcatWrap.querySelector('button').disabled = true;
+        partWrap.querySelector('button').disabled = true;
       } else {
         bankInput.value = '';
         bankInput.disabled = true;
         catSelect.parentElement.style.display = 'flex';
         bankWrap.style.display = 'none';
-        subcatCell.style.display = '';
-        partCell.style.display = '';
+        subcatWrap.classList.remove('journal-disabled');
+        partWrap.classList.remove('journal-disabled');
+        subcatWrap.querySelector('select').disabled = false;
+        partWrap.querySelector('select').disabled = false;
+        subcatWrap.querySelector('button').disabled = false;
+        partWrap.querySelector('button').disabled = false;
       }
     });
 
