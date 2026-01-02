@@ -56,7 +56,7 @@
 
   .modal-content {
     width: 95%;
-    max-width: 780px;
+    max-width: 980px;
     max-height: 90vh;
     background: #ffffff;
     border-radius: 8px;
@@ -235,7 +235,7 @@
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 10px;
     margin-bottom: 12px;
   }
@@ -782,14 +782,16 @@
         </div>
         <div>
           <label class="form-label" for="journalPayeeType">Payee Type</label>
-          <select id="journalPayeeType" class="select-field" onchange="onPayeeTypeChange('journalPayeeType','payeeListJournal','journalPayee')">
+          <select id="journalPayeeType" class="select-field" onchange="onPayeeTypeChange('journalPayeeType','journalPayee')">
             <option value="">Select payee type</option>
           </select>
         </div>
         <div>
           <label class="form-label" for="journalPayee">Payee</label>
           <div class="input-action">
-            <input list="payeeListJournal" id="journalPayee" class="input-field" placeholder="Select payee">
+            <select id="journalPayee" class="input-field">
+              <option value="">Select payee</option>
+            </select>
             <button class="btn-icon" type="button" onclick="openAddPayeeModal()">+</button>
           </div>
         </div>
@@ -839,7 +841,6 @@
 </div>
 
 <datalist id="accountList"></datalist>
-<datalist id="payeeListJournal"></datalist>
 <datalist id="particularList"></datalist>
 <datalist id="subCatList"></datalist>
 <datalist id="categoryList"></datalist>
@@ -938,7 +939,7 @@
 
         fillList('accountList', paymentState.accounts);
         fillSelect('journalPayeeType', getAllowedPayeeTypes('Journal'), 'Select payee type');
-        onPayeeTypeChange('journalPayeeType', 'payeeListJournal', 'journalPayee', false);
+        onPayeeTypeChange('journalPayeeType', 'journalPayee', false);
         applyParticularFilter();
         fillList('subCatList', paymentState.subCats);
         fillList('categoryList', payload.categories || []);
@@ -967,6 +968,24 @@
     const select = document.getElementById(id);
     if (!select) return;
     select.innerHTML = `<option value="">${placeholder || 'Select'}</option>`;
+    (items || []).forEach(function(item) {
+      const option = document.createElement('option');
+      option.value = item;
+      option.textContent = item;
+      select.appendChild(option);
+    });
+  }
+
+  function fillSelectOptions(target, items, placeholder) {
+    const select = typeof target === 'string' ? document.getElementById(target) : target;
+    if (!select) return;
+    select.innerHTML = '';
+    if (placeholder) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = placeholder;
+      select.appendChild(option);
+    }
     (items || []).forEach(function(item) {
       const option = document.createElement('option');
       option.value = item;
@@ -1008,13 +1027,13 @@
     return Math.max(0, Math.ceil(remainingMs / 1000));
   }
 
-  function onPayeeTypeChange(typeId, listId, inputId, shouldClear = true) {
+  function onPayeeTypeChange(typeId, payeeSelectId, shouldClear = true) {
     const typeEl = document.getElementById(typeId);
-    const inputEl = document.getElementById(inputId);
+    const inputEl = document.getElementById(payeeSelectId);
     const selectedType = typeEl ? String(typeEl.value || '').trim() : '';
     const normalizedType = normalizePayeeTypeKey(selectedType);
     const payees = normalizedType ? (paymentState.payeesByType[normalizedType] || []) : [];
-    fillList(listId, payees);
+    fillSelectOptions(payeeSelectId, payees, 'Select payee');
     if (shouldClear && inputEl) inputEl.value = '';
   }
 
@@ -1081,10 +1100,11 @@
       </td>
       <td data-label="Payee">
         <div class="input-action">
-          <input list="${lineId}PayeeList" class="input-field line-payee-input" placeholder="Select payee">
+          <select class="input-field line-payee-input" id="${lineId}Payee">
+            <option value="">Select payee</option>
+          </select>
           <button class="btn-icon" type="button" onclick="openAddPayeeModal()">+</button>
         </div>
-        <datalist id="${lineId}PayeeList"></datalist>
       </td>
       <td data-label="Description"><input type="text" class="input-field desc-input" placeholder="Description"></td>
       <td data-label="Amount"><input type="number" class="input-field amount-input" min="0" step="0.01" placeholder="0.00"></td>
@@ -1153,13 +1173,12 @@
 
   function onLinePayeeTypeChange(lineId, shouldClear) {
     const select = document.getElementById(lineId + 'PayeeType');
-    const listId = lineId + 'PayeeList';
-    const input = document.querySelector(`[data-line-id="${lineId}"] .line-payee-input`);
+    const payeeSelect = document.getElementById(lineId + 'Payee');
     const selectedType = select ? String(select.value || '').trim() : '';
     const normalizedType = normalizePayeeTypeKey(selectedType);
     const payees = normalizedType ? (paymentState.payeesByType[normalizedType] || []) : [];
-    fillList(listId, payees);
-    if (shouldClear && input) input.value = '';
+    fillSelectOptions(payeeSelect, payees, 'Select payee');
+    if (shouldClear && payeeSelect) payeeSelect.value = '';
   }
 
   function onLineCategoryChange(lineId) {

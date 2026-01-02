@@ -459,28 +459,66 @@ function getRecentTransactionsByType(type, limit) {
   const requested = String(type || '').toLowerCase();
   const maxRows = Math.max(1, Number(limit) || 5);
   const results = [];
+  const added = {};
+  const batchInfo = {};
 
   for (let i = data.length - 1; i >= 0 && results.length < maxRows; i--) {
     const row = data[i];
-    const particulars = cols.particulars ? String(row[cols.particulars - 1]).trim() : '';
-    if (!particulars) continue;
-    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
-    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
-    const isReceipt = credit > 0 && debit === 0;
-    const isPayment = debit > 0 && credit === 0;
-    if (requested === 'receipt' && !isReceipt) continue;
-    if (requested === 'payment' && !isPayment) continue;
+    const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
+    if (!batchId.startsWith('TXN-')) continue;
 
-    const dateValue = cols.date ? row[cols.date - 1] : '';
+    const info = batchInfo[batchId] || {
+      batchId: batchId,
+      date: '',
+      payee: '',
+      refNo: '',
+      particulars: '',
+      subCategory: '',
+      category: '',
+      bankDebit: 0,
+      bankCredit: 0,
+      hasBank: false
+    };
+
+    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+    if (accountCode) {
+      const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+      const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+      if (!info.hasBank) {
+        const dateValue = cols.date ? row[cols.date - 1] : '';
+        info.date = dateValue ? _formatDate_(dateValue) : '';
+        info.payee = cols.payee ? row[cols.payee - 1] : info.payee;
+        info.refNo = cols.refNo ? row[cols.refNo - 1] : '';
+        info.bankDebit = debit;
+        info.bankCredit = credit;
+        info.hasBank = true;
+      }
+    } else if (particulars && !info.particulars) {
+      info.particulars = particulars;
+      info.subCategory = cols.subCategory ? row[cols.subCategory - 1] : '';
+      info.category = cols.category ? row[cols.category - 1] : '';
+      if (!info.payee) info.payee = cols.payee ? row[cols.payee - 1] : '';
+    }
+
+    batchInfo[batchId] = info;
+
+    if (!info.hasBank || !info.particulars || added[batchId]) continue;
+    const direction = info.bankDebit > 0 ? 'receipt' : (info.bankCredit > 0 ? 'payment' : '');
+    if (!direction) continue;
+    if (requested && requested !== direction) continue;
+
     results.push({
-      date: dateValue ? _formatDate_(dateValue) : '',
-      payee: cols.payee ? row[cols.payee - 1] : '',
-      refNo: cols.refNo ? row[cols.refNo - 1] : '',
-      particulars: cols.particulars ? row[cols.particulars - 1] : '',
-      subCategory: cols.subCategory ? row[cols.subCategory - 1] : '',
-      category: cols.category ? row[cols.category - 1] : '',
-      amount: requested === 'receipt' ? credit : debit
+      batchId: info.batchId,
+      date: info.date,
+      payee: info.payee,
+      refNo: info.refNo,
+      particulars: info.particulars,
+      subCategory: info.subCategory,
+      category: info.category,
+      amount: direction === 'receipt' ? info.bankDebit : info.bankCredit
     });
+    added[batchId] = true;
   }
 
   return results;
@@ -510,6 +548,7 @@ function getRecentJournalEntries(limit) {
     if (!particulars) continue;
     const dateValue = cols.date ? row[cols.date - 1] : '';
     results.push({
+      batchId: batchId,
       date: dateValue ? _formatDate_(dateValue) : '',
       payee: cols.payee ? row[cols.payee - 1] : '',
       refNo: cols.refNo ? row[cols.refNo - 1] : '',
