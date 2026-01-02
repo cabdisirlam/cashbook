@@ -754,7 +754,7 @@
       <div class="total-amount">Total: <span id="totalAmount">0.00</span></div>
       <div style="display:flex; gap:10px;">
         <button class="btn btn-secondary" type="button" onclick="closePaymentModal()">Cancel</button>
-        <button class="btn btn-primary" type="button" onclick="saveTransaction()">Save</button>
+        <button class="btn btn-primary" id="saveTransactionBtn" type="button" onclick="saveTransaction()">Save</button>
       </div>
     </div>
   </div>
@@ -860,6 +860,17 @@
   let transactionMode = 'Payment';
   let allParticulars = [];
   let isSaving = false;
+  let isSavingJournal = false;
+  const saveCooldownMs = 60000;
+  const lastSavedAtByMode = {
+    Payment: 0,
+    Receipt: 0,
+    Journal: 0
+  };
+  const PAYEE_TYPE_RULES = {
+    Payment: ['Supplier', 'Staff'],
+    Receipt: ['Customer', 'Staff', 'Government Entity', 'Donor']
+  };
 
   function openPaymentModal() {
     transactionMode = 'Payment';
@@ -913,7 +924,7 @@
         paymentState.payees = payload.payees || [];
         const defaultPayeeTypes = ['Supplier', 'Customer', 'Staff', 'Government Entity', 'Donor'];
         const receivedTypes = payload.payeeTypes || [];
-        paymentState.payeeTypes = receivedTypes.length ? receivedTypes : defaultPayeeTypes;
+        paymentState.payeeTypes = mergePayeeTypes(receivedTypes, defaultPayeeTypes);
         paymentState.payeesByType = payload.payeesByType || {};
         defaultPayeeTypes.forEach(function(type) {
           if (!paymentState.payeesByType[type]) paymentState.payeesByType[type] = [];
@@ -926,7 +937,7 @@
         paymentState.particularMeta = payload.particularMeta || {};
 
         fillList('accountList', paymentState.accounts);
-        fillSelect('journalPayeeType', paymentState.payeeTypes, 'Select payee type');
+        fillSelect('journalPayeeType', getAllowedPayeeTypes('Journal'), 'Select payee type');
         onPayeeTypeChange('journalPayeeType', 'payeeListJournal', 'journalPayee', false);
         applyParticularFilter();
         fillList('subCatList', paymentState.subCats);
@@ -962,6 +973,39 @@
       option.textContent = item;
       select.appendChild(option);
     });
+  }
+
+  function mergePayeeTypes(received, defaults) {
+    const seen = new Set();
+    const merged = [];
+    (defaults || []).forEach(function(type) {
+      if (!seen.has(type)) {
+        seen.add(type);
+        merged.push(type);
+      }
+    });
+    (received || []).forEach(function(type) {
+      if (!seen.has(type)) {
+        seen.add(type);
+        merged.push(type);
+      }
+    });
+    return merged;
+  }
+
+  function getAllowedPayeeTypes(mode) {
+    const allTypes = paymentState.payeeTypes || [];
+    if (mode === 'Journal') return allTypes.slice();
+    const allowed = PAYEE_TYPE_RULES[mode] || [];
+    if (!allowed.length) return allTypes.slice();
+    return allowed.slice();
+  }
+
+  function getRemainingCooldownSeconds(mode) {
+    const lastSaved = lastSavedAtByMode[mode] || 0;
+    const elapsed = Date.now() - lastSaved;
+    const remainingMs = saveCooldownMs - elapsed;
+    return Math.max(0, Math.ceil(remainingMs / 1000));
   }
 
   function onPayeeTypeChange(typeId, listId, inputId, shouldClear = true) {
@@ -1058,7 +1102,7 @@
 
     // Populate payee types
     const payeeTypeSelect = row.querySelector('.line-payee-type');
-    (paymentState.payeeTypes || []).forEach(function(type) {
+    getAllowedPayeeTypes(transactionMode).forEach(function(type) {
       const opt = document.createElement('option');
       opt.value = type;
       opt.textContent = type;
@@ -1096,7 +1140,7 @@
       if (!select) return;
       const current = select.value;
       select.innerHTML = '<option value="">-- Select Type --</option>';
-      (paymentState.payeeTypes || []).forEach(function(type) {
+      getAllowedPayeeTypes(transactionMode).forEach(function(type) {
         const opt = document.createElement('option');
         opt.value = type;
         opt.textContent = type;
@@ -1636,7 +1680,16 @@
   }
 
   function saveTransaction() {
-    if (isSaving) return;
+    if (isSaving) {
+      setStatus('Save already in progress.');
+      return;
+    }
+    const cooldownSeconds = getRemainingCooldownSeconds(transactionMode);
+    if (cooldownSeconds > 0) {
+      const label = transactionMode === 'Receipt' ? 'receipt' : 'payment';
+      setStatus(`Please wait ${cooldownSeconds}s before saving another ${label}.`);
+      return;
+    }
     const header = {
       date: document.getElementById('txnDate').value,
       financialYear: document.getElementById('txnFinancialYear').value.trim(),
@@ -1704,17 +1757,25 @@
     isSaving = true;
     const savingLabel = transactionMode === 'Receipt' ? 'Saving receipt...' : 'Saving payment...';
     setStatus(savingLabel);
+    const saveBtn = document.getElementById('saveTransactionBtn');
+    if (saveBtn) saveBtn.disabled = true;
     google.script.run
       .withSuccessHandler(function() {
         const savedLabel = transactionMode === 'Receipt' ? 'Receipt saved.' : 'Payment saved.';
         setStatus(savedLabel);
-        resetPaymentForm();
-        closePaymentModal();
+        lastSavedAtByMode[transactionMode] = Date.now();
+        setTimeout(function() {
+          resetPaymentForm();
+          closePaymentModal();
+        }, 600);
         isSaving = false;
+        if (saveBtn) saveBtn.disabled = false;
       })
       .withFailureHandler(function(error) {
-        setStatus(error.message || 'Failed to save payment.');
+        const label = transactionMode === 'Receipt' ? 'receipt' : 'payment';
+        setStatus(error.message || `Failed to save ${label}.`);
         isSaving = false;
+        if (saveBtn) saveBtn.disabled = false;
       })
       .saveTransaction({ header: header, rows: rows, type: transactionMode });
   }
@@ -1920,6 +1981,15 @@
   }
 
   function saveJournalEntry() {
+    if (isSavingJournal) {
+      setJournalStatus('Save already in progress.');
+      return;
+    }
+    const cooldownSeconds = getRemainingCooldownSeconds('Journal');
+    if (cooldownSeconds > 0) {
+      setJournalStatus(`Please wait ${cooldownSeconds}s before saving another journal.`);
+      return;
+    }
     if (!google || !google.script || !google.script.run) {
       setJournalStatus('App runtime missing. Open via the deployed URL.');
       return;
@@ -1985,16 +2055,26 @@
       return;
     }
 
+    isSavingJournal = true;
     setJournalStatus('Saving journal...');
+    const saveBtn = document.getElementById('saveJournalBtn');
+    if (saveBtn) saveBtn.disabled = true;
     google.script.run
       .withSuccessHandler(function(result) {
         const refNo = result && result.refNo ? result.refNo : header.refNo;
         setJournalStatus('Journal saved: ' + (refNo || ''));
-        resetJournalForm();
-        closeJournalModal();
+        lastSavedAtByMode.Journal = Date.now();
+        setTimeout(function() {
+          resetJournalForm();
+          closeJournalModal();
+        }, 600);
+        isSavingJournal = false;
+        if (saveBtn) saveBtn.disabled = false;
       })
       .withFailureHandler(function(error) {
         setJournalStatus(error.message || 'Failed to save journal.');
+        isSavingJournal = false;
+        if (saveBtn) saveBtn.disabled = false;
       })
       .saveJournalEntry({ header: header, rows: rows });
   }
