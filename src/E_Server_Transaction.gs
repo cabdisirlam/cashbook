@@ -67,7 +67,7 @@ function getDropdownData() {
     }
   }
 
-  // Get payees from CONTACTS sheet (Suppliers, Customers, Staff)
+  // Get payees from CONTACTS sheet (Suppliers, Customers, Staff, Government Entities, Donors)
   const contactsSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
   if (contactsSheet) {
     const contactsLastRow = contactsSheet.getLastRow();
@@ -3112,6 +3112,8 @@ function _normalizeContactType_(value) {
   if (text === 'supplier' || text === 'suppliers') return 'Supplier';
   if (text === 'customer' || text === 'customers') return 'Customer';
   if (text === 'staff' || text === 'employee' || text === 'employees') return 'Staff';
+  if (text === 'government entity' || text === 'government entities') return 'Government Entity';
+  if (text === 'donor' || text === 'donors') return 'Donor';
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 

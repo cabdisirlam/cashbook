@@ -911,7 +911,7 @@
         const payload = data || {};
         paymentState.accounts = payload.accounts || [];
         paymentState.payees = payload.payees || [];
-        const defaultPayeeTypes = ['Supplier', 'Customer', 'Staff'];
+        const defaultPayeeTypes = ['Supplier', 'Customer', 'Staff', 'Government Entity', 'Donor'];
         const receivedTypes = payload.payeeTypes || [];
         paymentState.payeeTypes = receivedTypes.length ? receivedTypes : defaultPayeeTypes;
         paymentState.payeesByType = payload.payeesByType || {};
@@ -980,6 +980,8 @@
     if (text === 'supplier' || text === 'suppliers') return 'Supplier';
     if (text === 'customer' || text === 'customers') return 'Customer';
     if (text === 'staff' || text === 'employee' || text === 'employees') return 'Staff';
+    if (text === 'government entity' || text === 'government entities') return 'Government Entity';
+    if (text === 'donor' || text === 'donors') return 'Donor';
     return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
@@ -2089,6 +2091,8 @@
           <option value="Supplier">Supplier</option>
           <option value="Customer">Customer</option>
           <option value="Staff">Staff</option>
+          <option value="Government Entity">Government Entity</option>
+          <option value="Donor">Donor</option>
         </select>
       </div>
       <div>
