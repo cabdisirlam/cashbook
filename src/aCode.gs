@@ -6,7 +6,7 @@
 // Configuration
 const CONFIG = {
   SPREADSHEET_NAME: "Financial System",
-  SESSION_TIMEOUT: 5 * 60 * 1000, // 5 minutes in milliseconds
+  SESSION_TIMEOUT: 30 * 60 * 1000, // 30 minutes in milliseconds
   SHEETS: {
     // PART 1: Core Transaction Database (3 sheets)
     DB_JOURNAL: "DB_JOURNAL",
@@ -397,7 +397,7 @@ function getCurrentUser() {
     };
   } else {
     // Session expired
-    logSystemEvent(session.email, 'SESSION_EXPIRED', '', 'Session timed out after 5 minutes of inactivity');
+    logSystemEvent(session.email, 'SESSION_EXPIRED', '', 'Session timed out after 30 minutes of inactivity');
     userProperties.deleteProperty('sessionData');
     return {
       authenticated: false,
