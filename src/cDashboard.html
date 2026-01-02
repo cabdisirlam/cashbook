@@ -5631,29 +5631,21 @@
         return;
       }
 
-      const body = rows.map((row, index) => {
-        const targetId = `${containerId}_detail_${index}`;
-        return `
-          <tr>
-            <td data-label="Payee">${escapeHtml(row.payee || '')}</td>
-            <td data-label="Opening">${formatPerformanceAmount(row.opening)}</td>
-            <td data-label="Amount">${formatPerformanceAmount(row.additions)}</td>
-            <td data-label="Payments">${formatPerformanceAmount(row.payments)}</td>
-            <td data-label="Balance">${formatPerformanceAmount(row.closing)}</td>
-            <td data-label="Action">
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button class="btn btn-secondary" type="button" onclick="printStatementRow('${kind}', '${escapeHtml(row.payee || '')}')">Print</button>
-                <button class="btn btn-secondary" type="button" onclick="downloadStatementRowCsv('${kind}', '${escapeHtml(row.payee || '')}')">Download</button>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td colspan="6" style="padding:0;">
-              <div id="${targetId}" style="padding:12px 0 4px 0;">Loading statement...</div>
-            </td>
-          </tr>
-        `;
-      }).join('');
+      const body = rows.map((row) => `
+        <tr>
+          <td data-label="Payee">${escapeHtml(row.payee || '')}</td>
+          <td data-label="Opening">${formatPerformanceAmount(row.opening)}</td>
+          <td data-label="Amount">${formatPerformanceAmount(row.additions)}</td>
+          <td data-label="Payments">${formatPerformanceAmount(row.payments)}</td>
+          <td data-label="Balance">${formatPerformanceAmount(row.closing)}</td>
+          <td data-label="Action">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-secondary" type="button" onclick="printStatementRow('${kind}', '${escapeHtml(row.payee || '')}')">Print</button>
+              <button class="btn btn-secondary" type="button" onclick="downloadStatementRowCsv('${kind}', '${escapeHtml(row.payee || '')}')">Download</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
 
       container.innerHTML = `
         <table class="table">
@@ -5670,11 +5662,6 @@
           <tbody>${body}</tbody>
         </table>
       `;
-
-      rows.forEach(function(row, index) {
-        const targetId = `${containerId}_detail_${index}`;
-        renderStatementDetail(kind, row.payee || '', targetId);
-      });
     }
 
     function renderStatementDetail(kind, payee, targetId) {
