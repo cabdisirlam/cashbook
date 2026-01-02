@@ -16,6 +16,8 @@ function getDropdownData() {
   const payload = {
     accounts: [],
     payees: [],
+    payeeTypes: [],
+    payeesByType: {},
     particulars: [],
     subCats: [],
     subToCatMap: {},
@@ -74,10 +76,16 @@ function getDropdownData() {
       const contactsData = contactsSheet.getRange(2, 1, contactsLastRow - 1, 3).getValues();
       contactsData.forEach(function(row) {
         const contactId = String(row[0] || '').trim();
+        const contactType = String(row[1] || '').trim();
         const contactName = String(row[2] || '').trim();
         // Only add active contacts with valid names
         if (contactId && contactName) {
           payload.payees.push(contactName);
+          if (contactType) {
+            payload.payeeTypes.push(contactType);
+            if (!payload.payeesByType[contactType]) payload.payeesByType[contactType] = [];
+            payload.payeesByType[contactType].push(contactName);
+          }
         }
       });
     }
@@ -85,6 +93,10 @@ function getDropdownData() {
 
   payload.accounts = _uniqueSorted_(payload.accounts);
   payload.payees = _uniqueSorted_(payload.payees);
+  payload.payeeTypes = _uniqueSorted_(payload.payeeTypes);
+  Object.keys(payload.payeesByType).forEach(function(key) {
+    payload.payeesByType[key] = _uniqueSorted_(payload.payeesByType[key]);
+  });
   payload.particulars = _uniqueSorted_(payload.particulars);
   payload.subCats = _uniqueSorted_(payload.subCats);
   payload.categories = _uniqueSorted_(payload.categories);
@@ -138,9 +150,11 @@ function saveTransaction(data) {
   const cleanedRows = rows.map(function(row) {
     const amount = Number(row.amount || 0);
     const particulars = String(row.particulars || '').trim();
+    const rowPayee = String(row.payee || '').trim();
     const description = String(row.description || '').trim();
 
     if (!particulars) throw new Error('Each line needs particulars.');
+    if (!rowPayee) throw new Error('Each line needs a payee.');
     const meta = particularMeta[particulars];
     if (!meta || !meta.subCategory || !meta.category) {
       throw new Error('Particulars not found: ' + particulars + '.');
@@ -156,6 +170,7 @@ function saveTransaction(data) {
       particulars,
       subCategory,
       category,
+      payee: rowPayee,
       description,
       amount,
       accountType: accountTypeValue,
@@ -179,7 +194,7 @@ function saveTransaction(data) {
       dateValue,
       financialYear,
       '',
-      payee,
+      row.payee,
       refNo,
       bankRef,
       row.particulars,
@@ -205,13 +220,14 @@ function saveTransaction(data) {
   const bankReportMapping = fallbackRow.reportMapping || bankMeta.reportMapping || '';
   const bankDebit = isReceipt ? total : 0;
   const bankCredit = isReceipt ? 0 : total;
+  const bankPayee = _resolveBatchPayee_(cleanedRows, payee);
   entries.push([
     Utilities.getUuid(),
     batchId,
     dateValue,
     financialYear,
     accountCode,
-    payee,
+    bankPayee,
     refNo,
     bankRef,
     bankParticulars,
@@ -236,6 +252,18 @@ function saveTransaction(data) {
   );
 
   return 'Success';
+}
+
+function _resolveBatchPayee_(rows, headerPayee) {
+  const unique = {};
+  (rows || []).forEach(function(row) {
+    const value = String(row.payee || '').trim();
+    if (value) unique[value] = true;
+  });
+  const values = Object.keys(unique);
+  if (values.length === 1) return values[0];
+  if (headerPayee) return headerPayee;
+  return 'Multiple Payees';
 }
 
 function getNextJournalRef() {
@@ -2499,6 +2527,87 @@ function getDashboardSummary() {
   };
 }
 
+function getBankAccountSummaries() {
+  const dropdowns = getDropdownData();
+  const years = dropdowns && dropdowns.financialYears ? dropdowns.financialYears : [];
+  const financialYear = _resolveCurrentFinancialYear_(years);
+  const bounds = _resolveFinancialYearBounds_();
+
+  const ss = _getOrCreateSpreadsheet();
+  const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+  if (!master) throw new Error('MASTER_DATA not found.');
+
+  const masterLastRow = master.getLastRow();
+  const masterLastCol = master.getLastColumn();
+  let accountCodes = [];
+  if (masterLastRow >= 2) {
+    const headers = master.getRange(1, 1, 1, masterLastCol).getValues()[0].map(_normalizeHeader_);
+    const cols = _getMasterColumns_(headers);
+    const data = master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues();
+    data.forEach(function(row) {
+      const accountCode = cols.accountCodes ? String(row[cols.accountCodes - 1]).trim() : '';
+      if (accountCode) accountCodes.push(accountCode);
+    });
+  }
+
+  accountCodes = _uniqueSorted_(accountCodes);
+  if (!accountCodes.length) {
+    return { financialYear: financialYear, accounts: [] };
+  }
+
+  const summaries = {};
+  accountCodes.forEach(function(code) {
+    summaries[code] = { accountCode: code, opening: 0, receipts: 0, payments: 0, closing: 0 };
+  });
+
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = journal.getLastRow();
+  const lastCol = journal.getLastColumn();
+  if (lastRow > 1) {
+    const headers = journal.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+    const cols = _getJournalColumns_(headers);
+    const data = journal.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    data.forEach(function(row) {
+      if (!cols.accountCode) return;
+      const accountCode = String(row[cols.accountCode - 1] || '').trim();
+      if (!accountCode || !summaries[accountCode]) return;
+      const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+      const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+      const rowDate = cols.date ? _parseDate_(row[cols.date - 1]) : null;
+
+      if (rowDate) {
+        if (rowDate < bounds.startDate) {
+          summaries[accountCode].opening += debit - credit;
+          return;
+        }
+        if (rowDate <= bounds.endDate) {
+          summaries[accountCode].receipts += debit;
+          summaries[accountCode].payments += credit;
+        }
+        return;
+      }
+
+      if (cols.financialYear) {
+        const rowYear = String(row[cols.financialYear - 1] || '').trim();
+        if (financialYear && rowYear === financialYear) {
+          summaries[accountCode].receipts += debit;
+          summaries[accountCode].payments += credit;
+        }
+      }
+    });
+  }
+
+  const accounts = accountCodes.map(function(code) {
+    const summary = summaries[code];
+    summary.closing = summary.opening + summary.receipts - summary.payments;
+    return summary;
+  });
+
+  return { financialYear: financialYear, accounts: accounts };
+}
+
 function _resolveCurrentFinancialYear_(years) {
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -2510,6 +2619,20 @@ function _resolveCurrentFinancialYear_(years) {
   const match = yearList.find(value => String(value || '').includes(targetLabel));
   if (match) return match;
   return targetLabel;
+}
+
+function _resolveFinancialYearBounds_(referenceDate) {
+  const now = referenceDate instanceof Date ? referenceDate : new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const startYear = month >= 7 ? currentYear : currentYear - 1;
+  const endYear = startYear + 1;
+  return {
+    startYear: startYear,
+    endYear: endYear,
+    startDate: new Date(startYear, 6, 1),
+    endDate: new Date(endYear, 5, 30, 23, 59, 59, 999)
+  };
 }
 
 function _compareFinancialYears_(a, b) {

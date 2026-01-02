@@ -1597,6 +1597,95 @@
       `;
     }
 
+    function renderBankAccountsContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Bank Accounts', 'Review current financial year totals and balances for each bank account.')}
+        <div id="bankAccountSummary" class="card" style="margin-bottom:16px;">
+          <h2>Bank Accounts</h2>
+          <p>Loading bank account summary...</p>
+        </div>
+      `;
+      loadBankAccountSummaries();
+    }
+
+    function loadBankAccountSummaries() {
+      const container = document.getElementById('bankAccountSummary');
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        if (container) container.innerHTML = '<p>App runtime missing. Open the web app via the deployed URL.</p>';
+        return;
+      }
+      if (container) container.innerHTML = '<p>Loading bank account summary...</p>';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          renderBankAccountSummaries(result || {});
+        })
+        .withFailureHandler(function(error) {
+          if (container) container.innerHTML = `<p>${escapeHtml(error.message || 'Failed to load bank accounts.')}</p>`;
+        })
+        .getBankAccountSummaries();
+    }
+
+    function renderBankAccountSummaries(data) {
+      const container = document.getElementById('bankAccountSummary');
+      if (!container) return;
+      const accounts = (data && data.accounts) ? data.accounts : [];
+      const fyLabel = data && data.financialYear ? `FY ${data.financialYear}` : 'Current FY';
+
+      if (!accounts.length) {
+        container.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h2 style="margin:0;">Bank Accounts</h2>
+              <p style="color:#6b7280;font-size:13px;margin:4px 0 0;">Summary (${fyLabel})</p>
+            </div>
+          </div>
+          <p style="margin-top:10px;color:#6b7280;">No bank accounts found in master data.</p>
+        `;
+        return;
+      }
+
+      const cards = accounts.map(buildBankAccountCard).join('');
+      container.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div>
+            <h2 style="margin:0;">Bank Accounts</h2>
+            <p style="color:#6b7280;font-size:13px;margin:4px 0 0;">Summary (${fyLabel})</p>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:14px;">
+          ${cards}
+        </div>
+      `;
+    }
+
+    function buildBankAccountCard(item) {
+      const accountCode = escapeHtml(item.accountCode || '');
+      return `
+        <div style="border:1px solid var(--line);border-radius:14px;padding:14px;background:linear-gradient(140deg, rgba(255,255,255,0.96), rgba(236,253,245,0.85));box-shadow:0 8px 16px rgba(15,23,42,0.08);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:15px;font-weight:700;color:#0f172a;">${accountCode}</div>
+            <span style="font-size:10px;font-weight:600;color:#0f172a;background:#d1fae5;border-radius:999px;padding:4px 8px;letter-spacing:0.4px;text-transform:uppercase;">Bank</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:8px;">
+            ${buildBankAccountMetric('Opening', item.opening)}
+            ${buildBankAccountMetric('Receipts', item.receipts)}
+            ${buildBankAccountMetric('Payments', item.payments)}
+            ${buildBankAccountMetric('Closing', item.closing)}
+          </div>
+        </div>
+      `;
+    }
+
+    function buildBankAccountMetric(label, value) {
+      return `
+        <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:8px;">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">${label}</div>
+          <div style="font-size:14px;font-weight:700;color:#0f172a;margin-top:4px;">Ksh ${formatPerformanceAmount(value)}</div>
+        </div>
+      `;
+    }
+
     function setActiveMenu(label) {
       document.querySelectorAll('.menu-item').forEach(item => {
         item.classList.remove('active');
@@ -1651,6 +1740,11 @@
 
       if (label === 'Search / Edit') {
         renderSearchEditContent();
+        return;
+      }
+
+      if (label === 'Bank Accounts') {
+        renderBankAccountsContent();
         return;
       }
 
@@ -1741,7 +1835,7 @@
       }
 
       // Payables Module
-      if (label === 'Invoices to Pay') {
+      if (label === 'Outstanding Invoices (Payables)') {
         renderInvoicesToPayContent();
         return;
       }
@@ -8915,14 +9009,26 @@
 
       const lineHtml = `
         <div class="po-line" id="poLine${poLineCounter}" style="display:flex;gap:8px;align-items:flex-start;padding:12px;background:#f9fafb;border-radius:6px;margin-bottom:8px;">
-          <div style="flex:3;">
+          <div style="flex:2;">
             <label style="font-size:11px;color:#6b7280;">Item Description *</label>
             <input type="text" class="po-line-desc" placeholder="Description" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
           </div>
           <div style="flex:2;">
+            <label style="font-size:11px;color:#6b7280;">Category</label>
+            <select class="po-line-category" id="poLine${poLineCounter}Category" onchange="onCategoryChange('poLine${poLineCounter}')" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
+              <option value="">-- Select Category --</option>
+            </select>
+          </div>
+          <div style="flex:2;">
+            <label style="font-size:11px;color:#6b7280;">Sub-Category</label>
+            <select class="po-line-subcategory" id="poLine${poLineCounter}SubCategory" onchange="onSubCategoryChange('poLine${poLineCounter}')" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
+              <option value="">-- Select Category first --</option>
+            </select>
+          </div>
+          <div style="flex:2;">
             <label style="font-size:11px;color:#6b7280;">Particulars</label>
-            <select class="po-line-particulars" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
-              <option value="">-- Select --</option>
+            <select class="po-line-particulars" id="poLine${poLineCounter}Particulars" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
+              <option value="">-- Select Sub-Category first --</option>
             </select>
           </div>
           <div style="flex:1;">
@@ -8956,21 +9062,7 @@
       `;
 
       container.insertAdjacentHTML('beforeend', lineHtml);
-      loadParticularsForLine(poLineCounter);
-    }
-
-    function loadParticularsForLine(lineNum) {
-      google.script.run
-        .withSuccessHandler(function(particulars) {
-          const line = document.getElementById('poLine' + lineNum);
-          if (!line) return;
-          const select = line.querySelector('.po-line-particulars');
-          select.innerHTML = '<option value="">-- Select --</option>';
-          (particulars || []).forEach(p => {
-            select.innerHTML += `<option value="${p}">${p}</option>`;
-          });
-        })
-        .getParticulars();
+      initCascadingDropdowns('poLine' + poLineCounter);
     }
 
     function removePOLine(lineNum) {
@@ -9034,12 +9126,17 @@
         const desc = line.querySelector('.po-line-desc').value.trim();
         const qty = parseFloat(line.querySelector('.po-line-qty').value) || 0;
         const price = parseFloat(line.querySelector('.po-line-price').value) || 0;
+        const category = line.querySelector('.po-line-category').value;
+        const subCategory = line.querySelector('.po-line-subcategory').value;
+        const particulars = line.querySelector('.po-line-particulars').value;
 
-        if (desc && qty > 0) {
+        if (desc && qty > 0 && category && subCategory && particulars) {
           hasValidLine = true;
           data.lines.push({
             itemDescription: desc,
-            particulars: line.querySelector('.po-line-particulars').value,
+            particulars: particulars,
+            subCategory: subCategory,
+            category: category,
             quantity: qty,
             unit: line.querySelector('.po-line-unit').value,
             unitPrice: price
@@ -9048,7 +9145,7 @@
       });
 
       if (!hasValidLine) {
-        document.getElementById('poFormStatus').innerHTML = '<span style="color:#dc2626;">Please add at least one valid line item with description and quantity.</span>';
+        document.getElementById('poFormStatus').innerHTML = '<span style="color:#dc2626;">Each line needs description, quantity, category, sub-category, and particulars.</span>';
         return;
       }
 
@@ -9418,17 +9515,23 @@
             const lineNo = line.lineNo || line.Line_No || (idx + 1);
             const desc = line.itemDescription || line.Item_Description || '';
             const particulars = line.particulars || line.Particulars || '';
+            const subCategory = line.subCategory || line.Sub_Category || '';
+            const category = line.category || line.Category || '';
             const price = line.unitPrice || line.Unit_Price || 0;
 
             html += `
               <tr>
                 <td>
                   <strong>${desc}</strong>
+                  ${category || subCategory ? `<br><span style="font-size:11px;color:#6b7280;">${[category, subCategory].filter(Boolean).join(' / ')}</span>` : ''}
                   ${particulars ? `<br><span style="font-size:11px;color:#6b7280;">${particulars}</span>` : ''}
                   <input type="hidden" class="grn-line-no" value="${lineNo}">
                   <input type="hidden" class="grn-line-desc" value="${desc}">
                   <input type="hidden" class="grn-line-ordered" value="${ordered}">
                   <input type="hidden" class="grn-line-price" value="${price}">
+                  <input type="hidden" class="grn-line-category" value="${category}">
+                  <input type="hidden" class="grn-line-subcategory" value="${subCategory}">
+                  <input type="hidden" class="grn-line-particulars" value="${particulars}">
                 </td>
                 <td style="text-align:right;">${ordered}</td>
                 <td style="text-align:right;">${received}</td>
@@ -9493,6 +9596,9 @@
             qtyAccepted: qty,
             qtyRejected: 0,
             unitPrice: row.querySelector('.grn-line-price').value,
+            category: row.querySelector('.grn-line-category').value,
+            subCategory: row.querySelector('.grn-line-subcategory').value,
+            particulars: row.querySelector('.grn-line-particulars').value,
             rejectionReason: row.querySelector('.grn-line-note').value
           });
         }
@@ -9619,11 +9725,11 @@
     // PAYABLES MODULE - Accounts Payable Management
     // ============================================================
 
-    // Invoices to Pay (Payables List)
+    // Outstanding Invoices (Payables List)
     function renderInvoicesToPayContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
-        ${renderSectionHero('Invoices to Pay', 'Manage supplier invoices and track payment status.')}
+        ${renderSectionHero('Outstanding Invoices', 'Manage supplier invoices and track payment status.')}
         <div class="card card-spacious">
           <div class="panel-header">
             <div>
@@ -10561,88 +10667,120 @@
     // Issue Invoice
     function renderIssueInvoiceContent() {
       const contentArea = document.getElementById('contentArea');
-      const today = new Date().toISOString().split('T')[0];
 
       contentArea.innerHTML = `
         ${renderSectionHero('Issue Invoice', 'Create a new invoice for a customer.')}
         <div class="card card-spacious">
-          <h2 style="margin-bottom:16px;">New Invoice</h2>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="invoiceCustomer">Customer *</label>
-              <select id="invoiceCustomer" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                <option value="">-- Select Customer --</option>
-              </select>
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Sales Invoices</h2>
+              <p style="color:#6b7280;font-size:13px;">Create a new customer invoice in a modal.</p>
             </div>
-            <div class="form-group">
-              <label for="invoiceDate">Invoice Date *</label>
-              <input type="date" id="invoiceDate" value="${today}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+            <div>
+              <button class="btn btn-primary" onclick="openIssueInvoiceModal()">+ New Invoice</button>
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="invoiceFinancialYear">Financial Year</label>
-              <select id="invoiceFinancialYear" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                <option value="">Loading...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="invoicePaymentTerms">Payment Terms</label>
-              <select id="invoicePaymentTerms" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                <option value="Net 30">Net 30</option>
-                <option value="Net 15">Net 15</option>
-                <option value="Net 60">Net 60</option>
-                <option value="Due on Receipt">Due on Receipt</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="invoiceCategory">Category</label>
-              <div style="display:flex;gap:8px;">
-                <select id="invoiceCategory" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:6px;" onchange="onCategoryChange('invoice')">
-                  <option value="">-- Select Category --</option>
-                </select>
-                <button type="button" class="btn btn-secondary" onclick="openAddCategoryModal('invoice')" style="padding:8px 12px;font-size:14px;" title="Add Category">+</button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="invoiceSubCategory">Sub-Category</label>
-              <div style="display:flex;gap:8px;">
-                <select id="invoiceSubCategory" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:6px;" onchange="onSubCategoryChange('invoice')">
-                  <option value="">-- Select Category first --</option>
-                </select>
-                <button type="button" class="btn btn-secondary" onclick="openAddSubCategoryModal('invoice')" style="padding:8px 12px;font-size:14px;" title="Add Sub-Category">+</button>
-              </div>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="invoiceParticulars">Particulars</label>
-              <div style="display:flex;gap:8px;">
-                <select id="invoiceParticulars" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-                  <option value="">-- Select Sub-Category first --</option>
-                </select>
-                <button type="button" class="btn btn-secondary" onclick="openAddParticularsModal('invoice')" style="padding:8px 12px;font-size:14px;" title="Add Particulars">+</button>
-              </div>
-            </div>
-            <div class="form-group"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="invoiceDescription">Description</label>
-              <input type="text" id="invoiceDescription" placeholder="Invoice description" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-            </div>
-            <div class="form-group">
-              <label for="invoiceAmount">Amount *</label>
-              <input type="number" id="invoiceAmount" min="0.01" step="0.01" placeholder="0.00" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
-            </div>
-          </div>
-          <div id="invoiceFormStatus" style="min-height:24px;margin:12px 0;"></div>
-          <button class="btn btn-primary" onclick="saveInvoice()" style="width:200px;">Issue Invoice</button>
+          <p style="color:#6b7280;font-size:13px;margin-top:12px;">Use the button to issue a new invoice without leaving this page.</p>
         </div>
       `;
+      openIssueInvoiceModal();
+    }
+
+    function openIssueInvoiceModal() {
+      if (document.getElementById('issueInvoiceModal')) return;
+      const today = new Date().toISOString().split('T')[0];
+      const modalHtml = `
+        <div class="modal open" id="issueInvoiceModal">
+          <div class="modal-card" style="max-width:720px;max-height:90vh;">
+            <div class="modal-header">
+              <span>Issue Invoice</span>
+              <button class="btn btn-secondary" onclick="closeIssueInvoiceModal()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="invoiceCustomer">Customer *</label>
+                  <select id="invoiceCustomer" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="">-- Select Customer --</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="invoiceDate">Invoice Date *</label>
+                  <input type="date" id="invoiceDate" value="${today}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="invoiceFinancialYear">Financial Year</label>
+                  <select id="invoiceFinancialYear" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="">Loading...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="invoicePaymentTerms">Payment Terms</label>
+                  <select id="invoicePaymentTerms" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                    <option value="Net 30">Net 30</option>
+                    <option value="Net 15">Net 15</option>
+                    <option value="Net 60">Net 60</option>
+                    <option value="Due on Receipt">Due on Receipt</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="invoiceCategory">Category</label>
+                  <div style="display:flex;gap:8px;">
+                    <select id="invoiceCategory" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:6px;" onchange="onCategoryChange('invoice')">
+                      <option value="">-- Select Category --</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary" onclick="openAddCategoryModal('invoice')" style="padding:8px 12px;font-size:14px;" title="Add Category">+</button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="invoiceSubCategory">Sub-Category</label>
+                  <div style="display:flex;gap:8px;">
+                    <select id="invoiceSubCategory" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:6px;" onchange="onSubCategoryChange('invoice')">
+                      <option value="">-- Select Category first --</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary" onclick="openAddSubCategoryModal('invoice')" style="padding:8px 12px;font-size:14px;" title="Add Sub-Category">+</button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="invoiceParticulars">Particulars</label>
+                  <div style="display:flex;gap:8px;">
+                    <select id="invoiceParticulars" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                      <option value="">-- Select Sub-Category first --</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary" onclick="openAddParticularsModal('invoice')" style="padding:8px 12px;font-size:14px;" title="Add Particulars">+</button>
+                  </div>
+                </div>
+                <div class="form-group"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="invoiceDescription">Description</label>
+                  <input type="text" id="invoiceDescription" placeholder="Invoice description" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+                <div class="form-group">
+                  <label for="invoiceAmount">Amount *</label>
+                  <input type="number" id="invoiceAmount" min="0.01" step="0.01" placeholder="0.00" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                </div>
+              </div>
+              <div id="invoiceFormStatus" style="min-height:24px;margin:12px 0;"></div>
+              <button class="btn btn-primary" onclick="saveInvoice()" style="width:200px;">Issue Invoice</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
       loadCustomersForInvoice();
+    }
+
+    function closeIssueInvoiceModal() {
+      const modal = document.getElementById('issueInvoiceModal');
+      if (modal) modal.remove();
     }
 
     function loadCustomersForInvoice() {
@@ -10725,6 +10863,7 @@
         .withSuccessHandler(function(result) {
           if (result.success) {
             alert('Invoice ' + result.invoiceNumber + ' created successfully!');
+            closeIssueInvoiceModal();
             renderOutstandingInvoicesContent();
           } else {
             statusDiv.innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to create invoice') + '</span>';
