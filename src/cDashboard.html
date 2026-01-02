@@ -11199,6 +11199,8 @@
 
     let pendingJournalPayee = null;
     let pendingJournalNote = null;
+    let pendingJournalYear = null;
+    let pendingJournalTemplate = null;
 
     function loadStaffAdvancesTable() {
       loadStaffAdvanceRows('staffAdvancesTable', false);
@@ -11224,7 +11226,23 @@
           google.script.run
             .withSuccessHandler(function(rows) {
               const filtered = (rows || []).filter(row => staffNames.has(String(row.payee || '').trim()));
-              renderStaffAdvanceTable(containerId, filtered, includeAction);
+              if (!includeAction) {
+                renderStaffAdvanceTable(containerId, filtered, includeAction, {});
+                return;
+              }
+              const batchIds = filtered.map(row => row.batchId).filter(Boolean);
+              if (!batchIds.length) {
+                renderStaffAdvanceTable(containerId, filtered, includeAction, {});
+                return;
+              }
+              google.script.run
+                .withSuccessHandler(function(totals) {
+                  renderStaffAdvanceTable(containerId, filtered, includeAction, totals || {});
+                })
+                .withFailureHandler(function(error) {
+                  container.innerHTML = '<p style="color:#dc2626;">Failed to load surrender totals: ' + (error.message || 'Error') + '</p>';
+                })
+                .getAdvanceSurrenderTotals(batchIds);
             })
             .withFailureHandler(function(error) {
               container.innerHTML = '<p style="color:#dc2626;">Failed to load staff advances: ' + (error.message || 'Error') + '</p>';
@@ -11237,7 +11255,7 @@
         .getStaff();
     }
 
-    function renderStaffAdvanceTable(containerId, rows, includeAction) {
+    function renderStaffAdvanceTable(containerId, rows, includeAction, totals) {
       const container = document.getElementById(containerId);
       if (!container) return;
       if (!rows || !rows.length) {
@@ -11254,7 +11272,8 @@
           <td data-label="Category">${row.category || ''}</td>
           <td data-label="Amount">${formatPerformanceAmount(row.amount)}</td>
           <td data-label="Ref No">${row.refNo || ''}</td>
-          ${includeAction ? `<td data-label="Action"><button class="btn btn-primary" type="button" onclick="startStaffSurrender('${escapeJsString(row.payee || '')}', '${escapeJsString(row.refNo || '')}', ${Number(row.amount) || 0})">Surrender</button></td>` : ''}
+          ${includeAction ? `<td data-label="Available">${formatPerformanceAmount((Number(row.amount) || 0) - (Number(totals && totals[row.batchId] || 0)))}</td>` : ''}
+          ${includeAction ? `<td data-label="Action"><button class="btn btn-primary" type="button" onclick="startStaffSurrender('${escapeJsString(row.payee || '')}', '${escapeJsString(row.refNo || '')}', '${escapeJsString(row.batchId || '')}', ${Number(row.amount) || 0}, '${escapeJsString(row.financialYear || '')}')">Surrender</button></td>` : ''}
         </tr>
       `).join('');
 
@@ -11269,6 +11288,7 @@
               <th>Category</th>
               <th>Amount</th>
               <th>Ref No</th>
+              ${includeAction ? '<th>Available</th>' : ''}
               ${includeAction ? '<th>Action</th>' : ''}
             </tr>
           </thead>
@@ -11277,16 +11297,41 @@
       `;
     }
 
-    function startStaffSurrender(payee, refNo, amount) {
-      pendingJournalPayee = { type: 'Staff', name: payee || '' };
-      pendingJournalNote = `Available for surrender: ${formatPerformanceAmount(amount)}${refNo ? ' | Ref: ' + refNo : ''}`;
-      openJournalModal();
-      setTimeout(function() {
-        if (pendingJournalNote) {
-          setJournalStatus(pendingJournalNote);
-          pendingJournalNote = null;
-        }
-      }, 300);
+    function startStaffSurrender(payee, refNo, batchId, amount, financialYear) {
+      const batchKey = String(batchId || '').trim();
+      const available = Number(amount) || 0;
+      if (!batchKey) {
+        showAlert('Missing advance reference for surrender.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(totals) {
+          const used = Number(totals && totals[batchKey] || 0);
+          const remaining = Math.max(0, available - used);
+          if (remaining <= 0) {
+            showAlert('No remaining balance to surrender for this advance.', 'error');
+            return;
+          }
+          pendingJournalPayee = { type: 'Staff', name: payee || '' };
+          pendingJournalYear = financialYear || '';
+          pendingJournalTemplate = {
+            amount: remaining,
+            advanceId: batchKey,
+            refNo: refNo || ''
+          };
+          pendingJournalNote = `Available for surrender: ${formatPerformanceAmount(remaining)}${refNo ? ' | Ref: ' + refNo : ''}`;
+          openJournalModal();
+          setTimeout(function() {
+            if (pendingJournalNote) {
+              setJournalStatus(pendingJournalNote);
+              pendingJournalNote = null;
+            }
+          }, 300);
+        })
+        .withFailureHandler(function(error) {
+          showAlert(error.message || 'Failed to load surrender balance.', 'error');
+        })
+        .getAdvanceSurrenderTotals([batchKey]);
     }
 
     function loadStaff() {

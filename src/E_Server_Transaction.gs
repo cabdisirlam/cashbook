@@ -511,6 +511,7 @@ function getRecentTransactionsByType(type, limit) {
     results.push({
       batchId: info.batchId,
       date: info.date,
+      financialYear: cols.financialYear ? row[cols.financialYear - 1] : '',
       payee: info.payee,
       refNo: info.refNo,
       particulars: info.particulars,
@@ -561,6 +562,61 @@ function getRecentJournalEntries(limit) {
   }
 
   return results;
+}
+
+function getAdvanceSurrenderTotals(batchIds) {
+  const ids = Array.isArray(batchIds) ? batchIds.map(String) : [];
+  const targets = {};
+  ids.forEach(function(id) {
+    const trimmed = String(id || '').trim();
+    if (trimmed) targets[trimmed] = true;
+  });
+  if (!Object.keys(targets).length) return {};
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return {};
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  if (!cols.description || !cols.batchId) return {};
+
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const taggedBatches = {};
+
+  data.forEach(function(row) {
+    const description = String(row[cols.description - 1] || '');
+    const match = /ADV:(TXN-\d+)/.exec(description);
+    if (!match) return;
+    const advanceId = match[1];
+    if (!targets[advanceId]) return;
+    const journalBatch = String(row[cols.batchId - 1] || '').trim();
+    if (!journalBatch) return;
+    if (!taggedBatches[advanceId]) taggedBatches[advanceId] = {};
+    if (!taggedBatches[advanceId][journalBatch]) taggedBatches[advanceId][journalBatch] = { debit: 0, credit: 0 };
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+    taggedBatches[advanceId][journalBatch].debit += debit;
+    taggedBatches[advanceId][journalBatch].credit += credit;
+  });
+
+  const totals = {};
+  Object.keys(taggedBatches).forEach(function(advanceId) {
+    const batches = taggedBatches[advanceId];
+    let sum = 0;
+    Object.keys(batches).forEach(function(batchId) {
+      const totalsForBatch = batches[batchId];
+      const amount = Math.max(totalsForBatch.debit, totalsForBatch.credit);
+      sum += amount;
+    });
+    totals[advanceId] = sum;
+  });
+
+  return totals;
 }
 
 function searchJournal(criteria) {

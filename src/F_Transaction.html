@@ -867,6 +867,8 @@
   let allParticulars = [];
   let isSaving = false;
   let isSavingJournal = false;
+  let pendingJournalYear = null;
+  let pendingJournalTemplate = null;
   const saveCooldownMs = 60000;
   const lastSavedAtByMode = {
     Payment: 0,
@@ -945,15 +947,26 @@
         fillList('accountList', paymentState.accounts);
         fillSelect('journalPayeeType', getAllowedPayeeTypes('Journal'), 'Select payee type');
         onPayeeTypeChange('journalPayeeType', 'journalPayee', false);
-        if (typeof pendingJournalPayee !== 'undefined' && pendingJournalPayee && transactionMode === 'Journal') {
-          const typeSelect = document.getElementById('journalPayeeType');
-          if (typeSelect) {
-            typeSelect.value = pendingJournalPayee.type || '';
-            onPayeeTypeChange('journalPayeeType', 'journalPayee', false);
+        if (transactionMode === 'Journal') {
+          if (typeof pendingJournalYear !== 'undefined' && pendingJournalYear) {
+            const yearInput = document.getElementById('journalFinancialYear');
+            if (yearInput) yearInput.value = pendingJournalYear;
+            pendingJournalYear = null;
           }
-          const payeeSelect = document.getElementById('journalPayee');
-          if (payeeSelect) payeeSelect.value = pendingJournalPayee.name || '';
-          pendingJournalPayee = null;
+          if (typeof pendingJournalPayee !== 'undefined' && pendingJournalPayee) {
+            const typeSelect = document.getElementById('journalPayeeType');
+            if (typeSelect) {
+              typeSelect.value = pendingJournalPayee.type || '';
+              onPayeeTypeChange('journalPayeeType', 'journalPayee', false);
+            }
+            const payeeSelect = document.getElementById('journalPayee');
+            if (payeeSelect) payeeSelect.value = pendingJournalPayee.name || '';
+            pendingJournalPayee = null;
+          }
+          if (typeof pendingJournalTemplate !== 'undefined' && pendingJournalTemplate) {
+            applyJournalTemplate(pendingJournalTemplate);
+            pendingJournalTemplate = null;
+          }
         }
         applyParticularFilter();
         fillList('subCatList', paymentState.subCats);
@@ -1867,7 +1880,7 @@
 
   var journalLineCounter = 0;
 
-  function addJournalLine() {
+  function addJournalLine(preset) {
     const jLineId = 'jline' + (journalLineCounter++);
     const row = document.createElement('tr');
     row.dataset.lineId = jLineId;
@@ -1984,7 +1997,50 @@
       updateJournalTotals();
     });
 
+    if (preset) {
+      if (preset.lineType) {
+        lineTypeSelect.value = preset.lineType;
+        lineTypeSelect.dispatchEvent(new Event('change'));
+      }
+      if (preset.description != null) {
+        row.querySelector('.journal-desc-input').value = preset.description;
+      }
+      if (Number.isFinite(preset.debit)) {
+        debitInput.value = preset.debit;
+        debitInput.dispatchEvent(new Event('input'));
+      }
+      if (Number.isFinite(preset.credit)) {
+        creditInput.value = preset.credit;
+        creditInput.dispatchEvent(new Event('input'));
+      }
+    }
+
     document.getElementById('journalBody').appendChild(row);
+    return row;
+  }
+
+  function applyJournalTemplate(template) {
+    const body = document.getElementById('journalBody');
+    if (!body || !template) return;
+    body.innerHTML = '';
+    const amount = Number(template.amount || 0);
+    const tag = template.advanceId ? `ADV:${template.advanceId}` : '';
+    const refNote = template.refNo ? `Ref: ${template.refNo}` : '';
+    const note = [tag, refNote].filter(Boolean).join(' ');
+
+    addJournalLine({
+      lineType: 'particular',
+      description: note,
+      debit: amount,
+      credit: 0
+    });
+    addJournalLine({
+      lineType: 'particular',
+      description: note,
+      debit: 0,
+      credit: amount
+    });
+    updateJournalTotals();
   }
 
   function removeJournalLine(button) {
