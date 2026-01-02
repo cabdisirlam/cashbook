@@ -2728,7 +2728,7 @@
           <div class="panel-header">
             <div>
               <h2 style="margin-bottom:4px;">Bank Reconciliation</h2>
-              <p style="color:#6b7280;font-size:13px;">Match by account, reference, and amount. Dates are optional.</p>
+              <p style="color:#6b7280;font-size:13px;">Match by account, reference, and amount. Select a month range.</p>
             </div>
             <div>
               <button class="btn btn-secondary" onclick="renderReconciliationContent()">Refresh</button>
@@ -2747,12 +2747,12 @@
               <select id="reconFinancialYear"></select>
             </div>
             <div class="form-group">
-              <label for="reconStartDate">Start Date</label>
-              <input type="date" id="reconStartDate">
+              <label for="reconStartMonth">Start Month</label>
+              <select id="reconStartMonth"></select>
             </div>
             <div class="form-group">
-              <label for="reconEndDate">End Date</label>
-              <input type="date" id="reconEndDate">
+              <label for="reconEndMonth">End Month</label>
+              <select id="reconEndMonth"></select>
             </div>
             <div class="form-group">
               <label>&nbsp;</label>
@@ -2865,6 +2865,7 @@
       if (reconAccounts.length || reconYears.length) {
         fillSelectOptionsWithDefault('reconAccountCode', reconAccounts, 'All banks');
         fillSelectOptionsWithDefault('reconFinancialYear', reconYears, 'All years');
+        initReconMonthSelectors();
         return;
       }
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
@@ -2878,6 +2879,7 @@
           reconYears = (data && data.financialYears) ? data.financialYears : [];
           fillSelectOptionsWithDefault('reconAccountCode', reconAccounts, 'All banks');
           fillSelectOptionsWithDefault('reconFinancialYear', reconYears, 'All years');
+          initReconMonthSelectors();
           if (status) status.textContent = '';
           loadReconciliationPreview();
         })
@@ -2888,19 +2890,90 @@
         .getDropdownData();
     }
 
+    function initReconMonthSelectors() {
+      const startSelect = document.getElementById('reconStartMonth');
+      const endSelect = document.getElementById('reconEndMonth');
+      if (!startSelect || !endSelect) return;
+      startSelect.innerHTML = '<option value="">Select month</option>';
+      endSelect.innerHTML = '<option value="">Select month</option>';
+      RECON_MONTHS.forEach(function(item, index) {
+        const startOpt = document.createElement('option');
+        startOpt.value = String(index);
+        startOpt.textContent = item.label;
+        startSelect.appendChild(startOpt);
+
+        const endOpt = document.createElement('option');
+        endOpt.value = String(index);
+        endOpt.textContent = item.label;
+        endSelect.appendChild(endOpt);
+      });
+      if (!startSelect.value) startSelect.value = '0';
+      if (!endSelect.value) endSelect.value = String(RECON_MONTHS.length - 1);
+    }
+
+    function parseFinancialYearYears(financialYear) {
+      const raw = String(financialYear || '').trim();
+      const match = /^(\d{4})\s*\/\s*(\d{2,4})$/.exec(raw);
+      if (!match) return null;
+      const startYear = Number(match[1]);
+      const endRaw = match[2];
+      const endYear = endRaw.length === 2
+        ? Number(String(startYear).slice(0, 2) + endRaw)
+        : Number(endRaw);
+      if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) return null;
+      return { startYear: startYear, endYear: endYear };
+    }
+
+    function getReconciliationDateRange(financialYear, startIndex, endIndex) {
+      const years = parseFinancialYearYears(financialYear);
+      if (!years) return { error: 'Invalid financial year format.' };
+      if (startIndex == null || endIndex == null) return { error: 'Select start and end months.' };
+      if (startIndex > endIndex) return { error: 'Start month must be before end month.' };
+
+      const startInfo = RECON_MONTHS[startIndex];
+      const endInfo = RECON_MONTHS[endIndex];
+      if (!startInfo || !endInfo) return { error: 'Invalid month selection.' };
+
+      const startYear = startInfo.monthIndex >= 6 ? years.startYear : years.endYear;
+      const endYear = endInfo.monthIndex >= 6 ? years.startYear : years.endYear;
+
+      const startMonth = startInfo.monthIndex + 1;
+      const endMonth = endInfo.monthIndex + 1;
+      const startDate = `${startYear}-${String(startMonth).padStart(2, '0')}-01`;
+      const endDay = new Date(endYear, endInfo.monthIndex + 1, 0).getDate();
+      const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
+      return { startDate: startDate, endDate: endDate };
+    }
+
     function getReconciliationCriteria() {
+      const financialYear = document.getElementById('reconFinancialYear')?.value.trim() || '';
+      const startValue = document.getElementById('reconStartMonth')?.value;
+      const endValue = document.getElementById('reconEndMonth')?.value;
+      const hasStart = String(startValue || '') !== '';
+      const hasEnd = String(endValue || '') !== '';
+      const startIndex = hasStart ? Number(startValue) : null;
+      const endIndex = hasEnd ? Number(endValue) : null;
+      const range = getReconciliationDateRange(
+        financialYear,
+        hasStart ? startIndex : null,
+        hasEnd ? endIndex : null
+      );
       return {
         accountCode: document.getElementById('reconAccountCode')?.value.trim() || '',
-        financialYear: document.getElementById('reconFinancialYear')?.value.trim() || '',
-        startDate: document.getElementById('reconStartDate')?.value || '',
-        endDate: document.getElementById('reconEndDate')?.value || ''
+        financialYear: financialYear,
+        startDate: range.startDate || '',
+        endDate: range.endDate || '',
+        rangeError: range.error || ''
       };
     }
 
     function requireReconciliationCriteria() {
       const criteria = getReconciliationCriteria();
       if (!criteria.accountCode || !criteria.financialYear || !criteria.startDate || !criteria.endDate) {
-        showReconAlert('Select bank account, financial year, start date, and end date.', 'error');
+        const message = criteria.rangeError
+          ? criteria.rangeError
+          : 'Select bank account, financial year, start month, and end month.';
+        showReconAlert(message, 'error');
         return null;
       }
       return criteria;
@@ -7607,6 +7680,20 @@
     let reconAccounts = [];
     let reconYears = [];
     let reconPreviewData = null;
+    const RECON_MONTHS = [
+      { label: 'July', monthIndex: 6 },
+      { label: 'August', monthIndex: 7 },
+      { label: 'September', monthIndex: 8 },
+      { label: 'October', monthIndex: 9 },
+      { label: 'November', monthIndex: 10 },
+      { label: 'December', monthIndex: 11 },
+      { label: 'January', monthIndex: 0 },
+      { label: 'February', monthIndex: 1 },
+      { label: 'March', monthIndex: 2 },
+      { label: 'April', monthIndex: 3 },
+      { label: 'May', monthIndex: 4 },
+      { label: 'June', monthIndex: 5 }
+    ];
     let lastNotesResult = null;
     let lastPerformanceResult = null;
     let lastCashFlowResult = null;
