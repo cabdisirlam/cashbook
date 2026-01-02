@@ -1723,6 +1723,11 @@
         return;
       }
 
+      if (label === 'Master Data') {
+        renderMasterDataContent();
+        return;
+      }
+
       if (label === 'New Payment') {
         renderPaymentLauncher();
         return;
@@ -1785,6 +1790,11 @@
 
       if (label === 'Payables Statements') {
         renderPayablesStatementsContent();
+        return;
+      }
+
+      if (label === 'Staff Statements') {
+        renderStaffStatementsContent();
         return;
       }
 
@@ -1859,6 +1869,16 @@
       // Admin Module - Staff
       if (label === 'Staff') {
         renderStaffContent();
+        return;
+      }
+
+      if (label === 'Staff Advances') {
+        renderStaffAdvancesLauncher();
+        return;
+      }
+
+      if (label === 'Process Surrender / Claims') {
+        renderStaffSurrenderLauncher();
         return;
       }
 
@@ -2040,6 +2060,253 @@
       `;
 
       loadSettings();
+    }
+
+    function renderMasterDataContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="masterDataAlert"></div>
+        ${renderSectionHero('Master Data', 'Upload and maintain the core master data lists for the system.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Master Data</h2>
+              <p style="color:#6b7280;font-size:13px;">Upload a CSV or add a single entry. Existing items will be skipped.</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="downloadMasterDataTemplate()">Download Template</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="masterDataUploadInput">Upload Master Data (CSV)</label>
+              <input type="file" id="masterDataUploadInput" accept=".csv">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" type="button" onclick="handleMasterDataUpload()">Upload</button>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:16px;">
+            <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">Add Single Entry</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="masterParticulars">Particulars</label>
+                <input type="text" id="masterParticulars" placeholder="Particulars">
+              </div>
+              <div class="form-group">
+                <label for="masterSubCategory">Sub_Category</label>
+                <input type="text" id="masterSubCategory" placeholder="Sub-Category">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="masterCategory">Category</label>
+                <input type="text" id="masterCategory" placeholder="Category">
+              </div>
+              <div class="form-group">
+                <label for="masterAccountCodes">Account_Codes</label>
+                <input type="text" id="masterAccountCodes" placeholder="Account codes">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="masterAccountType">Account_Type</label>
+                <input type="text" id="masterAccountType" placeholder="Account Type">
+              </div>
+              <div class="form-group">
+                <label for="masterReportMapping">Report_Mapping</label>
+                <input type="text" id="masterReportMapping" placeholder="Report Mapping">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="masterFinancialYear">Financial_Year</label>
+                <input type="text" id="masterFinancialYear" placeholder="FY 2024/2025">
+              </div>
+              <div class="form-group" style="display:flex;align-items:flex-end;">
+                <button class="btn btn-primary" type="button" onclick="addMasterDataRow()">Add Entry</button>
+              </div>
+            </div>
+            <p style="font-size:12px;color:#6b7280;margin-top:8px;">
+              Banks use Account_Codes + Account_Type + Report_Mapping (no Category/Sub_Category/Particulars, no Financial_Year).
+              Categories require Account_Codes + Financial_Year + Account_Type + Report_Mapping.
+              Financial_Year entries only need Financial_Year.
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    function showMasterDataAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('masterDataAlert');
+      if (!container) return;
+      const color = type === 'error' ? '#dc2626' : type === 'info' ? '#1d4ed8' : '#16a34a';
+      container.innerHTML = `<div class="card" style="border-left:4px solid ${color};padding:10px 12px;margin-bottom:12px;color:${color};font-size:13px;">${escapeHtml(message)}</div>`;
+      if (duration) {
+        setTimeout(function() {
+          if (container.innerHTML) container.innerHTML = '';
+        }, duration);
+      }
+    }
+
+    function downloadMasterDataTemplate() {
+      const headers = ['Particulars', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'];
+      const csv = [headers].map(row => row.map(escapeCsv).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'master_data_template.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showMasterDataAlert('Template downloaded.', 'success');
+    }
+
+    function handleMasterDataUpload() {
+      const input = document.getElementById('masterDataUploadInput');
+      if (!input || !input.files || !input.files.length) {
+        showMasterDataAlert('Select a CSV file to upload.', 'error');
+        return;
+      }
+      const file = input.files[0];
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.csv')) {
+        showMasterDataAlert('Only CSV files are supported.', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const csvText = event.target.result || '';
+          const parsed = parseCsvToRows(csvText);
+          if (!parsed.rows || !parsed.rows.length) {
+            showMasterDataAlert('CSV file is empty.', 'error');
+            return;
+          }
+          applyMasterDataUpload(parsed.rows);
+        } catch (error) {
+          showMasterDataAlert(error.message || 'Failed to read file.', 'error');
+        }
+      };
+      reader.onerror = function() {
+        showMasterDataAlert('Failed to read file.', 'error');
+      };
+      reader.readAsText(file);
+    }
+
+    function applyMasterDataUpload(csvRows) {
+      const headerRow = csvRows[0].map(value => String(value || '').trim());
+      const headerMap = {};
+      headerRow.forEach((header, index) => {
+        headerMap[header] = index;
+      });
+      const requiredHeaders = ['Particulars', 'Sub_Category', 'Category', 'Account_Codes', 'Account_Type', 'Report_Mapping', 'Financial_Year'];
+      const missing = requiredHeaders.filter(header => headerMap[header] === undefined);
+      if (missing.length) {
+        showMasterDataAlert('Missing headers: ' + missing.join(', '), 'error');
+        return;
+      }
+
+      const rows = [];
+      for (let i = 1; i < csvRows.length; i++) {
+        const row = csvRows[i];
+        const entry = {
+          Particulars: String(row[headerMap.Particulars] || '').trim(),
+          Sub_Category: String(row[headerMap.Sub_Category] || '').trim(),
+          Category: String(row[headerMap.Category] || '').trim(),
+          Account_Codes: String(row[headerMap.Account_Codes] || '').trim(),
+          Account_Type: String(row[headerMap.Account_Type] || '').trim(),
+          Report_Mapping: String(row[headerMap.Report_Mapping] || '').trim(),
+          Financial_Year: String(row[headerMap.Financial_Year] || '').trim()
+        };
+        const hasValue = Object.values(entry).some(value => value);
+        if (hasValue) rows.push(entry);
+      }
+
+      if (!rows.length) {
+        showMasterDataAlert('No valid rows found to upload.', 'error');
+        return;
+      }
+
+      if (!google || !google.script || !google.script.run) {
+        showMasterDataAlert('App runtime missing. Open via the deployed URL.', 'error');
+        return;
+      }
+
+      showMasterDataAlert('Uploading master data...', 'info', 0);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          const added = result && result.addedCount ? result.addedCount : 0;
+          const dupes = result && result.duplicateCount ? result.duplicateCount : 0;
+          const errors = result && result.errors ? result.errors : [];
+          if (!added && !dupes) {
+            showMasterDataAlert('No new items were added.', 'info');
+            return;
+          }
+          const parts = [];
+          if (added) parts.push('Added ' + added + ' item(s).');
+          if (dupes) parts.push(dupes + ' already existed.');
+          if (errors.length) parts.push(errors.slice(0, 3).join(' '));
+          showMasterDataAlert(parts.join(' '), errors.length ? 'error' : 'success');
+        })
+        .withFailureHandler(function(error) {
+          showMasterDataAlert(error.message || 'Failed to upload master data.', 'error');
+        })
+        .saveMasterDataRows({ rows: rows });
+    }
+
+    function addMasterDataRow() {
+      const entry = {
+        Particulars: document.getElementById('masterParticulars').value.trim(),
+        Sub_Category: document.getElementById('masterSubCategory').value.trim(),
+        Category: document.getElementById('masterCategory').value.trim(),
+        Account_Codes: document.getElementById('masterAccountCodes').value.trim(),
+        Account_Type: document.getElementById('masterAccountType').value.trim(),
+        Report_Mapping: document.getElementById('masterReportMapping').value.trim(),
+        Financial_Year: document.getElementById('masterFinancialYear').value.trim()
+      };
+      const hasValue = Object.values(entry).some(value => value);
+      if (!hasValue) {
+        showMasterDataAlert('Enter at least one value before adding.', 'error');
+        return;
+      }
+      if (!google || !google.script || !google.script.run) {
+        showMasterDataAlert('App runtime missing. Open via the deployed URL.', 'error');
+        return;
+      }
+      showMasterDataAlert('Saving master data...', 'info', 0);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          const added = result && result.addedCount ? result.addedCount : 0;
+          const dupes = result && result.duplicateCount ? result.duplicateCount : 0;
+          const errors = result && result.errors ? result.errors : [];
+          if (errors.length) {
+            showMasterDataAlert(errors.join(' '), 'error');
+            return;
+          }
+          if (!added && dupes) {
+            showMasterDataAlert('Item exists already.', 'info');
+            return;
+          }
+          showMasterDataAlert('Master data entry added.', 'success');
+          document.getElementById('masterParticulars').value = '';
+          document.getElementById('masterSubCategory').value = '';
+          document.getElementById('masterCategory').value = '';
+          document.getElementById('masterAccountCodes').value = '';
+          document.getElementById('masterAccountType').value = '';
+          document.getElementById('masterReportMapping').value = '';
+          document.getElementById('masterFinancialYear').value = '';
+        })
+        .withFailureHandler(function(error) {
+          showMasterDataAlert(error.message || 'Failed to add master data.', 'error');
+        })
+        .saveMasterDataRows({ rows: [entry] });
     }
 
     function renderPaymentLauncher() {
@@ -4029,6 +4296,18 @@
               <select id="receivablesFinancialYear"></select>
             </div>
             <div class="form-group">
+              <label for="receivablesStartDate">From</label>
+              <input type="date" id="receivablesStartDate">
+            </div>
+            <div class="form-group">
+              <label for="receivablesEndDate">To</label>
+              <input type="date" id="receivablesEndDate">
+            </div>
+            <div class="form-group">
+              <label for="receivablesPayeeFilter">Payee</label>
+              <input type="text" id="receivablesPayeeFilter" placeholder="Filter payee">
+            </div>
+            <div class="form-group">
               <label>&nbsp;</label>
               <button class="btn btn-primary" onclick="refreshReceivablesStatements()">Run</button>
             </div>
@@ -4065,6 +4344,18 @@
               <select id="payablesFinancialYear"></select>
             </div>
             <div class="form-group">
+              <label for="payablesStartDate">From</label>
+              <input type="date" id="payablesStartDate">
+            </div>
+            <div class="form-group">
+              <label for="payablesEndDate">To</label>
+              <input type="date" id="payablesEndDate">
+            </div>
+            <div class="form-group">
+              <label for="payablesPayeeFilter">Payee</label>
+              <input type="text" id="payablesPayeeFilter" placeholder="Filter payee">
+            </div>
+            <div class="form-group">
               <label>&nbsp;</label>
               <button class="btn btn-primary" onclick="refreshPayablesStatements()">Run</button>
             </div>
@@ -4076,6 +4367,53 @@
       `;
 
       loadPayablesYears();
+    }
+
+    function renderStaffStatementsContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="staffStatementsAlert"></div>
+        ${renderSectionHero('Staff Statements', 'Track staff advances and claim clearances.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Staff Statements</h2>
+              <p style="color:#6b7280;font-size:13px;">Select a financial year, then run the statements.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderStaffStatementsContent()">Refresh</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="staffStatementsFinancialYear">Financial Year</label>
+              <select id="staffStatementsFinancialYear"></select>
+            </div>
+            <div class="form-group">
+              <label for="staffStatementsStartDate">From</label>
+              <input type="date" id="staffStatementsStartDate">
+            </div>
+            <div class="form-group">
+              <label for="staffStatementsEndDate">To</label>
+              <input type="date" id="staffStatementsEndDate">
+            </div>
+            <div class="form-group">
+              <label for="staffStatementsPayeeFilter">Payee</label>
+              <input type="text" id="staffStatementsPayeeFilter" placeholder="Filter payee">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="refreshStaffStatements()">Run</button>
+            </div>
+          </div>
+
+          <div id="staffStatementsStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="staffStatementsReport"></div>
+        </div>
+      `;
+
+      loadStaffStatementsYears();
     }
 
     function renderAssetPurchasesContent() {
@@ -4287,6 +4625,26 @@
         .getDropdownData();
     }
 
+    function loadStaffStatementsYears() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showStaffStatementsAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const years = (data && data.financialYears) ? data.financialYears : [];
+          fillSelectOptionsWithDefault('staffStatementsFinancialYear', years, 'All years');
+          if (years.length) {
+            const currentSelect = document.getElementById('staffStatementsFinancialYear');
+            if (currentSelect) currentSelect.value = years[years.length - 1];
+          }
+        })
+        .withFailureHandler(function(error) {
+          showStaffStatementsAlert(error.message || 'Failed to load financial years.', 'error');
+        })
+        .getDropdownData();
+    }
+
     function loadAssetPurchasesYears() {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showAssetPurchasesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
@@ -4445,6 +4803,9 @@
 
     function refreshReceivablesStatements() {
       const financialYear = document.getElementById('receivablesFinancialYear').value.trim();
+      const startDate = document.getElementById('receivablesStartDate').value;
+      const endDate = document.getElementById('receivablesEndDate').value;
+      const payeeFilter = document.getElementById('receivablesPayeeFilter').value.trim().toLowerCase();
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showReceivablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
@@ -4455,7 +4816,11 @@
 
       google.script.run
         .withSuccessHandler(function(result) {
-          lastReceivablesResult = result || { rows: [] };
+          const rows = (result && result.rows) ? result.rows : [];
+          const filtered = payeeFilter
+            ? rows.filter(row => String(row.payee || '').toLowerCase().includes(payeeFilter))
+            : rows;
+          lastReceivablesResult = { rows: filtered };
           renderReceivablesStatements(lastReceivablesResult);
           if (status) status.textContent = '';
         })
@@ -4463,11 +4828,14 @@
           if (status) status.textContent = '';
           showReceivablesAlert(error.message || 'Failed to load statements.', 'error');
         })
-        .getReceivablePayableSummary('receivable', { financialYear: financialYear });
+        .getReceivablePayableSummary('receivable', { financialYear: financialYear, startDate: startDate, endDate: endDate, payee: payeeFilter });
     }
 
     function refreshPayablesStatements() {
       const financialYear = document.getElementById('payablesFinancialYear').value.trim();
+      const startDate = document.getElementById('payablesStartDate').value;
+      const endDate = document.getElementById('payablesEndDate').value;
+      const payeeFilter = document.getElementById('payablesPayeeFilter').value.trim().toLowerCase();
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showPayablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
@@ -4478,7 +4846,11 @@
 
       google.script.run
         .withSuccessHandler(function(result) {
-          lastPayablesResult = result || { rows: [] };
+          const rows = (result && result.rows) ? result.rows : [];
+          const filtered = payeeFilter
+            ? rows.filter(row => String(row.payee || '').toLowerCase().includes(payeeFilter))
+            : rows;
+          lastPayablesResult = { rows: filtered };
           renderPayablesStatements(lastPayablesResult);
           if (status) status.textContent = '';
         })
@@ -4486,7 +4858,49 @@
           if (status) status.textContent = '';
           showPayablesAlert(error.message || 'Failed to load statements.', 'error');
         })
-        .getReceivablePayableSummary('payable', { financialYear: financialYear });
+        .getReceivablePayableSummary('payable', { financialYear: financialYear, startDate: startDate, endDate: endDate, payee: payeeFilter });
+    }
+
+    function refreshStaffStatements() {
+      const financialYear = document.getElementById('staffStatementsFinancialYear').value.trim();
+      const startDate = document.getElementById('staffStatementsStartDate').value;
+      const endDate = document.getElementById('staffStatementsEndDate').value;
+      const payeeFilter = document.getElementById('staffStatementsPayeeFilter').value.trim().toLowerCase();
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showStaffStatementsAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+
+      const status = document.getElementById('staffStatementsStatus');
+      if (status) status.textContent = 'Loading statements...';
+
+      google.script.run
+        .withSuccessHandler(function(staffList) {
+          const staffNames = (staffList || [])
+            .map(item => String(item.Staff_Name || '').trim())
+            .filter(Boolean);
+          const staffLookup = new Set(staffNames.map(name => name.toLowerCase()));
+
+          google.script.run
+            .withSuccessHandler(function(result) {
+              let rows = (result && result.rows) ? result.rows.filter(row => staffLookup.has(String(row.payee || '').trim().toLowerCase())) : [];
+              if (payeeFilter) {
+                rows = rows.filter(row => String(row.payee || '').toLowerCase().includes(payeeFilter));
+              }
+              renderStaffStatements({ rows: rows });
+              if (status) status.textContent = '';
+            })
+            .withFailureHandler(function(error) {
+              if (status) status.textContent = '';
+              showStaffStatementsAlert(error.message || 'Failed to load statements.', 'error');
+            })
+            .getReceivablePayableSummary('receivable', { financialYear: financialYear, startDate: startDate, endDate: endDate, payee: payeeFilter });
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showStaffStatementsAlert(error.message || 'Failed to load staff list.', 'error');
+        })
+        .getStaff();
     }
 
     function refreshAssetPurchases() {
@@ -5106,29 +5520,49 @@
     }
 
     function renderReceivablesStatements(result) {
-      const container = document.getElementById('receivablesReport');
+      renderStatementCards('receivable', result, 'receivablesReport', 'No receivables found for the selected period.');
+    }
+
+    function renderPayablesStatements(result) {
+      renderStatementCards('payable', result, 'payablesReport', 'No payables found for the selected period.');
+    }
+
+    function renderStaffStatements(result) {
+      renderStatementCards('staff', result, 'staffStatementsReport', 'No staff statements found for the selected period.');
+    }
+
+    function renderStatementCards(kind, result, containerId, emptyMessage) {
+      const container = document.getElementById(containerId);
       if (!container) return;
       const rows = result && result.rows ? result.rows : [];
       if (!rows.length) {
-        container.innerHTML = '<div class="card"><p>No receivables found for the selected period.</p></div>';
+        container.innerHTML = `<div class="card"><p>${emptyMessage}</p></div>`;
         return;
       }
 
-      const body = rows.map(row => `
-        <tr>
-          <td data-label="Payee">${row.payee || ''}</td>
-          <td data-label="Opening">${formatPerformanceAmount(row.opening)}</td>
-          <td data-label="Additions">${formatPerformanceAmount(row.additions)}</td>
-          <td data-label="Payments">${formatPerformanceAmount(row.payments)}</td>
-          <td data-label="Closing">${formatPerformanceAmount(row.closing)}</td>
-          <td data-label="Action">
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn btn-secondary" type="button" onclick="printStatementRow('receivable', '${escapeHtml(row.payee || '')}')">Print</button>
-              <button class="btn btn-secondary" type="button" onclick="downloadStatementRowCsv('receivable', '${escapeHtml(row.payee || '')}')">Download</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
+      const body = rows.map((row, index) => {
+        const targetId = `${containerId}_detail_${index}`;
+        return `
+          <tr>
+            <td data-label="Payee">${escapeHtml(row.payee || '')}</td>
+            <td data-label="Opening">${formatPerformanceAmount(row.opening)}</td>
+            <td data-label="Additions">${formatPerformanceAmount(row.additions)}</td>
+            <td data-label="Payments">${formatPerformanceAmount(row.payments)}</td>
+            <td data-label="Closing">${formatPerformanceAmount(row.closing)}</td>
+            <td data-label="Action">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button class="btn btn-secondary" type="button" onclick="printStatementRow('${kind}', '${escapeHtml(row.payee || '')}')">Print</button>
+                <button class="btn btn-secondary" type="button" onclick="downloadStatementRowCsv('${kind}', '${escapeHtml(row.payee || '')}')">Download</button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="6" style="padding:0;">
+              <div id="${targetId}" style="padding:12px 0 4px 0;">Loading statement...</div>
+            </td>
+          </tr>
+        `;
+      }).join('');
 
       container.innerHTML = `
         <table class="table">
@@ -5145,46 +5579,63 @@
           <tbody>${body}</tbody>
         </table>
       `;
+
+      rows.forEach(function(row, index) {
+        const targetId = `${containerId}_detail_${index}`;
+        renderStatementDetail(kind, row.payee || '', targetId);
+      });
     }
 
-    function renderPayablesStatements(result) {
-      const container = document.getElementById('payablesReport');
+    function renderStatementDetail(kind, payee, targetId) {
+      const container = document.getElementById(targetId);
       if (!container) return;
-      const rows = result && result.rows ? result.rows : [];
+      container.innerHTML = '<div style="font-size:12px;color:#6b7280;">Loading statement...</div>';
+      fetchStatementDetails(kind, payee, function(data) {
+        if (!data) {
+          container.innerHTML = '<div style="font-size:12px;color:#6b7280;">Statement not found.</div>';
+          return;
+        }
+        container.innerHTML = buildStatementDetailTable(kind, data);
+      });
+    }
+
+    function buildStatementDetailTable(kind, data) {
+      const rows = data && data.rows ? data.rows : [];
       if (!rows.length) {
-        container.innerHTML = '<div class="card"><p>No payables found for the selected period.</p></div>';
-        return;
+        return '<div style="font-size:12px;color:#6b7280;">No line items found.</div>';
       }
 
-      const body = rows.map(row => `
-        <tr>
-          <td data-label="Payee">${row.payee || ''}</td>
-          <td data-label="Opening">${formatPerformanceAmount(row.opening)}</td>
-          <td data-label="Additions">${formatPerformanceAmount(row.additions)}</td>
-          <td data-label="Payments">${formatPerformanceAmount(row.payments)}</td>
-          <td data-label="Closing">${formatPerformanceAmount(row.closing)}</td>
-          <td data-label="Action">
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn btn-secondary" type="button" onclick="printStatementRow('payable', '${escapeHtml(row.payee || '')}')">Print</button>
-              <button class="btn btn-secondary" type="button" onclick="downloadStatementRowCsv('payable', '${escapeHtml(row.payee || '')}')">Download</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
+      const mappedRows = rows.map(row => {
+        const amounts = getStatementAmounts(kind, row);
+        const descParts = [row.particulars, row.narration].filter(Boolean);
+        return `
+          <tr>
+            <td>${escapeHtml(data.payee || '')}</td>
+            <td>${row.date || ''}</td>
+            <td>${escapeHtml(descParts.join(' - '))}</td>
+            <td style="text-align:right;">${formatPerformanceAmount(amounts.amount)}</td>
+            <td style="text-align:right;">${formatPerformanceAmount(amounts.payment)}</td>
+            <td style="text-align:right;">${formatPerformanceAmount(row.balance)}</td>
+          </tr>
+        `;
+      }).join('');
 
-      container.innerHTML = `
-        <table class="table">
+      return `
+        <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">Opening Balance: ${formatPerformanceAmount(data.opening)}</div>
+        <table class="table" style="font-size:13px;">
           <thead>
             <tr>
               <th>Payee</th>
-              <th>Opening</th>
-              <th>Additions</th>
-              <th>Payments</th>
-              <th>Closing</th>
-              <th>Action</th>
+              <th>Date</th>
+              <th>Description</th>
+              <th style="text-align:right;">Amount</th>
+              <th style="text-align:right;">Payment</th>
+              <th style="text-align:right;">Cumulative Balance</th>
             </tr>
           </thead>
-          <tbody>${body}</tbody>
+          <tbody>
+            ${mappedRows}
+          </tbody>
         </table>
       `;
     }
@@ -5192,30 +5643,35 @@
     function renderAssetPurchasesReport(result) {
       const container = document.getElementById('assetPurchasesReport');
       if (!container) return;
-      const rows = result && result.rows ? result.rows : [];
-      if (!rows.length) {
+      const sections = result && result.sections ? result.sections : [];
+      if (!sections.length) {
         container.innerHTML = '<div class="card"><p>No asset purchases found for the selected period.</p></div>';
         return;
       }
 
-      const body = rows.map(row => `
+      const body = sections.map(row => `
         <tr>
-          <td data-label="Financial Year">${row.financialYear || ''}</td>
-          <td data-label="Additions">${formatPerformanceAmount(row.additions)}</td>
-          <td data-label="Cumulative">${formatPerformanceAmount(row.cumulative)}</td>
+          <td data-label="Section">${row.section || ''}</td>
+          <td data-label="Additions" style="text-align:right;">${formatPerformanceAmount(row.additions)}</td>
         </tr>
       `).join('');
+
+      const totalRow = `
+        <tr style="font-weight:600;background:#f9fafb;">
+          <td>Total</td>
+          <td style="text-align:right;">${formatPerformanceAmount(result.totalAdditions || 0)}</td>
+        </tr>
+      `;
 
       container.innerHTML = `
         <table class="table">
           <thead>
             <tr>
-              <th>Financial Year</th>
-              <th>Additions</th>
-              <th>Cumulative</th>
+              <th>Section</th>
+              <th style="text-align:right;">Additions</th>
             </tr>
           </thead>
-          <tbody>${body}</tbody>
+          <tbody>${body}${totalRow}</tbody>
         </table>
       `;
     }
@@ -5295,23 +5751,27 @@
           showAlert('Statement not found for selected payee.', 'error');
           return;
         }
-        const title = kind === 'payable' ? 'Payables' : 'Receivables';
+        const label = resolveStatementLabel(kind);
         const rows = data.rows || [];
-        const tableRows = rows.map(row => `
-          <tr>
-            <td>${row.date || ''}</td>
-            <td>${escapeHtml(row.particulars || '')}</td>
-            <td>${escapeHtml(row.narration || '')}</td>
-            <td>${formatPerformanceAmount(row.debit)}</td>
-            <td>${formatPerformanceAmount(row.credit)}</td>
-            <td>${formatPerformanceAmount(row.balance)}</td>
-          </tr>
-        `).join('');
+        const tableRows = rows.map(row => {
+          const amounts = getStatementAmounts(kind, row);
+          const descParts = [row.particulars, row.narration].filter(Boolean);
+          return `
+            <tr>
+              <td>${escapeHtml(data.payee || '')}</td>
+              <td>${row.date || ''}</td>
+              <td>${escapeHtml(descParts.join(' - '))}</td>
+              <td>${formatPerformanceAmount(amounts.amount)}</td>
+              <td>${formatPerformanceAmount(amounts.payment)}</td>
+              <td>${formatPerformanceAmount(row.balance)}</td>
+            </tr>
+          `;
+        }).join('');
 
         const content = `
           <html>
             <head>
-              <title>${title} Statement</title>
+              <title>${label} Statement</title>
               <style>
                 body { font-family: Arial, sans-serif; padding: 20px; }
                 h2 { margin-bottom: 12px; }
@@ -5320,17 +5780,17 @@
               </style>
             </head>
             <body>
-              <h2>${title} Statement - ${escapeHtml(data.payee || '')}</h2>
+              <h2>${label} Statement - ${escapeHtml(data.payee || '')}</h2>
               <div style="margin-bottom:8px;">Opening Balance: ${formatPerformanceAmount(data.opening)}</div>
               <table>
                 <thead>
                   <tr>
+                    <th>Payee</th>
                     <th>Date</th>
-                    <th>Particulars</th>
-                    <th>Narration</th>
-                    <th>Debit</th>
-                    <th>Credit</th>
-                    <th>Balance</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Payment</th>
+                    <th>Cumulative Balance</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -5356,24 +5816,26 @@
           showAlert('Statement not found for selected payee.', 'error');
           return;
         }
-        const title = kind === 'payable' ? 'Payables' : 'Receivables';
+        const label = resolveStatementLabel(kind);
         const rows = [
-          [`${title} Statement - ${data.payee}`],
+          [`${label} Statement - ${data.payee}`],
           [`Opening Balance`, formatPerformanceAmount(data.opening)],
-          ['Date', 'Particulars', 'Narration', 'Debit', 'Credit', 'Balance']
+          ['Payee', 'Date', 'Description', 'Amount', 'Payment', 'Cumulative Balance']
         ];
         (data.rows || []).forEach(row => {
+          const amounts = getStatementAmounts(kind, row);
+          const descParts = [row.particulars, row.narration].filter(Boolean);
           rows.push([
+            data.payee || '',
             row.date || '',
-            row.particulars || '',
-            row.narration || '',
-            formatPerformanceAmount(row.debit),
-            formatPerformanceAmount(row.credit),
+            descParts.join(' - '),
+            formatPerformanceAmount(amounts.amount),
+            formatPerformanceAmount(amounts.payment),
             formatPerformanceAmount(row.balance)
           ]);
         });
         const safeName = String(data.payee || 'statement').replace(/[^\w\-]+/g, '_');
-          downloadRowsAsCsv(rows, `${title.toLowerCase()}_${safeName}.csv`);
+          downloadRowsAsCsv(rows, `${label.toLowerCase().replace(/\s+/g, '_')}_${safeName}.csv`);
           showAlert('Download started.', 'success');
       });
     }
@@ -5384,6 +5846,8 @@
         return;
       }
       const financialYear = getStatementYear(kind);
+      const dateRange = getStatementDateRange(kind);
+      const requestKind = resolveStatementKind(kind);
       google.script.run
         .withSuccessHandler(function(result) {
           if (typeof callback === 'function') callback(result);
@@ -5391,7 +5855,7 @@
         .withFailureHandler(function(error) {
           showAlert(error.message || 'Failed to load statement details.', 'error');
         })
-        .getReceivablePayableStatement(kind, payee, { financialYear: financialYear });
+        .getReceivablePayableStatement(requestKind, payee, { financialYear: financialYear, startDate: dateRange.startDate, endDate: dateRange.endDate });
     }
 
     function getStatementYear(kind) {
@@ -5399,8 +5863,48 @@
         const select = document.getElementById('payablesFinancialYear');
         return select ? select.value.trim() : '';
       }
+      if (kind === 'staff') {
+        const select = document.getElementById('staffStatementsFinancialYear');
+        return select ? select.value.trim() : '';
+      }
       const select = document.getElementById('receivablesFinancialYear');
       return select ? select.value.trim() : '';
+    }
+
+    function getStatementDateRange(kind) {
+      if (kind === 'payable') {
+        return {
+          startDate: document.getElementById('payablesStartDate').value,
+          endDate: document.getElementById('payablesEndDate').value
+        };
+      }
+      if (kind === 'staff') {
+        return {
+          startDate: document.getElementById('staffStatementsStartDate').value,
+          endDate: document.getElementById('staffStatementsEndDate').value
+        };
+      }
+      return {
+        startDate: document.getElementById('receivablesStartDate').value,
+        endDate: document.getElementById('receivablesEndDate').value
+      };
+    }
+
+    function resolveStatementKind(kind) {
+      return kind === 'staff' ? 'receivable' : kind;
+    }
+
+    function resolveStatementLabel(kind) {
+      if (kind === 'payable') return 'Payables';
+      if (kind === 'staff') return 'Staff';
+      return 'Receivables';
+    }
+
+    function getStatementAmounts(kind, row) {
+      const normalized = resolveStatementKind(kind);
+      const amount = normalized === 'payable' ? row.credit : row.debit;
+      const payment = normalized === 'payable' ? row.debit : row.credit;
+      return { amount: amount, payment: payment };
     }
 
     function downloadRowsAsCsv(rows, filename) {
@@ -5902,18 +6406,18 @@
     }
 
     function downloadAssetPurchasesCsv() {
-      if (!lastAssetPurchasesResult || !lastAssetPurchasesResult.rows || !lastAssetPurchasesResult.rows.length) {
+      if (!lastAssetPurchasesResult || !lastAssetPurchasesResult.sections || !lastAssetPurchasesResult.sections.length) {
         showAssetPurchasesAlert('Run the summary first.', 'error');
         return;
       }
-      const rows = [['Asset Purchases Summary'], ['Financial Year', 'Additions', 'Cumulative']];
-      lastAssetPurchasesResult.rows.forEach(row => {
+      const rows = [['Asset Purchases Summary'], ['Section', 'Additions']];
+      lastAssetPurchasesResult.sections.forEach(row => {
         rows.push([
-          row.financialYear || '',
-          formatPerformanceAmount(row.additions),
-          formatPerformanceAmount(row.cumulative)
+          row.section || '',
+          formatPerformanceAmount(row.additions)
         ]);
       });
+      rows.push(['Total', formatPerformanceAmount(lastAssetPurchasesResult.totalAdditions || 0)]);
       downloadRowsAsCsv(rows, 'asset_purchases_summary.csv');
       showAssetPurchasesAlert('Download started.', 'success');
     }
@@ -6081,6 +6585,32 @@
 
     function showPayablesAlert(message, type = 'success', duration = 6000) {
       const container = document.getElementById('payablesAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
+    function showStaffStatementsAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('staffStatementsAlert');
       if (!container) {
         showAlert(message, type, duration);
         return;
@@ -10441,6 +10971,46 @@
         </div>
       `;
       loadStaff();
+    }
+
+    function renderStaffAdvancesLauncher() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Staff Advances', 'Record staff advances as payments from the bank.')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Staff Advances</h2>
+              <p style="color:#6b7280;font-size:13px;">Use the payment form to issue advances to staff.</p>
+            </div>
+            <div>
+              <button class="btn btn-primary" onclick="openPaymentModal()">Record Payment</button>
+            </div>
+          </div>
+          <p style="color:#6b7280;font-size:13px;margin-top:8px;">Payment form opens in a modal.</p>
+        </div>
+      `;
+      openPaymentModal();
+    }
+
+    function renderStaffSurrenderLauncher() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Process Surrender / Claims', 'Clear staff advances using a journal entry (no bank movement).')}
+        <div class="card card-spacious">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Process Surrender / Claims</h2>
+              <p style="color:#6b7280;font-size:13px;">Use a journal entry when staff submit receipts for advances.</p>
+            </div>
+            <div>
+              <button class="btn btn-primary" onclick="openJournalModal()">Record Journal</button>
+            </div>
+          </div>
+          <p style="color:#6b7280;font-size:13px;margin-top:8px;">Journal form opens in a modal.</p>
+        </div>
+      `;
+      openJournalModal();
     }
 
     function loadStaff() {

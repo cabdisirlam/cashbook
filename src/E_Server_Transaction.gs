@@ -2280,6 +2280,10 @@ function getReceivablePayableSummary(type, criteria) {
   const kind = String(type || '').toLowerCase();
   const isReceivable = kind.includes('receivable');
   const financialYear = String(criteria && criteria.financialYear || '').trim();
+  const payeeFilter = String(criteria && criteria.payee || '').trim().toLowerCase();
+  const startDate = _parseDate_(criteria && criteria.startDate);
+  const endDate = _parseDate_(criteria && criteria.endDate);
+  const hasDateFilter = Boolean(startDate || endDate);
 
   const ss = _getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -2298,6 +2302,7 @@ function getReceivablePayableSummary(type, criteria) {
     if (!cols.payee || !cols.particulars) return;
     const payee = String(row[cols.payee - 1] || '').trim();
     if (!payee) return;
+    if (payeeFilter && !payee.toLowerCase().includes(payeeFilter)) return;
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     if (accountCode) return;
 
@@ -2321,17 +2326,31 @@ function getReceivablePayableSummary(type, criteria) {
     const decrease = isReceivable ? credit : debit;
 
     const isYearMatch = !financialYear || (rowYear && rowYear === financialYear);
-    const isOpening = financialYear && !isYearMatch;
 
     if (!summaries[payee]) {
       summaries[payee] = { payee: payee, opening: 0, additions: 0, payments: 0, closing: 0 };
     }
-    if (isOpening) {
-      summaries[payee].opening += increase - decrease;
-    } else {
+
+    if (hasDateFilter) {
+      if (financialYear && !isYearMatch) return;
+      if (!rowDate) return;
+      if (startDate && rowDate < startDate) {
+        summaries[payee].opening += increase - decrease;
+        return;
+      }
+      if (endDate && rowDate > endDate) return;
       summaries[payee].additions += increase;
       summaries[payee].payments += decrease;
+      return;
     }
+
+    if (financialYear && !isYearMatch) {
+      summaries[payee].opening += increase - decrease;
+      return;
+    }
+
+    summaries[payee].additions += increase;
+    summaries[payee].payments += decrease;
   });
 
   const rows = Object.values(summaries).map(function(item) {
@@ -2349,6 +2368,9 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
   const payee = String(payeeName || '').trim();
   if (!payee) throw new Error('Payee is required.');
   const financialYear = String(criteria && criteria.financialYear || '').trim();
+  const startDate = _parseDate_(criteria && criteria.startDate);
+  const endDate = _parseDate_(criteria && criteria.endDate);
+  const hasDateFilter = Boolean(startDate || endDate);
 
   const ss = _getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -2387,15 +2409,24 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const increase = isReceivable ? debit : credit;
     const decrease = isReceivable ? credit : debit;
 
-    if (financialYear && rowYear !== financialYear) {
-      opening += increase - decrease;
-      return;
-    }
-
     const dateCell = cols.date ? row[cols.date - 1] : '';
     const rowDate = dateCell instanceof Date ? dateCell : _parseDate_(dateCell);
     const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
     const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+
+    if (hasDateFilter) {
+      if (financialYear && rowYear !== financialYear) return;
+      if (!rowDate) return;
+      if (startDate && rowDate < startDate) {
+        opening += increase - decrease;
+        return;
+      }
+      if (endDate && rowDate > endDate) return;
+    } else if (financialYear && rowYear !== financialYear) {
+      opening += increase - decrease;
+      return;
+    }
+
     rows.push({
       index: index,
       dateValue: rowDate,
@@ -2450,7 +2481,8 @@ function getAssetPurchasesSummary(criteria) {
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
   const cols = _getJournalColumns_(headers);
   const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-  const totalsByYear = {};
+  const totalsBySection = {};
+  let totalAdditions = 0;
 
   data.forEach(function(row) {
     if (!cols.financialYear || !cols.reportMapping || !cols.debit || !cols.credit) return;
@@ -2458,29 +2490,48 @@ function getAssetPurchasesSummary(criteria) {
     if (financialYear && rowYear !== financialYear) return;
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     if (accountCode) return;
-    const mapping = String(row[cols.reportMapping - 1] || '').toLowerCase();
-    const isNonCurrent = mapping.includes('non-current asset') || mapping.includes('non current asset') || mapping.includes('ppe') || mapping.includes('property, plant') || mapping.includes('property plant') || mapping.includes('property and equipment');
-    if (!isNonCurrent) return;
+    const mapping = String(row[cols.reportMapping - 1] || '');
+    const category = cols.category ? String(row[cols.category - 1] || '') : '';
+    const section = _classifyAssetPurchaseSection_(mapping, category);
+    if (!section) return;
     const debit = _parseNumber_(row[cols.debit - 1]);
     const credit = _parseNumber_(row[cols.credit - 1]);
     const net = debit - credit;
-    if (!totalsByYear[rowYear]) totalsByYear[rowYear] = 0;
-    totalsByYear[rowYear] += net;
+    totalsBySection[section] = (totalsBySection[section] || 0) + net;
+    totalAdditions += net;
   });
 
-  const years = Object.keys(totalsByYear).sort((a, b) => _compareFinancialYears_(a, b));
-  let cumulative = 0;
-  const rows = years.map(year => {
-    const additions = totalsByYear[year] || 0;
-    cumulative += additions;
-    return {
-      financialYear: year,
-      additions: additions,
-      cumulative: cumulative
-    };
-  });
+  const sectionOrder = [
+    'Property, Plant & Equipment',
+    'Investment Property',
+    'Intangible Assets',
+    'Biological Assets',
+    'Other Non-Current Assets'
+  ];
+  const sections = sectionOrder
+    .filter(name => totalsBySection[name])
+    .map(name => ({ section: name, additions: totalsBySection[name] }));
 
-  return { rows: rows };
+  return {
+    financialYear: financialYear,
+    sections: sections,
+    totalAdditions: totalAdditions
+  };
+}
+
+function _classifyAssetPurchaseSection_(reportMapping, category) {
+  const mapping = String(reportMapping || '').toLowerCase();
+  const categoryText = String(category || '').toLowerCase();
+  const text = mapping + ' ' + categoryText;
+
+  if (text.includes('investment property')) return 'Investment Property';
+  if (text.includes('intangible')) return 'Intangible Assets';
+  if (text.includes('biological')) return 'Biological Assets';
+  if (text.includes('property, plant') || text.includes('property plant') || text.includes('ppe') || text.includes('property and equipment')) {
+    return 'Property, Plant & Equipment';
+  }
+  if (text.includes('non-current asset') || text.includes('non current asset')) return 'Other Non-Current Assets';
+  return '';
 }
 
 function getDashboardSummary() {
@@ -2850,6 +2901,179 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
   }
 
   throw new Error('Unknown master data type.');
+}
+
+function saveMasterDataRows(payload) {
+  if (!payload || !Array.isArray(payload.rows) || !payload.rows.length) {
+    throw new Error('No master data rows provided.');
+  }
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+  if (!sheet) throw new Error('MASTER_DATA not found.');
+
+  const lastCol = sheet.getLastColumn();
+  const lastRow = sheet.getLastRow();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getMasterColumns_(headers);
+  const data = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
+
+  const existing = {
+    particulars: new Set(),
+    subCategory: new Set(),
+    category: new Set(),
+    accountCodes: new Set(),
+    financialYear: new Set()
+  };
+
+  data.forEach(function(row) {
+    if (cols.particulars) existing.particulars.add(String(row[cols.particulars - 1] || '').trim().toLowerCase());
+    if (cols.subCategory) existing.subCategory.add(String(row[cols.subCategory - 1] || '').trim().toLowerCase());
+    if (cols.category) existing.category.add(String(row[cols.category - 1] || '').trim().toLowerCase());
+    if (cols.accountCodes) existing.accountCodes.add(String(row[cols.accountCodes - 1] || '').trim().toLowerCase());
+    if (cols.financialYear) existing.financialYear.add(String(row[cols.financialYear - 1] || '').trim().toLowerCase());
+  });
+
+  let addedCount = 0;
+  let duplicateCount = 0;
+  const errors = [];
+
+  payload.rows.forEach(function(raw, index) {
+    const rowIndex = index + 2;
+    const particulars = String(raw.Particulars || raw.particulars || '').trim();
+    const subCategory = String(raw.Sub_Category || raw.subCategory || '').trim();
+    const category = String(raw.Category || raw.category || '').trim();
+    const accountCodes = String(raw.Account_Codes || raw.accountCodes || '').trim();
+    const accountType = String(raw.Account_Type || raw.accountType || '').trim();
+    const reportMapping = String(raw.Report_Mapping || raw.reportMapping || '').trim();
+    const financialYear = String(raw.Financial_Year || raw.financialYear || '').trim();
+
+    const hasAny = particulars || subCategory || category || accountCodes || accountType || reportMapping || financialYear;
+    if (!hasAny) return;
+
+    let typeKey = '';
+    if (particulars) {
+      typeKey = 'particular';
+    } else if (subCategory) {
+      typeKey = 'subcategory';
+    } else if (category) {
+      typeKey = 'category';
+    } else if (accountCodes) {
+      typeKey = 'account';
+    } else if (financialYear) {
+      typeKey = 'financialyear';
+    }
+
+    if (!typeKey) {
+      errors.push('Row ' + rowIndex + ': could not determine item type.');
+      return;
+    }
+
+    if (typeKey === 'particular') {
+      if (!subCategory || !category || !accountType || !reportMapping) {
+        errors.push('Row ' + rowIndex + ': particulars need sub-category, category, account type, report mapping.');
+        return;
+      }
+      const key = particulars.toLowerCase();
+      if (existing.particulars.has(key)) {
+        duplicateCount += 1;
+        return;
+      }
+      const targetRow = _findRowForInsert_(data, cols.particulars, [cols.accountCodes]);
+      _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+        [cols.particulars]: particulars,
+        [cols.subCategory]: subCategory,
+        [cols.category]: category,
+        [cols.accountType]: accountType,
+        [cols.reportMapping]: reportMapping
+      });
+      existing.particulars.add(key);
+      addedCount += 1;
+      return;
+    }
+
+    if (typeKey === 'subcategory') {
+      if (!category || !accountType || !reportMapping) {
+        errors.push('Row ' + rowIndex + ': sub-category needs category, account type, report mapping.');
+        return;
+      }
+      const key = subCategory.toLowerCase();
+      if (existing.subCategory.has(key)) {
+        duplicateCount += 1;
+        return;
+      }
+      const targetRow = _findRowForInsert_(data, cols.subCategory, [cols.accountCodes]);
+      _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+        [cols.subCategory]: subCategory,
+        [cols.category]: category,
+        [cols.accountType]: accountType,
+        [cols.reportMapping]: reportMapping
+      });
+      existing.subCategory.add(key);
+      addedCount += 1;
+      return;
+    }
+
+    if (typeKey === 'category') {
+      if (!accountCodes || !financialYear || !accountType || !reportMapping) {
+        errors.push('Row ' + rowIndex + ': category needs account codes, financial year, account type, report mapping.');
+        return;
+      }
+      const key = category.toLowerCase();
+      if (existing.category.has(key)) {
+        duplicateCount += 1;
+        return;
+      }
+      const targetRow = _findRowForInsert_(data, cols.category, [cols.subCategory, cols.accountCodes]);
+      _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+        [cols.category]: category,
+        [cols.accountCodes]: accountCodes,
+        [cols.accountType]: accountType,
+        [cols.reportMapping]: reportMapping,
+        [cols.financialYear]: financialYear
+      });
+      existing.category.add(key);
+      addedCount += 1;
+      return;
+    }
+
+    if (typeKey === 'account') {
+      if (!accountType || !reportMapping) {
+        errors.push('Row ' + rowIndex + ': account codes need account type and report mapping.');
+        return;
+      }
+      const key = accountCodes.toLowerCase();
+      if (existing.accountCodes.has(key)) {
+        duplicateCount += 1;
+        return;
+      }
+      const targetRow = _findRowForInsert_(data, cols.accountCodes, [cols.subCategory]);
+      _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+        [cols.accountCodes]: accountCodes,
+        [cols.accountType]: accountType,
+        [cols.reportMapping]: reportMapping
+      });
+      existing.accountCodes.add(key);
+      addedCount += 1;
+      return;
+    }
+
+    if (typeKey === 'financialyear') {
+      const key = financialYear.toLowerCase();
+      if (existing.financialYear.has(key)) {
+        duplicateCount += 1;
+        return;
+      }
+      const targetRow = _findRowForInsert_(data, cols.financialYear, [cols.subCategory, cols.accountCodes]);
+      _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+        [cols.financialYear]: financialYear
+      });
+      existing.financialYear.add(key);
+      addedCount += 1;
+    }
+  });
+
+  return { addedCount: addedCount, duplicateCount: duplicateCount, errors: errors };
 }
 
 function _normalizeHeader_(value) {
