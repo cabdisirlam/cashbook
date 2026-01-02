@@ -11159,7 +11159,7 @@
             </div>
             <div>
               <button class="btn btn-secondary" onclick="loadStaffAdvancesTable()">Refresh</button>
-              <button class="btn btn-primary" onclick="openPaymentModal()">Record Payment</button>
+              <button class="btn btn-primary" onclick="openTxnPaymentModal()">Record Payment</button>
             </div>
           </div>
           <p style="color:#6b7280;font-size:13px;margin-top:8px;">Payment form opens in a modal.</p>
@@ -11168,7 +11168,7 @@
           </div>
         </div>
       `;
-      openPaymentModal();
+      openTxnPaymentModal();
       loadStaffAdvancesTable();
     }
 
@@ -11184,7 +11184,7 @@
             </div>
             <div>
               <button class="btn btn-secondary" onclick="loadStaffSurrenderTable()">Refresh</button>
-              <button class="btn btn-primary" onclick="openJournalModal()">Record Journal</button>
+              <button class="btn btn-primary" onclick="openTxnJournalModal()">Record Journal</button>
             </div>
           </div>
           <p style="color:#6b7280;font-size:13px;margin-top:8px;">Journal form opens in a modal.</p>
@@ -11193,7 +11193,7 @@
           </div>
         </div>
       `;
-      openJournalModal();
+      openTxnJournalModal();
       loadStaffSurrenderTable();
     }
 
@@ -11320,7 +11320,7 @@
             refNo: refNo || ''
           };
           pendingJournalNote = `Available for surrender: ${formatPerformanceAmount(remaining)}${refNo ? ' | Ref: ' + refNo : ''}`;
-          openJournalModal();
+          openTxnJournalModal();
           setTimeout(function() {
             if (pendingJournalNote) {
               setJournalStatus(pendingJournalNote);
