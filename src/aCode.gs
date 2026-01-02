@@ -1357,7 +1357,7 @@ function _generateSequentialNumber(prefix, sheet, columnIndex) {
 
 
 // ============================================================
-// CONTACTS MODULE - Unified Contacts (Suppliers, Customers, Staff)
+// CONTACTS MODULE - Unified Contacts (Suppliers, Customers, Staff, Government Entities, Donors)
 // ============================================================
 
 const CONTACT_HEADERS = SHEET_HEADERS.CONTACTS;
@@ -1403,7 +1403,17 @@ function saveContact(contactType, data) {
   if (!sheet) sheet = _ensureSheet(ss, 'CONTACTS');
 
   const user = getCurrentUser();
-  const prefix = contactType === 'Supplier' ? 'SUP' : contactType === 'Customer' ? 'CUS' : 'CON';
+  const prefix = contactType === 'Supplier'
+    ? 'SUP'
+    : contactType === 'Customer'
+      ? 'CUS'
+      : contactType === 'Staff'
+        ? 'STA'
+        : contactType === 'Government Entity'
+          ? 'GOV'
+          : contactType === 'Donor'
+            ? 'DON'
+            : 'CON';
   const contactId = _generateId(prefix);
   const now = new Date();
 
@@ -1428,6 +1438,7 @@ function saveContact(contactType, data) {
 
   sheet.appendRow(row);
   logSystemEvent(user.email, 'CREATE_CONTACT', contactId, row[2]);
+  CacheService.getScriptCache().remove('dropdownData');
 
   return { success: true, contactId: contactId };
 }
