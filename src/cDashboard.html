@@ -1793,6 +1793,16 @@
         return;
       }
 
+      if (label === 'Customer Statements') {
+        renderReceivablesStatementsContent();
+        return;
+      }
+
+      if (label === 'Supplier Statements') {
+        renderPayablesStatementsContent();
+        return;
+      }
+
       if (label === 'Staff Statements') {
         renderStaffStatementsContent();
         return;
@@ -5627,9 +5637,9 @@
           <tr>
             <td data-label="Payee">${escapeHtml(row.payee || '')}</td>
             <td data-label="Opening">${formatPerformanceAmount(row.opening)}</td>
-            <td data-label="Additions">${formatPerformanceAmount(row.additions)}</td>
+            <td data-label="Amount">${formatPerformanceAmount(row.additions)}</td>
             <td data-label="Payments">${formatPerformanceAmount(row.payments)}</td>
-            <td data-label="Closing">${formatPerformanceAmount(row.closing)}</td>
+            <td data-label="Balance">${formatPerformanceAmount(row.closing)}</td>
             <td data-label="Action">
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button class="btn btn-secondary" type="button" onclick="printStatementRow('${kind}', '${escapeHtml(row.payee || '')}')">Print</button>
@@ -5651,9 +5661,9 @@
             <tr>
               <th>Payee</th>
               <th>Opening</th>
-              <th>Additions</th>
+              <th>Amount</th>
               <th>Payments</th>
-              <th>Closing</th>
+              <th>Balance</th>
               <th>Action</th>
             </tr>
           </thead>
