@@ -2068,15 +2068,16 @@
         <div id="masterDataAlert"></div>
         ${renderSectionHero('Master Data', 'Upload and maintain the core master data lists for the system.')}
         <div class="card">
-          <div class="panel-header">
-            <div>
-              <h2 style="margin-bottom:4px;">Master Data</h2>
-              <p style="color:#6b7280;font-size:13px;">Upload a CSV or add a single entry. Existing items will be skipped.</p>
+            <div class="panel-header">
+              <div>
+                <h2 style="margin-bottom:4px;">Master Data</h2>
+                <p style="color:#6b7280;font-size:13px;">Upload a CSV or add a single entry. Existing items will be skipped.</p>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary" onclick="downloadMasterDataTemplate()">Download Template</button>
+                <button class="btn btn-secondary" onclick="downloadMasterDataCurrent()">Download Current</button>
+              </div>
             </div>
-            <div style="display:flex;gap:8px;">
-              <button class="btn btn-secondary" onclick="downloadMasterDataTemplate()">Download Template</button>
-            </div>
-          </div>
 
           <div class="form-row" style="margin-bottom:12px;">
             <div class="form-group">
@@ -2132,12 +2133,26 @@
             </div>
             <p style="font-size:12px;color:#6b7280;margin-top:8px;">
               Banks use Account_Codes + Account_Type + Report_Mapping (no Category/Sub_Category/Particulars, no Financial_Year).
-              Categories require Account_Codes + Financial_Year + Account_Type + Report_Mapping.
+              Categories use Category/Sub_Category/Particulars + Account_Type + Report_Mapping (no Account_Codes, no Financial_Year).
               Financial_Year entries only need Financial_Year.
             </p>
           </div>
         </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Current Master Data</h2>
+              <p style="color:#6b7280;font-size:13px;">Scroll to review existing master data entries.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="loadMasterDataTable()">Refresh</button>
+            </div>
+          </div>
+          <div id="masterDataTable" style="max-height:380px;overflow:auto;"></div>
+        </div>
       `;
+      loadMasterDataTable();
     }
 
     function showMasterDataAlert(message, type = 'success', duration = 6000) {
@@ -2165,6 +2180,72 @@
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       showMasterDataAlert('Template downloaded.', 'success');
+    }
+
+    let masterDataTableCache = null;
+
+    function loadMasterDataTable() {
+      if (!google || !google.script || !google.script.run) {
+        showMasterDataAlert('App runtime missing. Open via the deployed URL.', 'error');
+        return;
+      }
+      const container = document.getElementById('masterDataTable');
+      if (container) container.innerHTML = '<p style="color:#6b7280;">Loading master data...</p>';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          masterDataTableCache = result || { headers: [], rows: [] };
+          renderMasterDataTable(masterDataTableCache);
+        })
+        .withFailureHandler(function(error) {
+          if (container) container.innerHTML = `<p style="color:#dc2626;">${escapeHtml(error.message || 'Failed to load master data.')}</p>`;
+        })
+        .getMasterDataRows();
+    }
+
+    function renderMasterDataTable(data) {
+      const container = document.getElementById('masterDataTable');
+      if (!container) return;
+      const headers = data && data.headers ? data.headers : [];
+      const rows = data && data.rows ? data.rows : [];
+      if (!headers.length) {
+        container.innerHTML = '<p style="color:#6b7280;">No master data headers found.</p>';
+        return;
+      }
+      if (!rows.length) {
+        container.innerHTML = '<p style="color:#6b7280;">No master data rows found.</p>';
+        return;
+      }
+      const head = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+      const body = rows.map(row => `
+        <tr>
+          ${headers.map((_, i) => `<td>${escapeHtml(row[i] || '')}</td>`).join('')}
+        </tr>
+      `).join('');
+      container.innerHTML = `
+        <table class="table">
+          <thead><tr>${head}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      `;
+    }
+
+    function downloadMasterDataCurrent() {
+      if (!masterDataTableCache || !masterDataTableCache.headers || !masterDataTableCache.headers.length) {
+        showMasterDataAlert('No master data loaded to download.', 'error');
+        return;
+      }
+      const rows = [masterDataTableCache.headers].concat(masterDataTableCache.rows || []);
+      const csv = rows.map(row => row.map(escapeCsv).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'master_data_current.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showMasterDataAlert('Download started.', 'success');
     }
 
     function handleMasterDataUpload() {
@@ -4420,12 +4501,12 @@
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
         <div id="assetPurchasesAlert"></div>
-        ${renderSectionHero('Fixed Assets', 'Track cumulative non-current asset additions.')}
+        ${renderSectionHero('Non-Current Assets', 'Track non-current asset additions.')}
         <div class="card">
           <div class="panel-header">
             <div>
-              <h2 style="margin-bottom:4px;">Asset Purchases</h2>
-              <p style="color:#6b7280;font-size:13px;">Select a financial year to view cumulative additions.</p>
+              <h2 style="margin-bottom:4px;">Non-Current Assets</h2>
+              <p style="color:#6b7280;font-size:13px;">Select a financial year to view additions by section.</p>
             </div>
             <div>
               <button class="btn btn-secondary" onclick="renderAssetPurchasesContent()">Refresh</button>
@@ -5601,11 +5682,7 @@
 
     function buildStatementDetailTable(kind, data) {
       const rows = data && data.rows ? data.rows : [];
-      if (!rows.length) {
-        return '<div style="font-size:12px;color:#6b7280;">No line items found.</div>';
-      }
-
-      const mappedRows = rows.map(row => {
+      const mappedRows = rows.length ? rows.map(row => {
         const amounts = getStatementAmounts(kind, row);
         const descParts = [row.particulars, row.narration].filter(Boolean);
         return `
@@ -5618,7 +5695,11 @@
             <td style="text-align:right;">${formatPerformanceAmount(row.balance)}</td>
           </tr>
         `;
-      }).join('');
+      }).join('') : `
+        <tr>
+          <td colspan="6" style="text-align:center;color:#6b7280;">No data available.</td>
+        </tr>
+      `;
 
       return `
         <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">Opening Balance: ${formatPerformanceAmount(data.opening)}</div>
@@ -5644,10 +5725,6 @@
       const container = document.getElementById('assetPurchasesReport');
       if (!container) return;
       const sections = result && result.sections ? result.sections : [];
-      if (!sections.length) {
-        container.innerHTML = '<div class="card"><p>No asset purchases found for the selected period.</p></div>';
-        return;
-      }
 
       const body = sections.map(row => `
         <tr>

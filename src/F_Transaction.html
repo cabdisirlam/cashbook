@@ -911,8 +911,13 @@
         const payload = data || {};
         paymentState.accounts = payload.accounts || [];
         paymentState.payees = payload.payees || [];
-        paymentState.payeeTypes = payload.payeeTypes || [];
+        const defaultPayeeTypes = ['Supplier', 'Customer', 'Staff'];
+        const receivedTypes = payload.payeeTypes || [];
+        paymentState.payeeTypes = receivedTypes.length ? receivedTypes : defaultPayeeTypes;
         paymentState.payeesByType = payload.payeesByType || {};
+        defaultPayeeTypes.forEach(function(type) {
+          if (!paymentState.payeesByType[type]) paymentState.payeesByType[type] = [];
+        });
         paymentState.particulars = payload.particulars || [];
         allParticulars = paymentState.particulars.slice();
         paymentState.subCats = payload.subCats || [];
@@ -963,9 +968,19 @@
     const typeEl = document.getElementById(typeId);
     const inputEl = document.getElementById(inputId);
     const selectedType = typeEl ? String(typeEl.value || '').trim() : '';
-    const payees = selectedType ? (paymentState.payeesByType[selectedType] || []) : [];
+    const normalizedType = normalizePayeeTypeKey(selectedType);
+    const payees = normalizedType ? (paymentState.payeesByType[normalizedType] || []) : [];
     fillList(listId, payees);
     if (shouldClear && inputEl) inputEl.value = '';
+  }
+
+  function normalizePayeeTypeKey(value) {
+    const text = String(value || '').trim().toLowerCase();
+    if (!text) return '';
+    if (text === 'supplier' || text === 'suppliers') return 'Supplier';
+    if (text === 'customer' || text === 'customers') return 'Customer';
+    if (text === 'staff' || text === 'employee' || text === 'employees') return 'Staff';
+    return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
   function applyParticularFilter() {
@@ -1095,7 +1110,8 @@
     const listId = lineId + 'PayeeList';
     const input = document.querySelector(`[data-line-id="${lineId}"] .line-payee-input`);
     const selectedType = select ? String(select.value || '').trim() : '';
-    const payees = selectedType ? (paymentState.payeesByType[selectedType] || []) : [];
+    const normalizedType = normalizePayeeTypeKey(selectedType);
+    const payees = normalizedType ? (paymentState.payeesByType[normalizedType] || []) : [];
     fillList(listId, payees);
     if (shouldClear && input) input.value = '';
   }

@@ -76,7 +76,7 @@ function getDropdownData() {
       const contactsData = contactsSheet.getRange(2, 1, contactsLastRow - 1, 3).getValues();
       contactsData.forEach(function(row) {
         const contactId = String(row[0] || '').trim();
-        const contactType = String(row[1] || '').trim();
+        const contactType = _normalizeContactType_(row[1]);
         const contactName = String(row[2] || '').trim();
         // Only add active contacts with valid names
         if (contactId && contactName) {
@@ -2508,9 +2508,9 @@ function getAssetPurchasesSummary(criteria) {
     'Biological Assets',
     'Other Non-Current Assets'
   ];
-  const sections = sectionOrder
-    .filter(name => totalsBySection[name])
-    .map(name => ({ section: name, additions: totalsBySection[name] }));
+  const sections = sectionOrder.map(function(name) {
+    return { section: name, additions: totalsBySection[name] || 0 };
+  });
 
   return {
     financialYear: financialYear,
@@ -2951,17 +2951,14 @@ function saveMasterDataRows(payload) {
     const hasAny = particulars || subCategory || category || accountCodes || accountType || reportMapping || financialYear;
     if (!hasAny) return;
 
+    const hasCategoryFields = Boolean(particulars || subCategory || category);
     let typeKey = '';
-    if (particulars) {
-      typeKey = 'particular';
-    } else if (subCategory) {
-      typeKey = 'subcategory';
-    } else if (category) {
-      typeKey = 'category';
-    } else if (accountCodes) {
+    if (accountCodes) {
       typeKey = 'account';
-    } else if (financialYear) {
+    } else if (financialYear && !hasCategoryFields) {
       typeKey = 'financialyear';
+    } else if (hasCategoryFields) {
+      typeKey = 'category_group';
     }
 
     if (!typeKey) {
@@ -2969,77 +2966,13 @@ function saveMasterDataRows(payload) {
       return;
     }
 
-    if (typeKey === 'particular') {
-      if (!subCategory || !category || !accountType || !reportMapping) {
-        errors.push('Row ' + rowIndex + ': particulars need sub-category, category, account type, report mapping.');
-        return;
-      }
-      const key = particulars.toLowerCase();
-      if (existing.particulars.has(key)) {
-        duplicateCount += 1;
-        return;
-      }
-      const targetRow = _findRowForInsert_(data, cols.particulars, [cols.accountCodes]);
-      _writeRowUpdate_(sheet, data, targetRow, lastCol, {
-        [cols.particulars]: particulars,
-        [cols.subCategory]: subCategory,
-        [cols.category]: category,
-        [cols.accountType]: accountType,
-        [cols.reportMapping]: reportMapping
-      });
-      existing.particulars.add(key);
-      addedCount += 1;
-      return;
-    }
-
-    if (typeKey === 'subcategory') {
-      if (!category || !accountType || !reportMapping) {
-        errors.push('Row ' + rowIndex + ': sub-category needs category, account type, report mapping.');
-        return;
-      }
-      const key = subCategory.toLowerCase();
-      if (existing.subCategory.has(key)) {
-        duplicateCount += 1;
-        return;
-      }
-      const targetRow = _findRowForInsert_(data, cols.subCategory, [cols.accountCodes]);
-      _writeRowUpdate_(sheet, data, targetRow, lastCol, {
-        [cols.subCategory]: subCategory,
-        [cols.category]: category,
-        [cols.accountType]: accountType,
-        [cols.reportMapping]: reportMapping
-      });
-      existing.subCategory.add(key);
-      addedCount += 1;
-      return;
-    }
-
-    if (typeKey === 'category') {
-      if (!accountCodes || !financialYear || !accountType || !reportMapping) {
-        errors.push('Row ' + rowIndex + ': category needs account codes, financial year, account type, report mapping.');
-        return;
-      }
-      const key = category.toLowerCase();
-      if (existing.category.has(key)) {
-        duplicateCount += 1;
-        return;
-      }
-      const targetRow = _findRowForInsert_(data, cols.category, [cols.subCategory, cols.accountCodes]);
-      _writeRowUpdate_(sheet, data, targetRow, lastCol, {
-        [cols.category]: category,
-        [cols.accountCodes]: accountCodes,
-        [cols.accountType]: accountType,
-        [cols.reportMapping]: reportMapping,
-        [cols.financialYear]: financialYear
-      });
-      existing.category.add(key);
-      addedCount += 1;
-      return;
-    }
-
     if (typeKey === 'account') {
       if (!accountType || !reportMapping) {
         errors.push('Row ' + rowIndex + ': account codes need account type and report mapping.');
+        return;
+      }
+      if (hasCategoryFields || financialYear) {
+        errors.push('Row ' + rowIndex + ': banks only use account codes, account type, report mapping.');
         return;
       }
       const key = accountCodes.toLowerCase();
@@ -3064,16 +2997,106 @@ function saveMasterDataRows(payload) {
         duplicateCount += 1;
         return;
       }
+      if (hasCategoryFields || accountCodes || accountType || reportMapping) {
+        errors.push('Row ' + rowIndex + ': financial year entries only use Financial_Year.');
+        return;
+      }
       const targetRow = _findRowForInsert_(data, cols.financialYear, [cols.subCategory, cols.accountCodes]);
       _writeRowUpdate_(sheet, data, targetRow, lastCol, {
         [cols.financialYear]: financialYear
       });
       existing.financialYear.add(key);
       addedCount += 1;
+      return;
+    }
+
+    if (typeKey === 'category_group') {
+      if (accountCodes || financialYear) {
+        errors.push('Row ' + rowIndex + ': categories do not use account codes or financial year.');
+        return;
+      }
+      if (!accountType || !reportMapping) {
+        errors.push('Row ' + rowIndex + ': categories need account type and report mapping.');
+        return;
+      }
+      if (particulars) {
+        if (!subCategory || !category) {
+          errors.push('Row ' + rowIndex + ': particulars need sub-category and category.');
+          return;
+        }
+        const key = particulars.toLowerCase();
+        if (existing.particulars.has(key)) {
+          duplicateCount += 1;
+          return;
+        }
+        const targetRow = _findRowForInsert_(data, cols.particulars, [cols.accountCodes]);
+        _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+          [cols.particulars]: particulars,
+          [cols.subCategory]: subCategory,
+          [cols.category]: category,
+          [cols.accountType]: accountType,
+          [cols.reportMapping]: reportMapping
+        });
+        existing.particulars.add(key);
+        addedCount += 1;
+        return;
+      }
+
+      if (subCategory) {
+        if (!category) {
+          errors.push('Row ' + rowIndex + ': sub-category needs category.');
+          return;
+        }
+        const key = subCategory.toLowerCase();
+        if (existing.subCategory.has(key)) {
+          duplicateCount += 1;
+          return;
+        }
+        const targetRow = _findRowForInsert_(data, cols.subCategory, [cols.accountCodes]);
+        _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+          [cols.subCategory]: subCategory,
+          [cols.category]: category,
+          [cols.accountType]: accountType,
+          [cols.reportMapping]: reportMapping
+        });
+        existing.subCategory.add(key);
+        addedCount += 1;
+        return;
+      }
+
+      if (category) {
+        const key = category.toLowerCase();
+        if (existing.category.has(key)) {
+          duplicateCount += 1;
+          return;
+        }
+        const targetRow = _findRowForInsert_(data, cols.category, [cols.subCategory, cols.accountCodes]);
+        _writeRowUpdate_(sheet, data, targetRow, lastCol, {
+          [cols.category]: category,
+          [cols.accountType]: accountType,
+          [cols.reportMapping]: reportMapping
+        });
+        existing.category.add(key);
+        addedCount += 1;
+      }
     }
   });
 
   return { addedCount: addedCount, duplicateCount: duplicateCount, errors: errors };
+}
+
+function getMasterDataRows() {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+  if (!sheet) throw new Error('MASTER_DATA not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 1) return { headers: [], rows: [] };
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const rows = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
+  return { headers: headers, rows: rows };
 }
 
 function _normalizeHeader_(value) {
@@ -3081,6 +3104,15 @@ function _normalizeHeader_(value) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '_');
+}
+
+function _normalizeContactType_(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return '';
+  if (text === 'supplier' || text === 'suppliers') return 'Supplier';
+  if (text === 'customer' || text === 'customers') return 'Customer';
+  if (text === 'staff' || text === 'employee' || text === 'employees') return 'Staff';
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function _requireBankHeaders_(headers) {
