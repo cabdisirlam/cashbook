@@ -5793,14 +5793,18 @@
       const body = sections.map(row => `
         <tr>
           <td data-label="Section">${row.section || ''}</td>
+          <td data-label="Opening" style="text-align:right;">${formatPerformanceAmount(row.opening)}</td>
           <td data-label="Additions" style="text-align:right;">${formatPerformanceAmount(row.additions)}</td>
+          <td data-label="Closing" style="text-align:right;">${formatPerformanceAmount(row.closing)}</td>
         </tr>
       `).join('');
 
       const totalRow = `
         <tr style="font-weight:600;background:#f9fafb;">
           <td>Total</td>
+          <td style="text-align:right;">${formatPerformanceAmount(result.totalOpening || 0)}</td>
           <td style="text-align:right;">${formatPerformanceAmount(result.totalAdditions || 0)}</td>
+          <td style="text-align:right;">${formatPerformanceAmount(result.totalClosing || 0)}</td>
         </tr>
       `;
 
@@ -5809,7 +5813,9 @@
           <thead>
             <tr>
               <th>Section</th>
+              <th style="text-align:right;">Opening Balance</th>
               <th style="text-align:right;">Additions</th>
+              <th style="text-align:right;">Closing Balance</th>
             </tr>
           </thead>
           <tbody>${body}${totalRow}</tbody>
@@ -6559,14 +6565,21 @@
         showAssetPurchasesAlert('Run the summary first.', 'error');
         return;
       }
-      const rows = [['Asset Purchases Summary'], ['Section', 'Additions']];
+      const rows = [['Asset Purchases Summary'], ['Section', 'Opening Balance', 'Additions', 'Closing Balance']];
       lastAssetPurchasesResult.sections.forEach(row => {
         rows.push([
           row.section || '',
-          formatPerformanceAmount(row.additions)
+          formatPerformanceAmount(row.opening),
+          formatPerformanceAmount(row.additions),
+          formatPerformanceAmount(row.closing)
         ]);
       });
-      rows.push(['Total', formatPerformanceAmount(lastAssetPurchasesResult.totalAdditions || 0)]);
+      rows.push([
+        'Total',
+        formatPerformanceAmount(lastAssetPurchasesResult.totalOpening || 0),
+        formatPerformanceAmount(lastAssetPurchasesResult.totalAdditions || 0),
+        formatPerformanceAmount(lastAssetPurchasesResult.totalClosing || 0)
+      ]);
       downloadRowsAsCsv(rows, 'asset_purchases_summary.csv');
       showAssetPurchasesAlert('Download started.', 'success');
     }

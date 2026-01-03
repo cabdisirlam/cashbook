@@ -2591,13 +2591,15 @@ function getAssetPurchasesSummary(criteria) {
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
   const cols = _getJournalColumns_(headers);
   const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-  const totalsBySection = {};
+  const openingsBySection = {};
+  const additionsBySection = {};
+  let totalOpening = 0;
   let totalAdditions = 0;
 
   data.forEach(function(row) {
     if (!cols.financialYear || !cols.reportMapping || !cols.debit || !cols.credit) return;
     const rowYear = String(row[cols.financialYear - 1] || '').trim();
-    if (financialYear && rowYear !== financialYear) return;
+    if (!rowYear) return;
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     if (accountCode) return;
     const mapping = String(row[cols.reportMapping - 1] || '');
@@ -2607,8 +2609,21 @@ function getAssetPurchasesSummary(criteria) {
     const debit = _parseNumber_(row[cols.debit - 1]);
     const credit = _parseNumber_(row[cols.credit - 1]);
     const net = debit - credit;
-    totalsBySection[section] = (totalsBySection[section] || 0) + net;
-    totalAdditions += net;
+    if (!financialYear) {
+      additionsBySection[section] = (additionsBySection[section] || 0) + net;
+      totalAdditions += net;
+      return;
+    }
+    const comparison = _compareFinancialYears_(rowYear, financialYear);
+    if (comparison < 0) {
+      openingsBySection[section] = (openingsBySection[section] || 0) + net;
+      totalOpening += net;
+      return;
+    }
+    if (comparison === 0) {
+      additionsBySection[section] = (additionsBySection[section] || 0) + net;
+      totalAdditions += net;
+    }
   });
 
   const sectionOrder = [
@@ -2619,13 +2634,22 @@ function getAssetPurchasesSummary(criteria) {
     'Other Non-Current Assets'
   ];
   const sections = sectionOrder.map(function(name) {
-    return { section: name, additions: totalsBySection[name] || 0 };
+    const opening = openingsBySection[name] || 0;
+    const additions = additionsBySection[name] || 0;
+    return {
+      section: name,
+      opening: opening,
+      additions: additions,
+      closing: opening + additions
+    };
   });
 
   return {
     financialYear: financialYear,
     sections: sections,
-    totalAdditions: totalAdditions
+    totalOpening: totalOpening,
+    totalAdditions: totalAdditions,
+    totalClosing: totalOpening + totalAdditions
   };
 }
 
