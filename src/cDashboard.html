@@ -2872,7 +2872,6 @@
           fillSelectOptions('reconFinancialYear', reconYears);
           setReconDefaults();
           if (status) status.textContent = '';
-          loadReconciliationPreview();
         })
         .withFailureHandler(function(error) {
           if (status) status.textContent = '';
@@ -2912,7 +2911,7 @@
 
     function parseFinancialYearYears(financialYear) {
       const raw = String(financialYear || '').trim();
-      const match = /^(\d{4})\s*\/\s*(\d{2,4})$/.exec(raw);
+      const match = /^(\d{4})\s*[-/]\s*(\d{2,4})$/.exec(raw);
       if (!match) return null;
       const startYear = Number(match[1]);
       const endRaw = match[2];
