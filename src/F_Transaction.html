@@ -952,34 +952,42 @@
         fillSelect('journalPayeeType', getAllowedPayeeTypes('Journal'), 'Select payee type');
         onPayeeTypeChange('journalPayeeType', 'journalPayee', false);
         if (transactionMode === 'Journal') {
+          // Pre-fill financial year
           if (typeof window !== 'undefined' && window.pendingJournalYear) {
             const yearInput = document.getElementById('journalFinancialYear');
             if (yearInput) yearInput.value = window.pendingJournalYear;
             window.pendingJournalYear = null;
           }
+
+          // Pre-fill payee type and payee
           if (typeof window !== 'undefined' && window.pendingJournalPayee) {
             const pendingPayee = window.pendingJournalPayee;
             window.pendingJournalPayee = null;
+
             const typeSelect = document.getElementById('journalPayeeType');
+            const payeeSelect = document.getElementById('journalPayee');
+
             if (typeSelect && pendingPayee.type) {
+              // Set payee type
               typeSelect.value = pendingPayee.type;
-              onPayeeTypeChange('journalPayeeType', 'journalPayee', false);
-              // Set payee after dropdown is populated
-              setTimeout(function() {
-                const payeeSelect = document.getElementById('journalPayee');
-                if (payeeSelect && pendingPayee.name) {
-                  payeeSelect.value = pendingPayee.name;
-                }
-              }, 50);
+
+              // Manually populate the payee dropdown for this type
+              const normalizedType = normalizePayeeTypeKey(pendingPayee.type);
+              const payees = normalizedType ? (paymentState.payeesByType[normalizedType] || []) : [];
+              fillSelectOptions('journalPayee', payees, 'Select payee');
+
+              // Set payee value
+              if (payeeSelect && pendingPayee.name) {
+                payeeSelect.value = pendingPayee.name;
+              }
             }
           }
+
+          // Apply surrender template
           if (typeof window !== 'undefined' && window.pendingJournalTemplate) {
             const pendingTemplate = window.pendingJournalTemplate;
             window.pendingJournalTemplate = null;
-            // Apply template after a brief delay to ensure dropdowns are ready
-            setTimeout(function() {
-              applyJournalTemplate(pendingTemplate);
-            }, 100);
+            applyJournalTemplate(pendingTemplate);
           }
         }
         applyParticularFilter();
@@ -2084,10 +2092,10 @@
     const existingGuide = document.getElementById('surrenderBalanceGuide');
     if (existingGuide) existingGuide.remove();
 
-    // Show balance guidance
+    // Show balance guidance before the table
     const balanceInfo = document.createElement('div');
     balanceInfo.id = 'surrenderBalanceGuide';
-    balanceInfo.style.cssText = 'background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:12px;margin-bottom:12px;';
+    balanceInfo.style.cssText = 'background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:12px;margin:12px 0;';
     balanceInfo.innerHTML = `
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <div><strong style="color:#166534;">Advance ID:</strong> <span style="font-family:monospace;">${template.advanceId || 'N/A'}</span></div>
@@ -2099,35 +2107,78 @@
         <div style="color:#059669;font-weight:600;"><strong>Balance:</strong> ${formatJournalAmount(balance)}</div>
       </div>
       <p style="font-size:12px;color:#6b7280;margin-top:8px;margin-bottom:0;">
-        Enter the expense amount (max: ${formatJournalAmount(balance)}). The system tracks partial surrenders automatically.
+        Line 1 is pre-filled. Add Line 2 for the expense account. Max surrender: ${formatJournalAmount(balance)}
       </p>
     `;
-    const tableEl = body.closest('.modal-body').querySelector('.split-table');
-    if (tableEl) {
+    const tableEl = document.querySelector('#journalModal .split-table');
+    if (tableEl && tableEl.parentNode) {
       tableEl.parentNode.insertBefore(balanceInfo, tableEl);
     }
 
-    // Line 1: DEBIT - Pre-fill with original advance details (user can change if needed)
-    addJournalLine({
-      lineType: 'particular',
-      description: note,
-      debit: balance,
-      credit: 0,
-      category: template.category || '',
-      subCategory: template.subCategory || '',
-      particulars: template.particulars || ''
-    });
+    // Create Line 1: CREDIT - Clear the original advance (pre-filled from original)
+    const row = addJournalLine();
+    if (row) {
+      // Set the description
+      const descInput = row.querySelector('.journal-desc-input');
+      if (descInput) descInput.value = note;
 
-    // Line 2: CREDIT - Clear the original advance (same particulars as debit)
-    addJournalLine({
-      lineType: 'particular',
-      description: note,
-      debit: 0,
-      credit: balance,
-      category: template.category || '',
-      subCategory: template.subCategory || '',
-      particulars: template.particulars || ''
-    });
+      // Set credit amount
+      const creditInput = row.querySelector('.journal-credit-input');
+      const debitInput = row.querySelector('.journal-debit-input');
+      if (creditInput) {
+        creditInput.value = balance;
+        creditInput.dispatchEvent(new Event('input'));
+      }
+      if (debitInput) {
+        debitInput.value = '0';
+        debitInput.disabled = true;
+      }
+
+      // Pre-fill category dropdown
+      const catSelect = row.querySelector('.journal-category-select');
+      if (catSelect && template.category) {
+        catSelect.value = template.category;
+
+        // Populate sub-category dropdown
+        const subcatSelect = row.querySelector('.journal-subcat-select');
+        if (subcatSelect) {
+          const filteredSubCats = (paymentState.subCats || []).filter(function(sc) {
+            return paymentState.subToCatMap[sc] === template.category;
+          });
+          subcatSelect.innerHTML = '<option value="">-- Sub-Category --</option>';
+          filteredSubCats.forEach(function(sc) {
+            const opt = document.createElement('option');
+            opt.value = sc;
+            opt.textContent = sc;
+            subcatSelect.appendChild(opt);
+          });
+
+          if (template.subCategory) {
+            subcatSelect.value = template.subCategory;
+
+            // Populate particulars dropdown
+            const partSelect = row.querySelector('.journal-particular-select');
+            if (partSelect) {
+              const filteredParts = (allParticulars || []).filter(function(p) {
+                const meta = paymentState.particularMeta[p] || {};
+                return meta.subCategory === template.subCategory;
+              });
+              partSelect.innerHTML = '<option value="">-- Particulars --</option>';
+              filteredParts.forEach(function(p) {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                partSelect.appendChild(opt);
+              });
+
+              if (template.particulars) {
+                partSelect.value = template.particulars;
+              }
+            }
+          }
+        }
+      }
+    }
 
     updateJournalTotals();
 
