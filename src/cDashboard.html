@@ -11169,10 +11169,10 @@
       renderStaffAdvancesDashboard();
     }
 
-    let pendingJournalPayee = null;
-    let pendingJournalNote = null;
-    let pendingJournalYear = null;
-    let pendingJournalTemplate = null;
+    window.pendingJournalPayee = null;
+    window.pendingJournalNote = null;
+    window.pendingJournalYear = null;
+    window.pendingJournalTemplate = null;
 
     function loadStaffAdvancesDashboardTable() {
       loadStaffAdvanceRows('staffAdvancesDashboardTable', true);
@@ -11316,9 +11316,9 @@
             return;
           }
 
-          pendingJournalPayee = { type: 'Staff', name: advanceData.payee || '' };
-          pendingJournalYear = advanceData.financialYear || '';
-          pendingJournalTemplate = {
+          window.pendingJournalPayee = { type: 'Staff', name: advanceData.payee || '' };
+          window.pendingJournalYear = advanceData.financialYear || '';
+          window.pendingJournalTemplate = {
             amount: remaining,
             originalAmount: originalAmount,
             surrendered: used,
@@ -11329,12 +11329,12 @@
             category: advanceData.category || '',
             payee: advanceData.payee || ''
           };
-          pendingJournalNote = `Advance: ${batchKey} | Original: ${formatPerformanceAmount(originalAmount)} | Surrendered: ${formatPerformanceAmount(used)} | Balance: ${formatPerformanceAmount(remaining)}`;
+          window.pendingJournalNote = `Advance: ${batchKey} | Original: ${formatPerformanceAmount(originalAmount)} | Surrendered: ${formatPerformanceAmount(used)} | Balance: ${formatPerformanceAmount(remaining)}`;
           openTxnJournalModal();
           setTimeout(function() {
-            if (pendingJournalNote) {
-              setJournalStatus(pendingJournalNote);
-              pendingJournalNote = null;
+            if (window.pendingJournalNote) {
+              setJournalStatus(window.pendingJournalNote);
+              window.pendingJournalNote = null;
             }
           }, 300);
         })

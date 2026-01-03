@@ -804,6 +804,10 @@
           <label class="form-label" for="journalRefNo">Journal Ref #</label>
           <input type="text" id="journalRefNo" class="input-field" readonly>
         </div>
+        <div id="journalAdvanceField" style="display:none;">
+          <label class="form-label" for="journalAdvanceId">Advance ID</label>
+          <input type="text" id="journalAdvanceId" class="input-field" readonly>
+        </div>
       </div>
 
       <table class="split-table">
@@ -1867,6 +1871,7 @@
     transactionMode = 'Journal';
     document.getElementById('journalModal').style.display = 'flex';
     setJournalDefaultDate();
+    setJournalAdvanceField('');
     loadDropdowns();
     applyParticularFilter();
     if (!document.getElementById('journalBody').children.length) {
@@ -2185,6 +2190,10 @@
     // Store balance for validation and advanceId for saving
     window.surrenderMaxBalance = balance;
     window.surrenderLinkedAdvanceId = template.advanceId || '';
+    setJournalAdvanceField(window.surrenderLinkedAdvanceId);
+    if (window.surrenderLinkedAdvanceId) {
+      setJournalStatus(`Advance linked: ${window.surrenderLinkedAdvanceId}`);
+    }
   }
 
   function removeJournalLine(button) {
@@ -2359,6 +2368,7 @@
     if (balanceGuide) balanceGuide.remove();
     window.surrenderMaxBalance = null;
     window.surrenderLinkedAdvanceId = null;
+    setJournalAdvanceField('');
     setJournalDefaultDate();
     fetchNextJournalRef();
   }
@@ -2366,6 +2376,15 @@
   function setJournalStatus(message) {
     const status = document.getElementById('journalStatusText');
     if (status) status.textContent = message || '';
+  }
+
+  function setJournalAdvanceField(value) {
+    const wrap = document.getElementById('journalAdvanceField');
+    const input = document.getElementById('journalAdvanceId');
+    if (!wrap || !input) return;
+    const text = String(value || '').trim();
+    input.value = text;
+    wrap.style.display = text ? 'block' : 'none';
   }
 
   function formatJournalAmount(value) {
