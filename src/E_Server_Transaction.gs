@@ -185,6 +185,9 @@ function saveTransaction(data) {
   if (total <= 0) throw new Error('Total must be greater than zero.');
 
   const batchId = 'TXN-' + new Date().getTime();
+  // For staff advance payments, the batchId IS the advanceId
+  const advanceId = batchId;
+
   const entries = cleanedRows.map(function(row) {
     const debitValue = isReceipt ? 0 : row.amount;
     const creditValue = isReceipt ? row.amount : 0;
@@ -206,7 +209,8 @@ function saveTransaction(data) {
       row.accountType,
       row.reportMapping,
       '',
-      ''
+      '',
+      advanceId
     ];
   });
 
@@ -239,7 +243,8 @@ function saveTransaction(data) {
     bankAccountType,
     bankReportMapping,
     'Unreconciled',
-    ''
+    '',
+    advanceId
   ]);
 
   const startRow = journal.getLastRow() + 1;
@@ -306,6 +311,7 @@ function saveJournalEntry(payload) {
 
   const financialYear = String(header.financialYear || '').trim();
   const payee = String(header.payee || '').trim();
+  const linkedAdvanceId = String(header.advanceId || '').trim();
   if (!financialYear) throw new Error('Financial year is required.');
 
   const ss = _getOrCreateSpreadsheet();
@@ -427,7 +433,8 @@ function saveJournalEntry(payload) {
       entryAccountType,
       entryReportMapping,
       row.reconStatus || '',
-      ''
+      '',
+      linkedAdvanceId
     ];
   });
 
@@ -583,19 +590,27 @@ function getAdvanceSurrenderTotals(batchIds) {
 
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
   const cols = _getJournalColumns_(headers);
-  if (!cols.description || !cols.batchId) return {};
+  if (!cols.batchId) return {};
 
   const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   const taggedBatches = {};
 
   data.forEach(function(row) {
-    const description = String(row[cols.description - 1] || '');
-    const match = /ADV:(TXN-\d+)/.exec(description);
-    if (!match) return;
-    const advanceId = match[1];
-    if (!targets[advanceId]) return;
     const journalBatch = String(row[cols.batchId - 1] || '').trim();
-    if (!journalBatch) return;
+    if (!journalBatch || !journalBatch.startsWith('JRN-')) return;
+
+    // Check Advance_ID column first (new method)
+    let advanceId = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+
+    // Fallback to description pattern (old method) for backwards compatibility
+    if (!advanceId && cols.description) {
+      const description = String(row[cols.description - 1] || '');
+      const match = /ADV:(TXN-\d+)/.exec(description);
+      if (match) advanceId = match[1];
+    }
+
+    if (!advanceId || !targets[advanceId]) return;
+
     if (!taggedBatches[advanceId]) taggedBatches[advanceId] = {};
     if (!taggedBatches[advanceId][journalBatch]) taggedBatches[advanceId][journalBatch] = { debit: 0, credit: 0 };
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
@@ -3841,7 +3856,8 @@ function _getJournalColumns_(headers) {
     accountType: _resolveColumn_(headers, ['account_type'], 14 + offset),
     reportMapping: _resolveColumn_(headers, ['report_mapping'], 15 + offset),
     reconStatus: _resolveColumn_(headers, ['recon_status'], 16 + offset),
-    receiptUrl: _resolveColumn_(headers, ['receipt_url'], 17 + offset)
+    receiptUrl: _resolveColumn_(headers, ['receipt_url'], 17 + offset),
+    advanceId: _resolveColumn_(headers, ['advance_id', 'advanceid'], 0)
   };
 }
 

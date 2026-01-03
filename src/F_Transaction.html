@@ -2182,8 +2182,9 @@
 
     updateJournalTotals();
 
-    // Store balance for validation
+    // Store balance for validation and advanceId for saving
     window.surrenderMaxBalance = balance;
+    window.surrenderLinkedAdvanceId = template.advanceId || '';
   }
 
   function removeJournalLine(button) {
@@ -2263,7 +2264,8 @@
       date: document.getElementById('journalDate').value,
       financialYear: document.getElementById('journalFinancialYear').value.trim(),
       payee: document.getElementById('journalPayee').value.trim(),
-      refNo: document.getElementById('journalRefNo').value.trim()
+      refNo: document.getElementById('journalRefNo').value.trim(),
+      advanceId: window.surrenderLinkedAdvanceId || ''
     };
 
     if (!header.date || !header.financialYear) {
@@ -2352,10 +2354,11 @@
     document.getElementById('journalDebitTotal').textContent = '0.00';
     document.getElementById('journalCreditTotal').textContent = '0.00';
     document.getElementById('saveJournalBtn').disabled = true;
-    // Clean up surrender balance guide if exists
+    // Clean up surrender balance guide and linked advance if exists
     const balanceGuide = document.getElementById('surrenderBalanceGuide');
     if (balanceGuide) balanceGuide.remove();
     window.surrenderMaxBalance = null;
+    window.surrenderLinkedAdvanceId = null;
     setJournalDefaultDate();
     fetchNextJournalRef();
   }
