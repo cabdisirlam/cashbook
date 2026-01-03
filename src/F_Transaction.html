@@ -2017,6 +2017,41 @@
         creditInput.value = preset.credit;
         creditInput.dispatchEvent(new Event('input'));
       }
+      // Pre-populate category, sub-category, particulars if provided
+      if (preset.category) {
+        catSelect.value = preset.category;
+        // Trigger category change to populate sub-categories
+        const subcatSelect = row.querySelector('.journal-subcat-select');
+        const filteredSubCats = (paymentState.subCats || []).filter(function(sc) {
+          return paymentState.subToCatMap[sc] === preset.category;
+        });
+        subcatSelect.innerHTML = '<option value="">-- Sub-Category --</option>';
+        filteredSubCats.forEach(function(sc) {
+          const opt = document.createElement('option');
+          opt.value = sc;
+          opt.textContent = sc;
+          subcatSelect.appendChild(opt);
+        });
+        if (preset.subCategory) {
+          subcatSelect.value = preset.subCategory;
+          // Trigger sub-category change to populate particulars
+          const partSelect = row.querySelector('.journal-particular-select');
+          const filteredParts = (allParticulars || []).filter(function(p) {
+            const meta = paymentState.particularMeta[p] || {};
+            return meta.subCategory === preset.subCategory;
+          });
+          partSelect.innerHTML = '<option value="">-- Particulars --</option>';
+          filteredParts.forEach(function(p) {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            partSelect.appendChild(opt);
+          });
+          if (preset.particulars) {
+            partSelect.value = preset.particulars;
+          }
+        }
+      }
     }
 
     document.getElementById('journalBody').appendChild(row);
@@ -2027,24 +2062,59 @@
     const body = document.getElementById('journalBody');
     if (!body || !template) return;
     body.innerHTML = '';
-    const amount = Number(template.amount || 0);
+
+    const balance = Number(template.amount || 0);
+    const originalAmount = Number(template.originalAmount || template.amount || 0);
+    const surrendered = Number(template.surrendered || 0);
     const tag = template.advanceId ? `ADV:${template.advanceId}` : '';
     const refNote = template.refNo ? `Ref: ${template.refNo}` : '';
     const note = [tag, refNote].filter(Boolean).join(' ');
 
+    // Show balance guidance
+    const balanceInfo = document.createElement('div');
+    balanceInfo.id = 'surrenderBalanceGuide';
+    balanceInfo.style.cssText = 'background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:12px;margin-bottom:12px;';
+    balanceInfo.innerHTML = `
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div><strong style="color:#166534;">Advance ID:</strong> <span style="font-family:monospace;">${template.advanceId || 'N/A'}</span></div>
+        <div><strong style="color:#166534;">Payee:</strong> ${template.payee || 'N/A'}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:8px;">
+        <div><strong>Original:</strong> ${formatJournalAmount(originalAmount)}</div>
+        <div><strong>Surrendered:</strong> ${formatJournalAmount(surrendered)}</div>
+        <div style="color:#059669;font-weight:600;"><strong>Balance:</strong> ${formatJournalAmount(balance)}</div>
+      </div>
+      <p style="font-size:12px;color:#6b7280;margin-top:8px;margin-bottom:0;">
+        Enter the expense amount (max: ${formatJournalAmount(balance)}). The system tracks partial surrenders automatically.
+      </p>
+    `;
+    body.parentElement.insertBefore(balanceInfo, body.parentElement.querySelector('.split-table') || body);
+
+    // Line 1: DEBIT - Expense account (user selects what expense was incurred)
+    // This is where the staff spent the money - user needs to choose
     addJournalLine({
       lineType: 'particular',
       description: note,
-      debit: amount,
+      debit: balance,
       credit: 0
     });
+
+    // Line 2: CREDIT - Clear the original advance (pre-fill with original advance particulars)
+    // This credits back the staff advance account
     addJournalLine({
       lineType: 'particular',
       description: note,
       debit: 0,
-      credit: amount
+      credit: balance,
+      category: template.category || '',
+      subCategory: template.subCategory || '',
+      particulars: template.particulars || ''
     });
+
     updateJournalTotals();
+
+    // Store balance for validation
+    window.surrenderMaxBalance = balance;
   }
 
   function removeJournalLine(button) {
@@ -2071,15 +2141,36 @@
     const saveBtn = document.getElementById('saveJournalBtn');
     const balanced = debitTotal > 0 && Math.abs(debitTotal - creditTotal) <= 0.01;
 
-    if (balanced) {
+    // Check if this is a surrender and validate against max balance
+    const maxBalance = window.surrenderMaxBalance;
+    const exceedsBalance = maxBalance && debitTotal > maxBalance + 0.01;
+
+    if (exceedsBalance) {
+      badge.textContent = 'Exceeds Balance';
+      badge.classList.remove('status-badge--ok');
+      badge.classList.add('status-badge--bad');
+      badge.style.background = '#fef2f2';
+      badge.style.color = '#dc2626';
+      saveBtn.disabled = true;
+      setJournalStatus(`Amount (${formatJournalAmount(debitTotal)}) exceeds available balance (${formatJournalAmount(maxBalance)})`);
+    } else if (balanced) {
       badge.textContent = 'Balanced';
       badge.classList.remove('status-badge--bad');
       badge.classList.add('status-badge--ok');
+      badge.style.background = '';
+      badge.style.color = '';
       saveBtn.disabled = false;
+      if (maxBalance) {
+        setJournalStatus(`Surrendering ${formatJournalAmount(debitTotal)} of ${formatJournalAmount(maxBalance)} available`);
+      } else {
+        setJournalStatus('');
+      }
     } else {
       badge.textContent = 'Out of Balance';
       badge.classList.remove('status-badge--ok');
       badge.classList.add('status-badge--bad');
+      badge.style.background = '';
+      badge.style.color = '';
       saveBtn.disabled = true;
     }
   }
@@ -2192,6 +2283,10 @@
     document.getElementById('journalDebitTotal').textContent = '0.00';
     document.getElementById('journalCreditTotal').textContent = '0.00';
     document.getElementById('saveJournalBtn').disabled = true;
+    // Clean up surrender balance guide if exists
+    const balanceGuide = document.getElementById('surrenderBalanceGuide');
+    if (balanceGuide) balanceGuide.remove();
+    window.surrenderMaxBalance = null;
     setJournalDefaultDate();
     fetchNextJournalRef();
   }

@@ -11147,54 +11147,36 @@
       loadStaff();
     }
 
-    function renderStaffAdvancesLauncher() {
+    function renderStaffAdvancesDashboard() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
-        ${renderSectionHero('Staff Advances', 'Record staff advances as payments from the bank.')}
+        ${renderSectionHero('Staff Advances', 'Manage staff advances, payments and surrenders.')}
         <div class="card card-spacious">
           <div class="panel-header">
             <div>
-              <h2 style="margin-bottom:4px;">Staff Advances</h2>
-              <p style="color:#6b7280;font-size:13px;">Use the payment form to issue advances to staff.</p>
+              <h2 style="margin-bottom:4px;">Staff Advances Dashboard</h2>
+              <p style="color:#6b7280;font-size:13px;">View all staff advances and process payments or surrenders.</p>
             </div>
-            <div>
-              <button class="btn btn-secondary" onclick="loadStaffAdvancesTable()">Refresh</button>
-              <button class="btn btn-primary" onclick="openTxnPaymentModal()">Record Payment</button>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="loadStaffAdvancesDashboardTable()">Refresh</button>
+              <button class="btn btn-primary" onclick="openTxnPaymentModal()">+ Pay Advance</button>
+              <button class="btn btn-primary" style="background:#059669;" onclick="openTxnJournalModal()">Process Surrender</button>
             </div>
           </div>
-          <p style="color:#6b7280;font-size:13px;margin-top:8px;">Payment form opens in a modal.</p>
-          <div id="staffAdvancesTable" style="margin-top:16px;">
+          <div id="staffAdvancesDashboardTable" style="margin-top:16px;">
             <p style="color:#6b7280;">Loading staff advances...</p>
           </div>
         </div>
       `;
-      openTxnPaymentModal();
-      loadStaffAdvancesTable();
+      loadStaffAdvancesDashboardTable();
+    }
+
+    function renderStaffAdvancesLauncher() {
+      renderStaffAdvancesDashboard();
     }
 
     function renderStaffSurrenderLauncher() {
-      const contentArea = document.getElementById('contentArea');
-      contentArea.innerHTML = `
-        ${renderSectionHero('Process Surrender / Claims', 'Clear staff advances using a journal entry (no bank movement).')}
-        <div class="card card-spacious">
-          <div class="panel-header">
-            <div>
-              <h2 style="margin-bottom:4px;">Process Surrender / Claims</h2>
-              <p style="color:#6b7280;font-size:13px;">Use a journal entry when staff submit receipts for advances.</p>
-            </div>
-            <div>
-              <button class="btn btn-secondary" onclick="loadStaffSurrenderTable()">Refresh</button>
-              <button class="btn btn-primary" onclick="openTxnJournalModal()">Record Journal</button>
-            </div>
-          </div>
-          <p style="color:#6b7280;font-size:13px;margin-top:8px;">Journal form opens in a modal.</p>
-          <div id="staffSurrenderTable" style="margin-top:16px;">
-            <p style="color:#6b7280;">Loading staff advances...</p>
-          </div>
-        </div>
-      `;
-      openTxnJournalModal();
-      loadStaffSurrenderTable();
+      renderStaffAdvancesDashboard();
     }
 
     let pendingJournalPayee = null;
@@ -11202,8 +11184,12 @@
     let pendingJournalYear = null;
     let pendingJournalTemplate = null;
 
+    function loadStaffAdvancesDashboardTable() {
+      loadStaffAdvanceRows('staffAdvancesDashboardTable', true);
+    }
+
     function loadStaffAdvancesTable() {
-      loadStaffAdvanceRows('staffAdvancesTable', false);
+      loadStaffAdvanceRows('staffAdvancesTable', true);
     }
 
     function loadStaffSurrenderTable() {
@@ -11226,10 +11212,6 @@
           google.script.run
             .withSuccessHandler(function(rows) {
               const filtered = (rows || []).filter(row => staffNames.has(String(row.payee || '').trim()));
-              if (!includeAction) {
-                renderStaffAdvanceTable(containerId, filtered, includeAction, {});
-                return;
-              }
               const batchIds = filtered.map(row => row.batchId).filter(Boolean);
               if (!batchIds.length) {
                 renderStaffAdvanceTable(containerId, filtered, includeAction, {});
@@ -11263,19 +11245,40 @@
         return;
       }
 
-      const tableRows = rows.map(row => `
-        <tr>
-          <td data-label="Date">${row.date || ''}</td>
-          <td data-label="Payee">${row.payee || ''}</td>
-          <td data-label="Particulars">${row.particulars || ''}</td>
-          <td data-label="Sub-Category">${row.subCategory || ''}</td>
-          <td data-label="Category">${row.category || ''}</td>
-          <td data-label="Amount">${formatPerformanceAmount(row.amount)}</td>
-          <td data-label="Ref No">${row.refNo || ''}</td>
-          ${includeAction ? `<td data-label="Available">${formatPerformanceAmount((Number(row.amount) || 0) - (Number(totals && totals[row.batchId] || 0)))}</td>` : ''}
-          ${includeAction ? `<td data-label="Action"><button class="btn btn-primary" type="button" onclick="startStaffSurrender('${escapeJsString(row.payee || '')}', '${escapeJsString(row.refNo || '')}', '${escapeJsString(row.batchId || '')}', ${Number(row.amount) || 0}, '${escapeJsString(row.financialYear || '')}')">Surrender</button></td>` : ''}
-        </tr>
-      `).join('');
+      const tableRows = rows.map(row => {
+        const advanceAmount = Number(row.amount) || 0;
+        const surrendered = Number(totals && totals[row.batchId] || 0);
+        const balance = advanceAmount - surrendered;
+        const hasBalance = balance > 0;
+        const advanceData = JSON.stringify({
+          payee: row.payee || '',
+          refNo: row.refNo || '',
+          batchId: row.batchId || '',
+          amount: advanceAmount,
+          balance: balance,
+          financialYear: row.financialYear || '',
+          particulars: row.particulars || '',
+          subCategory: row.subCategory || '',
+          category: row.category || ''
+        }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+        return `
+          <tr>
+            <td data-label="Date">${row.date || ''}</td>
+            <td data-label="Payee">${row.payee || ''}</td>
+            <td data-label="Particulars">${row.particulars || ''}</td>
+            <td data-label="Sub-Category">${row.subCategory || ''}</td>
+            <td data-label="Category">${row.category || ''}</td>
+            <td data-label="Amount">${formatPerformanceAmount(advanceAmount)}</td>
+            <td data-label="Ref No">${row.refNo || ''}</td>
+            <td data-label="Advance ID" style="font-family:monospace;font-size:11px;color:#6b7280;">${row.batchId || ''}</td>
+            <td data-label="Balance" style="color:${hasBalance ? '#059669' : '#6b7280'};font-weight:${hasBalance ? '600' : '400'};">${formatPerformanceAmount(balance)}</td>
+            <td data-label="Action">
+              ${hasBalance ? `<button class="btn btn-primary" style="background:#059669;padding:4px 10px;font-size:12px;" type="button" onclick="startStaffSurrender('${advanceData}')">Surrender</button>` : '<span style="color:#6b7280;font-size:12px;">Cleared</span>'}
+            </td>
+          </tr>
+        `;
+      }).join('');
 
       container.innerHTML = `
         <table class="table">
@@ -11288,8 +11291,9 @@
               <th>Category</th>
               <th>Amount</th>
               <th>Ref No</th>
-              ${includeAction ? '<th>Available</th>' : ''}
-              ${includeAction ? '<th>Action</th>' : ''}
+              <th>Advance ID</th>
+              <th>Balance</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>${tableRows}</tbody>
@@ -11297,29 +11301,45 @@
       `;
     }
 
-    function startStaffSurrender(payee, refNo, batchId, amount, financialYear) {
-      const batchKey = String(batchId || '').trim();
-      const available = Number(amount) || 0;
+    function startStaffSurrender(advanceDataJson) {
+      let advanceData;
+      try {
+        advanceData = JSON.parse(advanceDataJson.replace(/&quot;/g, '"'));
+      } catch (e) {
+        showAlert('Invalid advance data.', 'error');
+        return;
+      }
+
+      const batchKey = String(advanceData.batchId || '').trim();
+      const originalAmount = Number(advanceData.amount) || 0;
       if (!batchKey) {
         showAlert('Missing advance reference for surrender.', 'error');
         return;
       }
+
       google.script.run
         .withSuccessHandler(function(totals) {
           const used = Number(totals && totals[batchKey] || 0);
-          const remaining = Math.max(0, available - used);
+          const remaining = Math.max(0, originalAmount - used);
           if (remaining <= 0) {
             showAlert('No remaining balance to surrender for this advance.', 'error');
             return;
           }
-          pendingJournalPayee = { type: 'Staff', name: payee || '' };
-          pendingJournalYear = financialYear || '';
+
+          pendingJournalPayee = { type: 'Staff', name: advanceData.payee || '' };
+          pendingJournalYear = advanceData.financialYear || '';
           pendingJournalTemplate = {
             amount: remaining,
+            originalAmount: originalAmount,
+            surrendered: used,
             advanceId: batchKey,
-            refNo: refNo || ''
+            refNo: advanceData.refNo || '',
+            particulars: advanceData.particulars || '',
+            subCategory: advanceData.subCategory || '',
+            category: advanceData.category || '',
+            payee: advanceData.payee || ''
           };
-          pendingJournalNote = `Available for surrender: ${formatPerformanceAmount(remaining)}${refNo ? ' | Ref: ' + refNo : ''}`;
+          pendingJournalNote = `Advance: ${batchKey} | Original: ${formatPerformanceAmount(originalAmount)} | Surrendered: ${formatPerformanceAmount(used)} | Balance: ${formatPerformanceAmount(remaining)}`;
           openTxnJournalModal();
           setTimeout(function() {
             if (pendingJournalNote) {
