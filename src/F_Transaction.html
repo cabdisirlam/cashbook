@@ -958,18 +958,28 @@
             window.pendingJournalYear = null;
           }
           if (typeof window !== 'undefined' && window.pendingJournalPayee) {
-            const typeSelect = document.getElementById('journalPayeeType');
-            if (typeSelect) {
-              typeSelect.value = window.pendingJournalPayee.type || '';
-              onPayeeTypeChange('journalPayeeType', 'journalPayee', false);
-            }
-            const payeeSelect = document.getElementById('journalPayee');
-            if (payeeSelect) payeeSelect.value = window.pendingJournalPayee.name || '';
+            const pendingPayee = window.pendingJournalPayee;
             window.pendingJournalPayee = null;
+            const typeSelect = document.getElementById('journalPayeeType');
+            if (typeSelect && pendingPayee.type) {
+              typeSelect.value = pendingPayee.type;
+              onPayeeTypeChange('journalPayeeType', 'journalPayee', false);
+              // Set payee after dropdown is populated
+              setTimeout(function() {
+                const payeeSelect = document.getElementById('journalPayee');
+                if (payeeSelect && pendingPayee.name) {
+                  payeeSelect.value = pendingPayee.name;
+                }
+              }, 50);
+            }
           }
           if (typeof window !== 'undefined' && window.pendingJournalTemplate) {
-            applyJournalTemplate(window.pendingJournalTemplate);
+            const pendingTemplate = window.pendingJournalTemplate;
             window.pendingJournalTemplate = null;
+            // Apply template after a brief delay to ensure dropdowns are ready
+            setTimeout(function() {
+              applyJournalTemplate(pendingTemplate);
+            }, 100);
           }
         }
         applyParticularFilter();
@@ -2070,6 +2080,10 @@
     const refNote = template.refNo ? `Ref: ${template.refNo}` : '';
     const note = [tag, refNote].filter(Boolean).join(' ');
 
+    // Remove existing balance guide if any
+    const existingGuide = document.getElementById('surrenderBalanceGuide');
+    if (existingGuide) existingGuide.remove();
+
     // Show balance guidance
     const balanceInfo = document.createElement('div');
     balanceInfo.id = 'surrenderBalanceGuide';
@@ -2088,19 +2102,23 @@
         Enter the expense amount (max: ${formatJournalAmount(balance)}). The system tracks partial surrenders automatically.
       </p>
     `;
-    body.parentElement.insertBefore(balanceInfo, body.parentElement.querySelector('.split-table') || body);
+    const tableEl = body.closest('.modal-body').querySelector('.split-table');
+    if (tableEl) {
+      tableEl.parentNode.insertBefore(balanceInfo, tableEl);
+    }
 
-    // Line 1: DEBIT - Expense account (user selects what expense was incurred)
-    // This is where the staff spent the money - user needs to choose
+    // Line 1: DEBIT - Pre-fill with original advance details (user can change if needed)
     addJournalLine({
       lineType: 'particular',
       description: note,
       debit: balance,
-      credit: 0
+      credit: 0,
+      category: template.category || '',
+      subCategory: template.subCategory || '',
+      particulars: template.particulars || ''
     });
 
-    // Line 2: CREDIT - Clear the original advance (pre-fill with original advance particulars)
-    // This credits back the staff advance account
+    // Line 2: CREDIT - Clear the original advance (same particulars as debit)
     addJournalLine({
       lineType: 'particular',
       description: note,
