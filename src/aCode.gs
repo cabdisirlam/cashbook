@@ -2076,18 +2076,51 @@ function createInvoice(invoiceType, data) {
   const daysToAdd = parseInt(paymentTerms.replace(/\D/g, '')) || 30;
   const dueDate = new Date(invoiceDate);
   dueDate.setDate(dueDate.getDate() + daysToAdd);
-  const amount = parseFloat(data.amount || data.invoiceAmount) || 0;
+  const lineItems = Array.isArray(data.lineItems) ? data.lineItems : [];
+  let amount = parseFloat(data.amount || data.invoiceAmount) || 0;
+  const isReceivable = invoiceType === 'AR';
+  if (isReceivable && lineItems.length) {
+    const lineTotal = lineItems.reduce(function(sum, item) {
+      const total = parseFloat(item && item.total) || 0;
+      return sum + total;
+    }, 0);
+    if (lineTotal > 0) amount = lineTotal;
+  }
+  if (isReceivable && !lineItems.length && !String(data.particulars || '').trim()) {
+    return { success: false, message: 'Particulars are required for customer invoices.' };
+  }
   const row = [
     invoiceId, invoiceType,
-    data.invoiceNumber || _generateSequentialNumber(invoiceType === 'AP' ? 'BILL' : 'INV', sheet, 3),
+    data.invoiceNumber || (isReceivable
+      ? _generateCustomerInvoiceNumber(sheet)
+      : _generateSequentialNumber('BILL', sheet, 3)),
     invoiceDate, dueDate, data.financialYear || '',
     data.contactId || data.supplierId || data.customerId || '',
     data.contactName || data.supplierName || data.customerName || '',
     data.grnId || '', data.grnNumber || '', data.poId || '', data.poNumber || '',
     data.description || '', amount, 0, amount, 'Pending', paymentTerms, now,
-    user.email || '', JSON.stringify(data.lineItems || [])
+    user.email || '', JSON.stringify(lineItems)
   ];
+  const rowIndex = sheet.getLastRow() + 1;
   sheet.appendRow(row);
+  if (isReceivable) {
+    try {
+      _createReceivableJournalEntry({
+        invoiceId: invoiceId,
+        invoiceNumber: row[2],
+        invoiceDate: invoiceDate,
+        financialYear: data.financialYear || '',
+        customerName: data.contactName || data.customerName || '',
+        particulars: data.particulars || '',
+        description: data.description || '',
+        amount: amount,
+        lineItems: lineItems
+      });
+    } catch (error) {
+      sheet.deleteRow(rowIndex);
+      return { success: false, message: error.message || 'Failed to create journal entry.' };
+    }
+  }
   logSystemEvent(user.email, 'CREATE_INVOICE', invoiceId, invoiceType + ': ' + row[2]);
   return { success: true, invoiceId: invoiceId, invoiceNumber: row[2] };
 }
@@ -2115,15 +2148,21 @@ function recordInvoicePayment(invoiceId, paymentData) {
   const newPaidAmount = currentPaid + paymentAmount;
   const newBalance = totalAmount - newPaidAmount;
   const newStatus = newBalance <= 0 ? 'Paid' : 'Partial';
+  let journalCreated = false;
+  try {
+    const result = _createPaymentJournalEntry(invoice, paymentData, invoice.Invoice_Type);
+    journalCreated = Boolean(result && result.success);
+  } catch (error) {
+    return { success: false, message: error.message || 'Failed to create journal entry.' };
+  }
   const paidAmountCol = INVOICE_HEADERS.indexOf('Paid_Amount') + 1;
   const balanceCol = INVOICE_HEADERS.indexOf('Balance') + 1;
   const statusCol = INVOICE_HEADERS.indexOf('Status') + 1;
   sheet.getRange(rowIndex, paidAmountCol).setValue(newPaidAmount);
   sheet.getRange(rowIndex, balanceCol).setValue(Math.max(0, newBalance));
   sheet.getRange(rowIndex, statusCol).setValue(newStatus);
-  _createPaymentJournalEntry(invoice, paymentData, invoice.Invoice_Type);
   logSystemEvent(getCurrentUser().email, 'RECORD_PAYMENT', invoiceId, 'Amount: ' + paymentAmount);
-  return { success: true, newBalance: Math.max(0, newBalance), newStatus: newStatus };
+  return { success: true, newBalance: Math.max(0, newBalance), newStatus: newStatus, journalCreated: journalCreated };
 }
 
 function getInvoiceAgingSummary(invoiceType) {
@@ -2176,7 +2215,299 @@ function getReceivablesAgingSummary() { return getInvoiceAgingSummary('AR'); }
 function createReceivable(data) {
   data.contactId = data.customerId; data.contactName = data.customerName;
   const result = createInvoice('AR', data);
-  return { success: result.success, receivableId: result.invoiceId, invoiceNumber: result.invoiceNumber };
+  return {
+    success: result.success,
+    receivableId: result.invoiceId,
+    invoiceNumber: result.invoiceNumber,
+    message: result.message
+  };
 }
 function recordReceivablePayment(receivableId, paymentData) { return recordInvoicePayment(receivableId, paymentData); }
 function getCustomerReceivables(customerId) { return getReceivables({ customerId: customerId }).filter(r => r.Status !== 'Paid'); }
+
+function recordPayment(data) {
+  if (!data || !data.payableId) return { success: false, message: 'Missing payable ID.' };
+  return recordInvoicePayment(data.payableId, {
+    amount: data.amount,
+    paymentDate: data.paymentDate,
+    paymentRef: data.paymentRef,
+    bankAccount: data.bankAccount
+  });
+}
+
+function recordReceipt(data) {
+  if (!data || !data.receivableId) return { success: false, message: 'Missing receivable ID.' };
+  return recordInvoicePayment(data.receivableId, {
+    amount: data.amount,
+    paymentDate: data.receiptDate,
+    paymentRef: data.receiptRef,
+    bankAccount: data.bankAccount
+  });
+}
+
+function _generateCustomerInvoiceNumber(sheet) {
+  const lastRow = sheet.getLastRow();
+  let maxNumber = 1000000;
+  if (lastRow > 1) {
+    const values = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
+    values.forEach(function(row) {
+      const value = String(row[0] || '').trim().toUpperCase();
+      const match = /^C(\d{7})$/.exec(value);
+      if (!match) return;
+      const numeric = Number(match[1]);
+      if (Number.isFinite(numeric) && numeric > maxNumber) {
+        maxNumber = numeric;
+      }
+    });
+  }
+  return 'C' + String(maxNumber + 1).padStart(7, '0');
+}
+
+function getNextCustomerInvoiceNumber() {
+  const ss = _getOrCreateSpreadsheet();
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.INVOICES);
+  if (!sheet) sheet = _ensureSheet(ss, 'INVOICES');
+  return _generateCustomerInvoiceNumber(sheet);
+}
+
+function _loadMasterMeta_() {
+  const ss = _getOrCreateSpreadsheet();
+  const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+  if (!master) throw new Error('MASTER_DATA not found.');
+  const masterLastRow = master.getLastRow();
+  const masterLastCol = master.getLastColumn();
+  const masterHeaders = masterLastRow >= 1
+    ? master.getRange(1, 1, 1, masterLastCol).getValues()[0].map(_normalizeHeader_)
+    : [];
+  const masterCols = _getMasterColumns_(masterHeaders);
+  const masterData = masterLastRow > 1
+    ? master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues()
+    : [];
+  return {
+    particularMeta: _buildParticularMeta_(masterData, masterCols),
+    accountMeta: _buildAccountMeta_(masterData, masterCols)
+  };
+}
+
+function _isAccountType_(meta, expected) {
+  const actual = String(meta && meta.accountType || '').trim().toLowerCase();
+  const target = String(expected || '').trim().toLowerCase();
+  return Boolean(actual && target && actual === target);
+}
+
+function _pickPayablesParticular_(particularMeta) {
+  if (particularMeta['Accounts Payables']) return 'Accounts Payables';
+  if (particularMeta['Accounts Payable']) return 'Accounts Payable';
+  return '';
+}
+
+function _createReceivableJournalEntry(entry) {
+  const ss = _getOrCreateSpreadsheet();
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) throw new Error('DB_JOURNAL not found.');
+
+  const meta = _loadMasterMeta_();
+  const receivableParticulars = 'Accounts Receivables';
+  const receivableMeta = meta.particularMeta[receivableParticulars];
+  if (!receivableMeta || !receivableMeta.subCategory || !receivableMeta.category) {
+    throw new Error('Particulars not found: ' + receivableParticulars + '.');
+  }
+
+  const batchId = 'JRN-' + new Date().getTime();
+  const baseDescription = entry.description || ('Invoice ' + entry.invoiceNumber);
+  const lineItems = Array.isArray(entry.lineItems) ? entry.lineItems : [];
+  const creditEntries = [];
+  let creditTotal = 0;
+
+  if (lineItems.length) {
+    lineItems.forEach(function(line) {
+      const particulars = String(line && line.particulars || '').trim();
+      if (!particulars) throw new Error('Each invoice line needs particulars.');
+      const lineMeta = meta.particularMeta[particulars];
+      if (!lineMeta || !lineMeta.subCategory || !lineMeta.category) {
+        throw new Error('Particulars not found: ' + particulars + '.');
+      }
+      if (!_isAccountType_(lineMeta, 'Income')) {
+        throw new Error('Particulars must be Income: ' + particulars + '.');
+      }
+      const qty = parseFloat(line && line.quantity) || 0;
+      const rate = parseFloat(line && line.rate) || 0;
+      let lineTotal = parseFloat(line && line.total);
+      if (!Number.isFinite(lineTotal)) lineTotal = qty * rate;
+      if (lineTotal <= 0) throw new Error('Invoice line amount must be greater than zero.');
+      creditTotal += lineTotal;
+      creditEntries.push({
+        particulars: particulars,
+        meta: lineMeta,
+        description: String(line && line.description || '').trim() || baseDescription,
+        amount: lineTotal
+      });
+    });
+  } else {
+    const revenueParticulars = String(entry.particulars || '').trim();
+    if (!revenueParticulars) throw new Error('Particulars are required for customer invoices.');
+    const revenueMeta = meta.particularMeta[revenueParticulars];
+    if (!revenueMeta || !revenueMeta.subCategory || !revenueMeta.category) {
+      throw new Error('Particulars not found: ' + revenueParticulars + '.');
+    }
+    if (!_isAccountType_(revenueMeta, 'Income')) {
+      throw new Error('Particulars must be Income: ' + revenueParticulars + '.');
+    }
+    creditTotal = Number(entry.amount || 0);
+    if (creditTotal <= 0) throw new Error('Invoice amount must be greater than zero.');
+    creditEntries.push({
+      particulars: revenueParticulars,
+      meta: revenueMeta,
+      description: baseDescription,
+      amount: creditTotal
+    });
+  }
+
+  const entries = [
+    [
+      Utilities.getUuid(),
+      batchId,
+      entry.invoiceDate,
+      entry.financialYear || '',
+      '',
+      entry.customerName || '',
+      entry.invoiceNumber || '',
+      '',
+      receivableParticulars,
+      receivableMeta.subCategory || '',
+      receivableMeta.category || '',
+      baseDescription,
+      creditTotal,
+      0,
+      receivableMeta.accountType || '',
+      receivableMeta.reportMapping || '',
+      '',
+      '',
+      entry.invoiceId || ''
+    ]
+  ];
+
+  creditEntries.forEach(function(line) {
+    entries.push([
+      Utilities.getUuid(),
+      batchId,
+      entry.invoiceDate,
+      entry.financialYear || '',
+      '',
+      entry.customerName || '',
+      entry.invoiceNumber || '',
+      '',
+      line.particulars,
+      line.meta.subCategory || '',
+      line.meta.category || '',
+      line.description,
+      0,
+      line.amount,
+      line.meta.accountType || '',
+      line.meta.reportMapping || '',
+      '',
+      '',
+      entry.invoiceId || ''
+    ]);
+  });
+
+  const startRow = journal.getLastRow() + 1;
+  journal.getRange(startRow, 1, entries.length, entries[0].length).setValues(entries);
+  logSystemEventSafe(
+    'CREATE_JOURNAL',
+    batchId,
+    'Type: Invoice, Ref: ' + (entry.invoiceNumber || '') + ', Rows: ' + entries.length
+  );
+  return { success: true, batchId: batchId };
+}
+
+function _createPaymentJournalEntry(invoice, paymentData, invoiceType) {
+  const amount = parseFloat(paymentData.amount) || 0;
+  if (amount <= 0) throw new Error('Payment amount must be greater than zero.');
+
+  const bankAccount = String(paymentData.bankAccount || '').trim();
+  if (!bankAccount) throw new Error('Bank account is required to create journal entry.');
+
+  const ss = _getOrCreateSpreadsheet();
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) throw new Error('DB_JOURNAL not found.');
+
+  const meta = _loadMasterMeta_();
+  const receivableParticulars = 'Accounts Receivables';
+  const payablesParticulars = _pickPayablesParticular_(meta.particularMeta);
+  const counterParticulars = invoiceType === 'AP' ? payablesParticulars : receivableParticulars;
+  if (!counterParticulars) throw new Error('Particulars not found for invoice payments.');
+
+  const counterMeta = meta.particularMeta[counterParticulars];
+  if (!counterMeta || !counterMeta.subCategory || !counterMeta.category) {
+    throw new Error('Particulars not found: ' + counterParticulars + '.');
+  }
+
+  const bankMeta = meta.accountMeta[bankAccount] || {};
+  const paymentDate = paymentData.paymentDate ? new Date(paymentData.paymentDate) : new Date();
+  if (Number.isNaN(paymentDate.getTime())) throw new Error('Invalid payment date.');
+
+  const refNo = String(paymentData.paymentRef || invoice.Invoice_Number || '').trim();
+  const description = (invoiceType === 'AP' ? 'Payment for ' : 'Receipt for ') + (invoice.Invoice_Number || '');
+  const batchId = 'TXN-' + new Date().getTime();
+
+  const isPayable = invoiceType === 'AP';
+  const counterDebit = isPayable ? amount : 0;
+  const counterCredit = isPayable ? 0 : amount;
+  const bankDebit = isPayable ? 0 : amount;
+  const bankCredit = isPayable ? amount : 0;
+
+  const entries = [
+    [
+      Utilities.getUuid(),
+      batchId,
+      paymentDate,
+      invoice.Financial_Year || '',
+      '',
+      invoice.Contact_Name || '',
+      refNo,
+      refNo,
+      counterParticulars,
+      counterMeta.subCategory || '',
+      counterMeta.category || '',
+      description,
+      counterDebit,
+      counterCredit,
+      counterMeta.accountType || '',
+      counterMeta.reportMapping || '',
+      '',
+      '',
+      invoice.Invoice_ID || ''
+    ],
+    [
+      Utilities.getUuid(),
+      batchId,
+      paymentDate,
+      invoice.Financial_Year || '',
+      bankAccount,
+      invoice.Contact_Name || '',
+      refNo,
+      refNo,
+      counterParticulars,
+      counterMeta.subCategory || '',
+      counterMeta.category || '',
+      description,
+      bankDebit,
+      bankCredit,
+      bankMeta.accountType || '',
+      bankMeta.reportMapping || '',
+      'Unreconciled',
+      '',
+      invoice.Invoice_ID || ''
+    ]
+  ];
+
+  const startRow = journal.getLastRow() + 1;
+  journal.getRange(startRow, 1, entries.length, entries[0].length).setValues(entries);
+  logSystemEventSafe(
+    'CREATE_JOURNAL',
+    batchId,
+    'Type: Invoice Payment, Ref: ' + (invoice.Invoice_Number || '') + ', Rows: ' + entries.length
+  );
+  return { success: true, batchId: batchId };
+}
