@@ -35,7 +35,7 @@ const CONFIG = {
 const SHEET_HEADERS = {
   DB_JOURNAL: ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
                'Bank_Ref', 'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
-               'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL'],
+               'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL', 'Advance_ID'],
   DB_BANK: ['Account_Code', 'Financial_Year', 'Txn_Date', 'Value_Date', 'Bank_Ref',
             'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'],
   DB_BUDGET: ['Date', 'Financial_Year', 'Particulars', 'Sub_Category', 'Category', 'Account_Type',

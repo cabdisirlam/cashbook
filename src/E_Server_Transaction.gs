@@ -3823,40 +3823,41 @@ function _mergeAndSet_(sheet, rangeA1, value, options) {
 }
 
 function _getMasterColumns_(headers) {
+  // Column positions are resolved by header name only - no fallback numbers
   return {
-    payees: _resolveColumn_(headers, ['payees', 'payee'], 1),
-    particulars: _resolveColumn_(headers, ['particulars', 'particular'], 2),
-    subCategory: _resolveColumn_(headers, ['sub_category', 'subcategory'], 3),
-    category: _resolveColumn_(headers, ['category'], 4),
-    accountCodes: _resolveColumn_(headers, ['account_codes', 'account_code'], 5),
-    accountType: _resolveColumn_(headers, ['account_type', 'accounttype'], 6),
-    reportMapping: _resolveColumn_(headers, ['report_mapping', 'reportmapping'], 7),
-    financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 8)
+    payees: _resolveColumn_(headers, ['payees', 'payee'], 0),
+    particulars: _resolveColumn_(headers, ['particulars', 'particular'], 0),
+    subCategory: _resolveColumn_(headers, ['sub_category', 'subcategory'], 0),
+    category: _resolveColumn_(headers, ['category'], 0),
+    accountCodes: _resolveColumn_(headers, ['account_codes', 'account_code'], 0),
+    accountType: _resolveColumn_(headers, ['account_type', 'accounttype'], 0),
+    reportMapping: _resolveColumn_(headers, ['report_mapping', 'reportmapping'], 0),
+    financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 0)
   };
 }
 
 function _getJournalColumns_(headers) {
-  const hasBankRef = headers.indexOf('bank_ref') >= 0;
-  const offset = hasBankRef ? 1 : 0;
+  // Column positions are resolved by header name only - no fallback numbers
+  // This ensures columns are always found by their exact header name
   return {
-    uuid: _resolveColumn_(headers, ['uuid'], 1),
-    batchId: _resolveColumn_(headers, ['batch_id'], 2),
-    date: _resolveColumn_(headers, ['date'], 3),
-    financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 4),
-    accountCode: _resolveColumn_(headers, ['account_code'], 5),
-    payee: _resolveColumn_(headers, ['payee'], 6),
-    refNo: _resolveColumn_(headers, ['ref_no'], 7),
-    bankRef: _resolveColumn_(headers, ['bank_ref'], hasBankRef ? 8 : 0),
-    particulars: _resolveColumn_(headers, ['particulars', 'particular'], 8 + offset),
-    subCategory: _resolveColumn_(headers, ['sub_category'], 9 + offset),
-    category: _resolveColumn_(headers, ['category'], 10 + offset),
-    description: _resolveColumn_(headers, ['description'], 11 + offset),
-    debit: _resolveColumn_(headers, ['debit'], 12 + offset),
-    credit: _resolveColumn_(headers, ['credit'], 13 + offset),
-    accountType: _resolveColumn_(headers, ['account_type'], 14 + offset),
-    reportMapping: _resolveColumn_(headers, ['report_mapping'], 15 + offset),
-    reconStatus: _resolveColumn_(headers, ['recon_status'], 16 + offset),
-    receiptUrl: _resolveColumn_(headers, ['receipt_url'], 17 + offset),
+    uuid: _resolveColumn_(headers, ['uuid'], 0),
+    batchId: _resolveColumn_(headers, ['batch_id', 'batchid'], 0),
+    date: _resolveColumn_(headers, ['date'], 0),
+    financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 0),
+    accountCode: _resolveColumn_(headers, ['account_code', 'accountcode'], 0),
+    payee: _resolveColumn_(headers, ['payee'], 0),
+    refNo: _resolveColumn_(headers, ['ref_no', 'refno'], 0),
+    bankRef: _resolveColumn_(headers, ['bank_ref', 'bankref'], 0),
+    particulars: _resolveColumn_(headers, ['particulars', 'particular'], 0),
+    subCategory: _resolveColumn_(headers, ['sub_category', 'subcategory'], 0),
+    category: _resolveColumn_(headers, ['category'], 0),
+    description: _resolveColumn_(headers, ['description'], 0),
+    debit: _resolveColumn_(headers, ['debit'], 0),
+    credit: _resolveColumn_(headers, ['credit'], 0),
+    accountType: _resolveColumn_(headers, ['account_type', 'accounttype'], 0),
+    reportMapping: _resolveColumn_(headers, ['report_mapping', 'reportmapping'], 0),
+    reconStatus: _resolveColumn_(headers, ['recon_status', 'reconcstatus'], 0),
+    receiptUrl: _resolveColumn_(headers, ['receipt_url', 'receipturl'], 0),
     advanceId: _resolveColumn_(headers, ['advance_id', 'advanceid'], 0)
   };
 }
