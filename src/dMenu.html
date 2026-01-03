@@ -150,6 +150,27 @@
   <div class="menu-section collapsible collapsed">
     <div class="menu-section-title" onclick="toggleMenuSection(this)">
       <span class="menu-toggle-btn"></span>
+      <span class="menu-section-label">Staff & Payroll</span>
+    </div>
+    <div class="menu-section-body">
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Staff" onclick="navigateTo(this, 'Staff')">
+        <span class="menu-item-icon" data-icon="staff"></span>
+        <span>Staff List</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter" data-label="Staff Advances" onclick="navigateTo(this, 'Staff Advances')">
+        <span class="menu-item-icon" data-icon="advance"></span>
+        <span>Staff Advances</span>
+      </div>
+      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Staff Statements" onclick="navigateTo(this, 'Staff Statements')">
+        <span class="menu-item-icon" data-icon="statement"></span>
+        <span>Statements</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu-section collapsible collapsed">
+    <div class="menu-section-title" onclick="toggleMenuSection(this)">
+      <span class="menu-toggle-btn"></span>
       <span class="menu-section-label">Sales & Receivables</span>
     </div>
     <div class="menu-section-body">
@@ -215,27 +236,6 @@
         <span>Aging Report</span>
       </div>
       <div class="menu-item" data-role="admin,inputter,viewer" data-label="Supplier Statements" onclick="navigateTo(this, 'Supplier Statements')">
-        <span class="menu-item-icon" data-icon="statement"></span>
-        <span>Statements</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="menu-section collapsible collapsed">
-    <div class="menu-section-title" onclick="toggleMenuSection(this)">
-      <span class="menu-toggle-btn"></span>
-      <span class="menu-section-label">Staff & Payroll</span>
-    </div>
-    <div class="menu-section-body">
-      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Staff" onclick="navigateTo(this, 'Staff')">
-        <span class="menu-item-icon" data-icon="staff"></span>
-        <span>Staff List</span>
-      </div>
-      <div class="menu-item" data-role="admin,inputter" data-label="Staff Advances" onclick="navigateTo(this, 'Staff Advances')">
-        <span class="menu-item-icon" data-icon="advance"></span>
-        <span>Staff Advances</span>
-      </div>
-      <div class="menu-item" data-role="admin,inputter,viewer" data-label="Staff Statements" onclick="navigateTo(this, 'Staff Statements')">
         <span class="menu-item-icon" data-icon="statement"></span>
         <span>Statements</span>
       </div>
