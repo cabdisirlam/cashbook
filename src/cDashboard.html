@@ -12173,7 +12173,9 @@
 
               <div class="form-group">
                 <label for="receiptBankAccount">Bank Account</label>
-                <input type="text" id="receiptBankAccount" placeholder="Account code" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                <select id="receiptBankAccount" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                  <option value="">Select bank account</option>
+                </select>
               </div>
 
               <div id="receiptFormStatus" style="min-height:24px;margin:12px 0;"></div>
@@ -12185,6 +12187,25 @@
       `;
 
       document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadInvoiceBankAccounts('receiptBankAccount');
+    }
+
+    function loadInvoiceBankAccounts(selectId, selectedValue) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const accounts = data && data.accounts ? data.accounts : [];
+          fillSelectOptions(selectId, accounts);
+          if (selectedValue) select.value = selectedValue;
+        })
+        .withFailureHandler(function() {
+          // Keep the fallback placeholder if accounts fail to load.
+        })
+        .getDropdownData();
     }
 
     function processInvoiceReceipt() {
