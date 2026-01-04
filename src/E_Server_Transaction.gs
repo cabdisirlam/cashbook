@@ -106,6 +106,11 @@ function getDropdownData() {
   return payload;
 }
 
+function getFinancialYears() {
+  const dropdowns = getDropdownData();
+  return dropdowns && dropdowns.financialYears ? dropdowns.financialYears : [];
+}
+
 function saveTransaction(data) {
   if (!data || !data.header || !data.rows || !data.rows.length) {
     throw new Error('Missing transaction data.');

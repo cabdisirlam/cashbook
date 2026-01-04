@@ -1920,6 +1920,7 @@ function saveGoodsReceivedNote(data) {
       grnNumber: grnNumber,
       poId: data.poId || '',
       poNumber: data.poNumber || '',
+      financialYear: data.financialYear || '',
       supplierId: data.supplierId || '',
       supplierName: data.supplierName || '',
       invoiceNumber: data.invoiceNumber,
@@ -2112,6 +2113,22 @@ function createInvoice(invoiceType, data) {
         financialYear: data.financialYear || '',
         customerName: data.contactName || data.customerName || '',
         particulars: data.particulars || '',
+        description: data.description || '',
+        amount: amount,
+        lineItems: lineItems
+      });
+    } catch (error) {
+      sheet.deleteRow(rowIndex);
+      return { success: false, message: error.message || 'Failed to create journal entry.' };
+    }
+  } else if (invoiceType === 'AP' && lineItems.length) {
+    try {
+      _createPayableJournalEntry({
+        invoiceId: invoiceId,
+        invoiceNumber: row[2],
+        invoiceDate: invoiceDate,
+        financialYear: data.financialYear || '',
+        supplierName: data.contactName || data.supplierName || '',
         description: data.description || '',
         amount: amount,
         lineItems: lineItems
@@ -2417,6 +2434,109 @@ function _createReceivableJournalEntry(entry) {
     'CREATE_JOURNAL',
     batchId,
     'Type: Invoice, Ref: ' + (entry.invoiceNumber || '') + ', Rows: ' + entries.length
+  );
+  return { success: true, batchId: batchId };
+}
+
+function _createPayableJournalEntry(entry) {
+  const ss = _getOrCreateSpreadsheet();
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) throw new Error('DB_JOURNAL not found.');
+
+  const meta = _loadMasterMeta_();
+  const payablesParticulars = _pickPayablesParticular_(meta.particularMeta);
+  if (!payablesParticulars) throw new Error('Particulars not found for Accounts Payable.');
+
+  const payablesMeta = meta.particularMeta[payablesParticulars];
+  if (!payablesMeta || !payablesMeta.subCategory || !payablesMeta.category) {
+    throw new Error('Particulars not found: ' + payablesParticulars + '.');
+  }
+
+  const batchId = 'JRN-' + new Date().getTime();
+  const baseDescription = entry.description || ('Invoice ' + entry.invoiceNumber);
+  const lineItems = Array.isArray(entry.lineItems) ? entry.lineItems : [];
+  const debitEntries = [];
+  let debitTotal = 0;
+
+  lineItems.forEach(function(line) {
+    const particulars = String(line && (line.particulars || line.particular) || '').trim();
+    if (!particulars) throw new Error('Each payable line needs particulars.');
+    const lineMeta = meta.particularMeta[particulars];
+    if (!lineMeta || !lineMeta.subCategory || !lineMeta.category) {
+      throw new Error('Particulars not found: ' + particulars + '.');
+    }
+    const accountType = String(lineMeta.accountType || '').trim().toLowerCase();
+    if (accountType === 'income' || accountType === 'liability') {
+      throw new Error('Payable line must be an asset or expense: ' + particulars + '.');
+    }
+    const qty = parseFloat(line && (line.qtyAccepted || line.qtyReceived || line.quantity)) || 0;
+    const rate = parseFloat(line && (line.unitPrice || line.rate)) || 0;
+    let lineTotal = parseFloat(line && (line.total || line.totalPrice));
+    if (!Number.isFinite(lineTotal)) lineTotal = qty * rate;
+    if (lineTotal <= 0) throw new Error('Payable line amount must be greater than zero.');
+    debitTotal += lineTotal;
+    debitEntries.push({
+      particulars: particulars,
+      meta: lineMeta,
+      description: String(line && (line.description || line.itemDescription) || '').trim() || baseDescription,
+      amount: lineTotal
+    });
+  });
+
+  if (debitTotal <= 0) throw new Error('Invoice amount must be greater than zero.');
+
+  const entries = debitEntries.map(function(line) {
+    return [
+      Utilities.getUuid(),
+      batchId,
+      entry.invoiceDate,
+      entry.financialYear || '',
+      '',
+      entry.supplierName || '',
+      entry.invoiceNumber || '',
+      '',
+      line.particulars,
+      line.meta.subCategory || '',
+      line.meta.category || '',
+      line.description,
+      line.amount,
+      0,
+      line.meta.accountType || '',
+      line.meta.reportMapping || '',
+      '',
+      '',
+      entry.invoiceId || ''
+    ];
+  });
+
+  entries.push([
+    Utilities.getUuid(),
+    batchId,
+    entry.invoiceDate,
+    entry.financialYear || '',
+    '',
+    entry.supplierName || '',
+    entry.invoiceNumber || '',
+    '',
+    payablesParticulars,
+    payablesMeta.subCategory || '',
+    payablesMeta.category || '',
+    baseDescription,
+    0,
+    debitTotal,
+    payablesMeta.accountType || '',
+    payablesMeta.reportMapping || '',
+    '',
+    '',
+    entry.invoiceId || ''
+  ]);
+
+  const startRow = journal.getLastRow() + 1;
+  journal.getRange(startRow, 1, entries.length, entries[0].length).setValues(entries);
+  logSystemEventSafe(
+    'CREATE_JOURNAL',
+    batchId,
+    'Type: GRN Invoice, Ref: ' + (entry.invoiceNumber || '') + ', Rows: ' + entries.length
   );
   return { success: true, batchId: batchId };
 }
