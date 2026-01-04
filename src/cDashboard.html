@@ -6094,31 +6094,42 @@
 
     function buildNotesDownloadRows(result) {
       const rows = [];
-      const categories = (result && result.categories) ? result.categories : [];
+      const performanceCategories = (result && result.performanceCategories) ? result.performanceCategories : (result && result.categories) ? result.categories : [];
+      const cashCategories = (result && result.cashCategories) ? result.cashCategories : [];
       const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
       const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
 
-      categories.forEach((category, index) => {
-        const noteNumber = category.noteNumber || (index + 6);
-        rows.push([`${noteNumber}. ${category.category || ''}`, '', '']);
-        rows.push(['Description', currentLabel, comparativeLabel]);
-        (category.subCategories || []).forEach(sub => {
-          rows.push([sub.subCategory || '', '', '']);
-          (sub.items || []).forEach(item => {
-            rows.push([
-              item.particulars || '',
-              formatPerformanceAmount(item.currentAmount),
-              formatPerformanceAmount(item.comparativeAmount)
-            ]);
+      const appendCategoryRows = function(sectionLabel, categories) {
+        if (!categories.length) return;
+        rows.push([sectionLabel, '', '']);
+        categories.forEach((category, index) => {
+          const noteNumber = category.noteNumber || (index + 6);
+          rows.push([`${noteNumber}. ${category.category || ''}`, '', '']);
+          rows.push(['Description', currentLabel, comparativeLabel]);
+          (category.subCategories || []).forEach(sub => {
+            rows.push([sub.subCategory || '', '', '']);
+            (sub.items || []).forEach(item => {
+              rows.push([
+                item.particulars || '',
+                formatPerformanceAmount(item.currentAmount),
+                formatPerformanceAmount(item.comparativeAmount)
+              ]);
+            });
           });
+          rows.push([
+            'Total',
+            formatPerformanceAmount(category.totalCurrent),
+            formatPerformanceAmount(category.totalComparative)
+          ]);
+          rows.push(['', '', '']);
         });
-        rows.push([
-          'Total',
-          formatPerformanceAmount(category.totalCurrent),
-          formatPerformanceAmount(category.totalComparative)
-        ]);
+      };
+
+      appendCategoryRows('Performance Notes', performanceCategories);
+      if (cashCategories.length) {
         rows.push(['', '', '']);
-      });
+        appendCategoryRows('Cash Flow Notes', cashCategories);
+      }
 
       return rows;
     }
@@ -6904,7 +6915,7 @@
           if (status) status.textContent = '';
           showNotesAlert(error.message || 'Failed to load notes.', 'error');
         })
-        .getNotesReport(currentYear, comparativeYear);
+        .getNotesReportCombined(currentYear, comparativeYear);
     }
 
     function fireNotesCache(currentYear, comparativeYear) {
@@ -6919,15 +6930,16 @@
             renderNotesReport(lastNotesResult);
           }
         })
-        .getNotesReport(currentYear, comparativeYear);
+        .getNotesReportCombined(currentYear, comparativeYear);
     }
 
     function renderNotesReport(result) {
       const container = document.getElementById('notesReport');
       if (!container) return;
 
-      const categories = (result && result.categories) ? result.categories : [];
-      if (!categories.length) {
+      const performanceCategories = (result && result.performanceCategories) ? result.performanceCategories : (result && result.categories) ? result.categories : [];
+      const cashCategories = (result && result.cashCategories) ? result.cashCategories : [];
+      if (!performanceCategories.length && !cashCategories.length) {
         container.innerHTML = '<div class="card"><p>No notes found for the selected years.</p></div>';
         return;
       }
@@ -6935,28 +6947,30 @@
       const currentLabel = result.currentYear ? `Current FY (${result.currentYear})` : 'Current FY';
       const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
 
-      const notesHtml = categories.map(function(category, index) {
-        const noteNumber = category.noteNumber || (index + 6);
-        const subRows = (category.subCategories || []).map(function(subCategory) {
-          const items = (subCategory.items || []).map(function(item) {
-            return `
+      const renderNotesSection = function(title, categories) {
+        if (!categories.length) return '';
+        const sectionHtml = categories.map(function(category, index) {
+          const noteNumber = category.noteNumber || (index + 6);
+          const subRows = (category.subCategories || []).map(function(subCategory) {
+            const items = (subCategory.items || []).map(function(item) {
+              return `
               <tr>
                 <td>${item.particulars || ''}</td>
                 <td>${formatAmount(item.currentAmount)}</td>
                 <td>${formatAmount(item.comparativeAmount)}</td>
               </tr>
             `;
-          }).join('');
+            }).join('');
 
-          return `
+            return `
             <tr>
               <td colspan="3" style="font-weight:600;background:#f9fafb;">${subCategory.subCategory || ''}</td>
             </tr>
             ${items}
           `;
-        }).join('');
+          }).join('');
 
-        return `
+          return `
           <div class="card" style="margin-bottom:16px;">
             <div style="font-weight:700;margin-bottom:8px;">${noteNumber}. ${category.category || ''}</div>
             <table class="table">
@@ -6982,7 +6996,20 @@
             </table>
           </div>
         `;
-      }).join('');
+        }).join('');
+
+        return `
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-weight:700;margin-bottom:8px;">${title}</div>
+        </div>
+        ${sectionHtml}
+      `;
+      };
+
+      const notesHtml = [
+        renderNotesSection('Performance Notes', performanceCategories),
+        renderNotesSection('Cash Flow Notes', cashCategories)
+      ].filter(Boolean).join('');
 
       container.innerHTML = notesHtml;
     }

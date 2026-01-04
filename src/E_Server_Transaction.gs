@@ -1989,10 +1989,51 @@ function _buildNoteNumberByCategory(categories) {
   return noteNumberByCategory;
 }
 
+function _buildNoteMapsForReports_(performanceCategories, cashCategories) {
+  const baseMap = _buildNoteNumberByCategory(performanceCategories || []);
+  const perfNames = new Set((performanceCategories || []).map(item => item && item.category).filter(Boolean));
+  const cashNames = new Set((cashCategories || []).map(item => item && item.category).filter(Boolean));
+  const shared = new Set();
+  perfNames.forEach(name => {
+    if (cashNames.has(name)) shared.add(name);
+  });
+
+  const performanceNotesByCategory = {};
+  (performanceCategories || []).forEach(category => {
+    if (!category || !category.category) return;
+    const base = baseMap[category.category];
+    performanceNotesByCategory[category.category] = shared.has(category.category) ? String(base) + 'a' : String(base || '');
+  });
+
+  let nextBase = Object.values(baseMap).reduce((maxValue, value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(maxValue, numeric) : maxValue;
+  }, 0);
+  const cashNotesByCategory = {};
+  (cashCategories || []).forEach(category => {
+    if (!category || !category.category) return;
+    const name = category.category;
+    if (shared.has(name)) {
+      cashNotesByCategory[name] = String(baseMap[name]) + 'b';
+    } else {
+      nextBase += 1;
+      cashNotesByCategory[name] = String(nextBase);
+    }
+  });
+
+  return {
+    performanceNotesByCategory,
+    cashNotesByCategory
+  };
+}
+
 function getPerformanceReport(currentYear, comparativeYear) {
   const notes = getNotesReport(currentYear, comparativeYear);
   const categories = Array.isArray(notes.categories) ? notes.categories : [];
-  const noteNumberByCategory = _buildNoteNumberByCategory(categories);
+  const cashNotes = getNotesReport(currentYear, comparativeYear, { basis: 'cash' });
+  const cashCategories = Array.isArray(cashNotes.categories) ? cashNotes.categories : [];
+  const noteMaps = _buildNoteMapsForReports_(categories, cashCategories);
+  const noteNumberByCategory = noteMaps.performanceNotesByCategory || {};
 
   const revenueRows = [];
   const expenseRows = [];
@@ -2042,16 +2083,37 @@ function getPerformanceReport(currentYear, comparativeYear) {
   };
 }
 
+function getNotesReportCombined(currentYear, comparativeYear) {
+  const performance = getNotesReport(currentYear, comparativeYear);
+  const cash = getNotesReport(currentYear, comparativeYear, { basis: 'cash' });
+  const performanceCategories = Array.isArray(performance.categories) ? performance.categories : [];
+  const cashCategories = Array.isArray(cash.categories) ? cash.categories : [];
+  const noteMaps = _buildNoteMapsForReports_(performanceCategories, cashCategories);
+
+  performanceCategories.forEach(category => {
+    if (!category || !category.category) return;
+    category.noteNumber = noteMaps.performanceNotesByCategory[category.category] || '';
+  });
+  cashCategories.forEach(category => {
+    if (!category || !category.category) return;
+    category.noteNumber = noteMaps.cashNotesByCategory[category.category] || '';
+  });
+
+  return {
+    currentYear: performance.currentYear || String(currentYear || '').trim(),
+    comparativeYear: performance.comparativeYear || String(comparativeYear || '').trim(),
+    performanceCategories: performanceCategories,
+    cashCategories: cashCategories
+  };
+}
+
 function getCashFlowReport(currentYear, comparativeYear) {
   const notes = getNotesReport(currentYear, comparativeYear, { basis: 'cash' });
   const categories = Array.isArray(notes.categories) ? notes.categories : [];
-  const noteNumberByCategory = _buildNoteNumberByCategory(categories);
-  const baseNoteNumber = Object.values(noteNumberByCategory).reduce((maxValue, value) => {
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? Math.max(maxValue, numeric) : maxValue;
-  }, 0);
-  let nextCashFlowNoteNumber = baseNoteNumber > 0 ? baseNoteNumber + 1 : 6;
-  const cashFlowNoteNumberByCategory = {};
+  const performanceNotes = getNotesReport(currentYear, comparativeYear);
+  const performanceCategories = Array.isArray(performanceNotes.categories) ? performanceNotes.categories : [];
+  const noteMaps = _buildNoteMapsForReports_(performanceCategories, categories);
+  const cashFlowNoteNumberByCategory = noteMaps.cashNotesByCategory || {};
 
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -2374,11 +2436,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
         row.note = '';
         return;
       }
-      if (!cashFlowNoteNumberByCategory[row.description]) {
-        cashFlowNoteNumberByCategory[row.description] = nextCashFlowNoteNumber;
-        nextCashFlowNoteNumber += 1;
-      }
-      row.note = cashFlowNoteNumberByCategory[row.description];
+      row.note = cashFlowNoteNumberByCategory[row.description] || '';
     });
   });
 
