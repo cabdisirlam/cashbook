@@ -12418,6 +12418,7 @@
           updateAmountDefaults();
         })
         .withFailureHandler(function(error) {
+          select.innerHTML = '<option value="">-- Select Advance --</option>';
           status.textContent = error.message || 'Failed to load advances.';
         })
         .getCustomerAdvances(customerName);

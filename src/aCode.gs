@@ -2257,6 +2257,7 @@ function _isAdvanceCandidate_(category, particulars, accountType, reportMapping)
 function getCustomerAdvances(customerName) {
   const payee = String(customerName || '').trim();
   if (!payee) return [];
+  const payeeKey = payee.toLowerCase();
 
   const ss = _getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -2273,7 +2274,7 @@ function getCustomerAdvances(customerName) {
 
   data.forEach(function(row) {
     const rowPayee = cols.payee ? String(row[cols.payee - 1] || '').trim() : '';
-    if (rowPayee !== payee) return;
+    if (!rowPayee || rowPayee.toLowerCase() !== payeeKey) return;
     const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
     if (!batchId) return;
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
