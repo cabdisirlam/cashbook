@@ -2051,6 +2051,8 @@ function getCashFlowReport(currentYear, comparativeYear) {
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!journal) throw new Error('DB_JOURNAL not found.');
+  const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+  if (!master) throw new Error('MASTER_DATA not found.');
 
   const journalLastRow = journal.getLastRow();
   const journalLastCol = journal.getLastColumn();
@@ -2067,6 +2069,8 @@ function getCashFlowReport(currentYear, comparativeYear) {
   let investingComparative = 0;
   let financingCurrent = 0;
   let financingComparative = 0;
+  const subCategoryLookup = {};
+  const nonReceivableEntries = [];
 
   if (journalLastRow >= 2) {
     const journalHeaders = journal.getRange(1, 1, 1, journalLastCol).getValues()[0].map(_normalizeHeader_);
@@ -2092,6 +2096,54 @@ function getCashFlowReport(currentYear, comparativeYear) {
         return true;
       }
       return false;
+    };
+
+    const masterLastRow = master.getLastRow();
+    const masterLastCol = master.getLastColumn();
+    if (masterLastRow >= 2) {
+      const masterHeaders = master.getRange(1, 1, 1, masterLastCol).getValues()[0].map(_normalizeHeader_);
+      const masterCols = _getMasterColumns_(masterHeaders);
+      const masterData = master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues();
+
+      masterData.forEach(row => {
+        const particulars = masterCols.particulars ? String(row[masterCols.particulars - 1] || '').trim() : '';
+        const subCategory = masterCols.subCategory ? String(row[masterCols.subCategory - 1] || '').trim() : '';
+        const category = masterCols.category ? String(row[masterCols.category - 1] || '').trim() : '';
+        const accountType = masterCols.accountType ? String(row[masterCols.accountType - 1] || '').trim() : '';
+        const reportMapping = masterCols.reportMapping ? String(row[masterCols.reportMapping - 1] || '').trim() : '';
+        if (!particulars) return;
+        if (isReceivablePayableEntry(reportMapping, accountType, category, particulars)) return;
+        const entry = { particulars, subCategory, category, accountType, reportMapping };
+        nonReceivableEntries.push(entry);
+        if (subCategory) {
+          if (!subCategoryLookup[subCategory]) subCategoryLookup[subCategory] = [];
+          subCategoryLookup[subCategory].push(entry);
+        }
+      });
+    }
+
+    const normalizeKeywords = function(value) {
+      const cleaned = String(value || '')
+        .toLowerCase()
+        .replace(/receivable|payable|advance|prepaid/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+      if (!cleaned) return [];
+      return cleaned.split(/\s+/).filter(Boolean);
+    };
+
+    const resolveReceivableFallback = function(particulars, subCategory) {
+      const keywords = normalizeKeywords(particulars);
+      const candidates = (subCategory && subCategoryLookup[subCategory]) ? subCategoryLookup[subCategory] : nonReceivableEntries;
+      if (!candidates.length) return null;
+      if (keywords.length) {
+        const match = candidates.find(entry => {
+          const entryText = String(entry.particulars || '').toLowerCase();
+          return keywords.some(keyword => entryText.includes(keyword));
+        });
+        if (match) return match;
+      }
+      return candidates[0] || null;
     };
 
     // Build map of original entries by Advance_ID for tracing receivable/payable settlements
@@ -2183,6 +2235,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
       const particulars = String(row[cols.particulars - 1] || '').trim();
       if (!particulars) return;
       const category = cols.category ? String(row[cols.category - 1] || '').trim() : 'Uncategorized';
+      const subCategory = cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '';
       const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
       const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
       const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
@@ -2227,6 +2280,20 @@ function getCashFlowReport(currentYear, comparativeYear) {
           });
           return; // Skip normal processing since we handled via tracing
         }
+      }
+
+      if (isReceivablePayable) {
+        const fallbackEntry = resolveReceivableFallback(particulars, subCategory);
+        if (fallbackEntry) {
+          const lineCategory = fallbackEntry.category || 'Uncategorized';
+          const classDebit = bankDirection === 'payment' ? amount : 0;
+          const classCredit = bankDirection === 'receipt' ? amount : 0;
+          const classification = _classifyCashFlowLine_(fallbackEntry.reportMapping, fallbackEntry.accountType, classDebit, classCredit);
+          if (classification) {
+            addToCashFlow(lineCategory, amount, classification, targetYear);
+          }
+        }
+        return;
       }
 
       // Normal processing for non-traced entries
