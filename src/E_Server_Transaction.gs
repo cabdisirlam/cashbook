@@ -2041,6 +2041,12 @@ function getCashFlowReport(currentYear, comparativeYear) {
   const notes = getNotesReport(currentYear, comparativeYear, { basis: 'cash' });
   const categories = Array.isArray(notes.categories) ? notes.categories : [];
   const noteNumberByCategory = _buildNoteNumberByCategory(categories);
+  const baseNoteNumber = Object.values(noteNumberByCategory).reduce((maxValue, value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(maxValue, numeric) : maxValue;
+  }, 0);
+  let nextCashFlowNoteNumber = baseNoteNumber > 0 ? baseNoteNumber + 1 : 6;
+  const cashFlowNoteNumberByCategory = {};
 
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -2070,6 +2076,34 @@ function getCashFlowReport(currentYear, comparativeYear) {
     const cashBatchComparative = new Set();
     const bankDirectionByBatch = {};
 
+    const isReceivablePayableEntry = function(mapping, accountType, category, particulars) {
+      const mappingLower = String(mapping || '').toLowerCase();
+      const accountTypeLower = String(accountType || '').toLowerCase();
+      const categoryLower = String(category || '').toLowerCase();
+      const particularsLower = String(particulars || '').toLowerCase();
+      const hasReceivablePayable = mappingLower.includes('receivable') || mappingLower.includes('payable') ||
+        accountTypeLower.includes('receivable') || accountTypeLower.includes('payable') ||
+        categoryLower.includes('receivable') || categoryLower.includes('payable') ||
+        particularsLower.includes('receivable') || particularsLower.includes('payable');
+      if (hasReceivablePayable) return true;
+      const isAdvanceLike = categoryLower.includes('advance') || particularsLower.includes('advance') ||
+        categoryLower.includes('prepaid') || particularsLower.includes('prepaid');
+      if (isAdvanceLike && (mappingLower.includes('current asset') || accountTypeLower.includes('asset'))) {
+        return true;
+      }
+      return false;
+    };
+
+    const resolveCashFlowNote = function(lineCategory, overrideNote) {
+      if (overrideNote !== undefined) return overrideNote;
+      if (!lineCategory) return '';
+      if (!cashFlowNoteNumberByCategory[lineCategory]) {
+        cashFlowNoteNumberByCategory[lineCategory] = nextCashFlowNoteNumber;
+        nextCashFlowNoteNumber += 1;
+      }
+      return cashFlowNoteNumberByCategory[lineCategory];
+    };
+
     // Build map of original entries by Advance_ID for tracing receivable/payable settlements
     const originalEntriesByAdvanceId = {};
     journalData.forEach(row => {
@@ -2081,6 +2115,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
       const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
       const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
       const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+      const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
       const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
       const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
       const amount = Math.abs(debit - credit);
@@ -2090,7 +2125,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
         originalEntriesByAdvanceId[advanceId] = [];
       }
       originalEntriesByAdvanceId[advanceId].push({
-        particulars, category, reportMapping, accountType, debit, credit, amount
+        particulars, category, reportMapping, accountType, debit, credit, amount, batchId
       });
     });
 
@@ -2113,7 +2148,8 @@ function getCashFlowReport(currentYear, comparativeYear) {
     });
 
     // Helper function to add amounts to cash flow sections
-    function addToCashFlow(lineCategory, lineNote, amount, classification, targetYear) {
+    function addToCashFlow(lineCategory, amount, classification, targetYear, noteOverride) {
+      const lineNote = resolveCashFlowNote(lineCategory, noteOverride);
       if (classification.section === 'operating') {
         if (classification.direction === 'receipt') {
           operatingReceipts[lineCategory] = operatingReceipts[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
@@ -2169,10 +2205,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
 
       // Check if this is a receivable/payable settlement that needs tracing
       const mappingLower = String(reportMapping || '').toLowerCase();
-      const accountTypeLower = String(accountType || '').toLowerCase();
-      const isReceivablePayable = mappingLower.includes('current asset') || mappingLower.includes('current liabil') ||
-                                   accountTypeLower.includes('receivable') || accountTypeLower.includes('payable') ||
-                                   particulars.toLowerCase().includes('receivable') || particulars.toLowerCase().includes('payable');
+      const isReceivablePayable = isReceivablePayableEntry(reportMapping, accountType, category, particulars);
 
       // If this is a receivable/payable entry with an Advance_ID, trace to original entries
       if (isReceivablePayable && advanceId && originalEntriesByAdvanceId[advanceId]) {
@@ -2180,15 +2213,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
 
         // Filter to get only income/expense entries (not the receivable/payable counter-entries)
         const underlyingEntries = originalEntries.filter(e => {
-          const eLower = String(e.reportMapping || '').toLowerCase();
-          const eTypeLower = String(e.accountType || '').toLowerCase();
-          const isIncomeExpense = eLower.includes('income') || eLower.includes('expense') ||
-                                   eLower.includes('non-current asset') || eLower.includes('non-current liabil') ||
-                                   eTypeLower.includes('income') || eTypeLower.includes('expense') ||
-                                   eTypeLower.includes('non-current');
-          const isNotReceivablePayable = !e.particulars.toLowerCase().includes('receivable') &&
-                                          !e.particulars.toLowerCase().includes('payable');
-          return isIncomeExpense || isNotReceivablePayable;
+          return !isReceivablePayableEntry(e.reportMapping, e.accountType, e.category, e.particulars);
         });
 
         if (underlyingEntries.length > 0) {
@@ -2201,14 +2226,13 @@ function getCashFlowReport(currentYear, comparativeYear) {
             const allocatedAmount = amount * proportion;
 
             const lineCategory = entry.category || 'Uncategorized';
-            const lineNote = noteNumberByCategory[lineCategory] || '';
 
             const classDebit = bankDirection === 'payment' ? allocatedAmount : 0;
             const classCredit = bankDirection === 'receipt' ? allocatedAmount : 0;
             const classification = _classifyCashFlowLine_(entry.reportMapping, entry.accountType, classDebit, classCredit);
 
             if (classification) {
-              addToCashFlow(lineCategory, lineNote, allocatedAmount, classification, targetYear);
+              addToCashFlow(lineCategory, allocatedAmount, classification, targetYear);
             }
           });
           return; // Skip normal processing since we handled via tracing
@@ -2219,11 +2243,9 @@ function getCashFlowReport(currentYear, comparativeYear) {
       const isNetAssets = mappingLower.includes('net asset');
       let classification = null;
       let lineCategory = category;
-      let lineNote = noteNumberByCategory[category] || '';
       if (isNetAssets) {
         classification = { section: 'financing', direction: bankDirection };
         lineCategory = 'Prior year adjustment';
-        lineNote = '';
       } else {
         const classDebit = bankDirection === 'payment' ? amount : 0;
         const classCredit = bankDirection === 'receipt' ? amount : 0;
@@ -2231,7 +2253,8 @@ function getCashFlowReport(currentYear, comparativeYear) {
       }
       if (!classification) return;
 
-      addToCashFlow(lineCategory, lineNote, amount, classification, targetYear);
+      const noteOverride = isNetAssets ? '' : undefined;
+      addToCashFlow(lineCategory, amount, classification, targetYear, noteOverride);
     });
   }
 
