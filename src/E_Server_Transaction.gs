@@ -4192,6 +4192,10 @@ function _classifyCashFlowLine_(reportMapping, accountType, debit, credit) {
     return { section: 'operating', direction: 'payment' };
   }
 
+  if (mapping.includes('investment') || mapping.includes('investments')) {
+    return { section: 'investing', direction: direction };
+  }
+
   if (mapping.includes('current asset') || mapping.includes('current liability')) {
     return { section: 'operating', direction: direction };
   }
