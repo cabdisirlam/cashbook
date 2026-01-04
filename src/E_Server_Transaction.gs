@@ -155,24 +155,6 @@ function saveTransaction(data) {
   const accountMeta = _buildAccountMeta_(masterData, masterCols);
 
   const contactsSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
-  const contactMapByName = {};
-  if (contactsSheet) {
-    const contactsLastRow = contactsSheet.getLastRow();
-    if (contactsLastRow >= 2) {
-      const contactsData = contactsSheet.getRange(2, 1, contactsLastRow - 1, 3).getValues();
-      contactsData.forEach(function(row) {
-        const contactId = String(row[0] || '').trim();
-        const contactName = String(row[2] || '').trim();
-        if (!contactId || !contactName) return;
-        const nameKey = contactName.toLowerCase();
-        if (!contactMapByName[nameKey]) {
-          contactMapByName[nameKey] = contactId;
-        }
-      });
-    }
-  }
-
-  const contactsSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
   const contactMapByType = {};
   const contactMapByName = {};
   if (contactsSheet) {
