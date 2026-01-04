@@ -1850,8 +1850,12 @@ function getNotesReport(currentYear, comparativeYear, options) {
       particulars.forEach(particularsName => {
         const meta = particularsMeta[particularsName] || {};
         const accountType = meta.accountType || '';
-        const currentAmount = _resolveNotesAmount_(current, particularsName, accountType);
-        const comparativeAmount = _resolveNotesAmount_(comparative, particularsName, accountType);
+        const currentAmount = useCashBasis
+          ? _resolveCashNotesAmount_(current, particularsName, meta)
+          : _resolveNotesAmount_(current, particularsName, accountType);
+        const comparativeAmount = useCashBasis
+          ? _resolveCashNotesAmount_(comparative, particularsName, meta)
+          : _resolveNotesAmount_(comparative, particularsName, accountType);
         if (!currentAmount && !comparativeAmount) return;
 
         categoryTotalCurrent += currentAmount;
@@ -4267,6 +4271,22 @@ function _resolveNotesAmount_(bucket, particulars, accountType) {
   if (accountTypeValue.includes('expense')) return debit - credit;
   if (accountTypeValue.includes('asset')) return debit - credit;
   return credit - debit;
+}
+
+function _resolveCashNotesAmount_(bucket, particulars, meta) {
+  const debit = bucket.debit[particulars] || 0;
+  const credit = bucket.credit[particulars] || 0;
+  const net = debit - credit;
+  const classification = _classifyCashFlowLine_(
+    meta && meta.reportMapping || '',
+    meta && meta.accountType || '',
+    debit,
+    credit
+  );
+  if (!classification || classification.section === 'operating') {
+    return Math.abs(net);
+  }
+  return net;
 }
 
 function _classifyCashFlowLine_(reportMapping, accountType, debit, credit) {
