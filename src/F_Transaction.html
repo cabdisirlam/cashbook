@@ -732,6 +732,32 @@
         </div>
       </div>
 
+      <div style="font-size:12px;font-weight:600;color:#1e293b;margin:10px 0 6px;">Bank Classification (Cashflow)</div>
+      <div class="grid">
+        <div>
+          <label class="form-label" for="bankCategory">Bank Category</label>
+          <select class="input-field" id="bankCategory" onchange="onBankCategoryChange()">
+            <option value="">-- Category --</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" for="bankSubCategory">Bank Sub-Category</label>
+          <select class="input-field" id="bankSubCategory" onchange="onBankSubCategoryChange()">
+            <option value="">-- Select Category first --</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" for="bankParticulars">Bank Particulars</label>
+          <select class="input-field" id="bankParticulars" onchange="onBankParticularsChange()">
+            <option value="">-- Select Sub-Cat first --</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" for="bankDescription">Bank Description</label>
+          <input type="text" id="bankDescription" class="input-field" placeholder="Cashflow description">
+        </div>
+      </div>
+
       <table class="split-table">
         <thead>
           <tr>
@@ -887,6 +913,7 @@
     setTransactionTitle();
     document.getElementById('paymentModal').style.display = 'flex';
     setDefaultDate();
+    resetBankClassification();
     loadDropdowns();
     applyParticularFilter();
     if (!document.getElementById('splitBody').children.length) {
@@ -905,6 +932,7 @@
     setTransactionTitle();
     document.getElementById('paymentModal').style.display = 'flex';
     setDefaultDate();
+    resetBankClassification();
     loadDropdowns();
     applyParticularFilter();
     if (!document.getElementById('splitBody').children.length) {
@@ -1000,6 +1028,7 @@
         fillList('financialYearList', payload.financialYears || []);
         refreshLineCategories();
         refreshLinePayeeTypes();
+        refreshBankClassificationOptions();
         setStatus('');
       })
       .withFailureHandler(function(error) {
@@ -1205,6 +1234,115 @@
     row.querySelector('.amount-input').addEventListener('input', updateTotal);
 
     document.getElementById('splitBody').appendChild(row);
+  }
+
+  function refreshBankClassificationOptions() {
+    const catEl = document.getElementById('bankCategory');
+    const subEl = document.getElementById('bankSubCategory');
+    const partEl = document.getElementById('bankParticulars');
+    if (!catEl || !subEl || !partEl) return;
+
+    const selectedCat = catEl.value;
+    const selectedSub = subEl.value;
+    const selectedPart = partEl.value;
+
+    catEl.innerHTML = '<option value="">-- Category --</option>';
+    (paymentState.categories || []).forEach(function(cat) {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      catEl.appendChild(opt);
+    });
+    if (selectedCat) catEl.value = selectedCat;
+
+    populateBankSubCategories(selectedCat);
+    if (selectedSub) {
+      subEl.value = selectedSub;
+      populateBankParticulars(selectedSub);
+      if (selectedPart) partEl.value = selectedPart;
+    }
+  }
+
+  function populateBankSubCategories(selectedCat) {
+    const subCatSelect = document.getElementById('bankSubCategory');
+    const partSelect = document.getElementById('bankParticulars');
+    if (!subCatSelect || !partSelect) return;
+
+    const filteredSubCats = (paymentState.subCats || []).filter(function(sc) {
+      return paymentState.subToCatMap[sc] === selectedCat;
+    });
+    subCatSelect.innerHTML = '<option value="">-- Sub-Category --</option>';
+    filteredSubCats.forEach(function(sc) {
+      const opt = document.createElement('option');
+      opt.value = sc;
+      opt.textContent = sc;
+      subCatSelect.appendChild(opt);
+    });
+
+    partSelect.innerHTML = '<option value="">-- Select Sub-Cat first --</option>';
+  }
+
+  function populateBankParticulars(selectedSubCat) {
+    const partSelect = document.getElementById('bankParticulars');
+    if (!partSelect) return;
+
+    const filteredParts = (allParticulars || []).filter(function(p) {
+      const meta = paymentState.particularMeta[p] || {};
+      if (meta.subCategory !== selectedSubCat) return false;
+      if (transactionMode === 'Receipt') {
+        return isOperatingIncomeParticular(meta);
+      }
+      if (transactionMode === 'Payment') {
+        return !isIncomeMappedParticular(meta);
+      }
+      return true;
+    });
+
+    partSelect.innerHTML = '<option value="">-- Particulars --</option>';
+    filteredParts.forEach(function(p) {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      partSelect.appendChild(opt);
+    });
+  }
+
+  function onBankCategoryChange() {
+    const selectedCat = document.getElementById('bankCategory').value;
+    populateBankSubCategories(selectedCat);
+  }
+
+  function onBankSubCategoryChange() {
+    const selectedSubCat = document.getElementById('bankSubCategory').value;
+    populateBankParticulars(selectedSubCat);
+  }
+
+  function onBankParticularsChange() {
+    const select = document.getElementById('bankParticulars');
+    if (!select) return;
+    const particulars = select.value.trim();
+    const meta = paymentState.particularMeta[particulars] || {};
+    if (isIncomeMappedParticular(meta) && transactionMode === 'Payment') {
+      select.value = '';
+      setStatus('Payments cannot use particulars mapped as operating income.');
+      return;
+    }
+    if (!isOperatingIncomeParticular(meta) && transactionMode === 'Receipt') {
+      select.value = '';
+      setStatus('Receipts can only use particulars mapped as operating income.');
+      return;
+    }
+  }
+
+  function resetBankClassification() {
+    const catEl = document.getElementById('bankCategory');
+    const subEl = document.getElementById('bankSubCategory');
+    const partEl = document.getElementById('bankParticulars');
+    const descEl = document.getElementById('bankDescription');
+    if (catEl) catEl.value = '';
+    if (subEl) subEl.value = '';
+    if (partEl) partEl.value = '';
+    if (descEl) descEl.value = '';
   }
 
   function refreshLinePayeeTypes() {
@@ -1768,7 +1906,11 @@
       financialYear: document.getElementById('txnFinancialYear').value.trim(),
       accountCode: document.getElementById('accountCode').value.trim(),
       refNo: document.getElementById('refNo').value.trim(),
-      bankRef: document.getElementById('bankRef').value.trim()
+      bankRef: document.getElementById('bankRef').value.trim(),
+      bankCategory: document.getElementById('bankCategory').value.trim(),
+      bankSubCategory: document.getElementById('bankSubCategory').value.trim(),
+      bankParticulars: document.getElementById('bankParticulars').value.trim(),
+      bankDescription: document.getElementById('bankDescription').value.trim()
     };
 
     const rows = [];
@@ -1818,6 +1960,26 @@
       return;
     }
 
+    if (!header.bankCategory || !header.bankSubCategory || !header.bankParticulars) {
+      setStatus('Bank classification (category, sub-category, and particulars) is required.');
+      return;
+    }
+
+    const bankMeta = paymentState.particularMeta[header.bankParticulars] || {};
+    if (!bankMeta.subCategory || !bankMeta.category) {
+      setStatus('Bank particulars not found in master data.');
+      return;
+    }
+
+    if (isIncomeMappedParticular(bankMeta) && transactionMode === 'Payment') {
+      setStatus('Payments cannot use particulars mapped as operating income.');
+      return;
+    }
+    if (!isOperatingIncomeParticular(bankMeta) && transactionMode === 'Receipt') {
+      setStatus('Receipts can only use particulars mapped as operating income.');
+      return;
+    }
+
     if (hasInvalid) {
       return;
     }
@@ -1858,6 +2020,7 @@
     document.getElementById('accountCode').value = '';
     document.getElementById('refNo').value = '';
     document.getElementById('bankRef').value = '';
+    resetBankClassification();
     document.getElementById('txnFinancialYear').value = '';
     document.getElementById('totalAmount').textContent = '0.00';
     setDefaultDate();

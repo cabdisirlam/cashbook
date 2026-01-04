@@ -132,6 +132,8 @@ function saveTransaction(data) {
   const payee = String(header.payee || '').trim();
   const refNo = String(header.refNo || '').trim();
   const bankRef = String(header.bankRef || '').trim();
+  const bankParticulars = String(header.bankParticulars || '').trim();
+  const bankDescriptionInput = String(header.bankDescription || '').trim();
 
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -151,6 +153,12 @@ function saveTransaction(data) {
     : [];
   const particularMeta = _buildParticularMeta_(masterData, masterCols);
   const accountMeta = _buildAccountMeta_(masterData, masterCols);
+
+  if (!bankParticulars) throw new Error('Bank particulars are required.');
+  const bankParticularMeta = particularMeta[bankParticulars];
+  if (!bankParticularMeta || !bankParticularMeta.subCategory || !bankParticularMeta.category) {
+    throw new Error('Bank particulars not found: ' + bankParticulars + '.');
+  }
 
   const cleanedRows = rows.map(function(row) {
     const amount = Number(row.amount || 0);
@@ -219,14 +227,11 @@ function saveTransaction(data) {
     ];
   });
 
-  const bankMeta = accountMeta[accountCode] || {};
-  const fallbackRow = cleanedRows[0] || {};
-  const bankParticulars = fallbackRow.particulars || '';
-  const bankSubCategory = fallbackRow.subCategory || '';
-  const bankCategory = fallbackRow.category || '';
-  const bankDescription = fallbackRow.description || 'Bank entry';
-  const bankAccountType = fallbackRow.accountType || bankMeta.accountType || '';
-  const bankReportMapping = fallbackRow.reportMapping || bankMeta.reportMapping || '';
+  const bankSubCategory = bankParticularMeta.subCategory || '';
+  const bankCategory = bankParticularMeta.category || '';
+  const bankDescription = bankDescriptionInput || 'Bank entry';
+  const bankAccountType = bankParticularMeta.accountType || '';
+  const bankReportMapping = bankParticularMeta.reportMapping || '';
   const bankDebit = isReceipt ? total : 0;
   const bankCredit = isReceipt ? 0 : total;
   const bankPayee = _resolveBatchPayee_(cleanedRows, payee);
@@ -2079,6 +2084,8 @@ function getCashFlowReport(currentYear, comparativeYear) {
     const cashBatchCurrent = new Set();
     const cashBatchComparative = new Set();
     const bankDirectionByBatch = {};
+    const bankOverrideByBatch = {};
+    const bankOverrideProcessed = {};
 
     const isReceivablePayableEntry = function(mapping, accountType, category, particulars) {
       const mappingLower = String(mapping || '').toLowerCase();
@@ -2182,6 +2189,29 @@ function getCashFlowReport(currentYear, comparativeYear) {
       const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
       const direction = debit > 0 ? 'receipt' : (credit > 0 ? 'payment' : '');
       if (direction) bankDirectionByBatch[batchId] = direction;
+
+      const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+      if (particulars) {
+        const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
+        const subCategory = cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '';
+        const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
+        const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+        const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
+        const amount = Math.abs(debit - credit);
+        if (amount > 0) {
+          bankOverrideByBatch[batchId] = {
+            particulars,
+            category,
+            subCategory,
+            reportMapping,
+            accountType,
+            description,
+            amount,
+            year: rowYear
+          };
+        }
+      }
+
       if (rowYear === notes.currentYear) {
         cashBatchCurrent.add(batchId);
       } else {
@@ -2231,6 +2261,23 @@ function getCashFlowReport(currentYear, comparativeYear) {
       if (accountCode) return;
       const bankDirection = bankDirectionByBatch[batchId];
       if (!bankDirection) return;
+
+      const bankOverride = bankOverrideByBatch[batchId];
+      if (bankOverride) {
+        if (!bankOverrideProcessed[batchId]) {
+          bankOverrideProcessed[batchId] = true;
+          const overrideYear = bankOverride.year;
+          const targetYear = overrideYear === notes.currentYear ? 'current' : 'comparative';
+          const lineCategory = bankOverride.category || 'Uncategorized';
+          const classDebit = bankDirection === 'payment' ? bankOverride.amount : 0;
+          const classCredit = bankDirection === 'receipt' ? bankOverride.amount : 0;
+          const classification = _classifyCashFlowLine_(bankOverride.reportMapping, bankOverride.accountType, classDebit, classCredit);
+          if (classification) {
+            addToCashFlow(lineCategory, bankOverride.amount, classification, targetYear);
+          }
+        }
+        return;
+      }
 
       const particulars = String(row[cols.particulars - 1] || '').trim();
       if (!particulars) return;
