@@ -2024,6 +2024,30 @@ function getCashFlowReport(currentYear, comparativeYear) {
     const cashBatchComparative = new Set();
     const bankDirectionByBatch = {};
 
+    // Build map of original entries by Advance_ID for tracing receivable/payable settlements
+    const originalEntriesByAdvanceId = {};
+    journalData.forEach(row => {
+      const advanceId = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+      if (!advanceId) return;
+      const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+      if (accountCode) return; // Skip bank entries
+      const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+      const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
+      const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
+      const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+      const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+      const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+      const amount = Math.abs(debit - credit);
+      if (!amount) return;
+
+      if (!originalEntriesByAdvanceId[advanceId]) {
+        originalEntriesByAdvanceId[advanceId] = [];
+      }
+      originalEntriesByAdvanceId[advanceId].push({
+        particulars, category, reportMapping, accountType, debit, credit, amount
+      });
+    });
+
     journalData.forEach(row => {
       if (!cols.financialYear || !cols.accountCode || !cols.batchId) return;
       const rowYear = String(row[cols.financialYear - 1] || '').trim();
@@ -2041,6 +2065,35 @@ function getCashFlowReport(currentYear, comparativeYear) {
         cashBatchComparative.add(batchId);
       }
     });
+
+    // Helper function to add amounts to cash flow sections
+    function addToCashFlow(lineCategory, lineNote, amount, classification, targetYear) {
+      if (classification.section === 'operating') {
+        if (classification.direction === 'receipt') {
+          operatingReceipts[lineCategory] = operatingReceipts[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
+          operatingReceipts[lineCategory][targetYear + 'Amount'] += amount;
+          if (targetYear === 'current') receiptsCurrent += amount;
+          else receiptsComparative += amount;
+        } else {
+          operatingPayments[lineCategory] = operatingPayments[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
+          operatingPayments[lineCategory][targetYear + 'Amount'] += amount;
+          if (targetYear === 'current') paymentsCurrent += amount;
+          else paymentsComparative += amount;
+        }
+      } else if (classification.section === 'investing') {
+        investing[lineCategory] = investing[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
+        const signedAmount = classification.direction === 'receipt' ? amount : -Math.abs(amount);
+        investing[lineCategory][targetYear + 'Amount'] += signedAmount;
+        if (targetYear === 'current') investingCurrent += signedAmount;
+        else investingComparative += signedAmount;
+      } else if (classification.section === 'financing') {
+        financing[lineCategory] = financing[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
+        const signedAmount = classification.direction === 'receipt' ? amount : -Math.abs(amount);
+        financing[lineCategory][targetYear + 'Amount'] += signedAmount;
+        if (targetYear === 'current') financingCurrent += signedAmount;
+        else financingComparative += signedAmount;
+      }
+    }
 
     journalData.forEach(row => {
       if (!cols.financialYear || !cols.particulars || !cols.batchId) return;
@@ -2065,7 +2118,58 @@ function getCashFlowReport(currentYear, comparativeYear) {
       const amount = credit > 0 ? credit : debit;
       if (!amount) return;
 
+      const targetYear = rowYear === notes.currentYear ? 'current' : 'comparative';
+      const advanceId = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+
+      // Check if this is a receivable/payable settlement that needs tracing
       const mappingLower = String(reportMapping || '').toLowerCase();
+      const accountTypeLower = String(accountType || '').toLowerCase();
+      const isReceivablePayable = mappingLower.includes('current asset') || mappingLower.includes('current liabil') ||
+                                   accountTypeLower.includes('receivable') || accountTypeLower.includes('payable') ||
+                                   particulars.toLowerCase().includes('receivable') || particulars.toLowerCase().includes('payable');
+
+      // If this is a receivable/payable entry with an Advance_ID, trace to original entries
+      if (isReceivablePayable && advanceId && originalEntriesByAdvanceId[advanceId]) {
+        const originalEntries = originalEntriesByAdvanceId[advanceId];
+
+        // Filter to get only income/expense entries (not the receivable/payable counter-entries)
+        const underlyingEntries = originalEntries.filter(e => {
+          const eLower = String(e.reportMapping || '').toLowerCase();
+          const eTypeLower = String(e.accountType || '').toLowerCase();
+          const isIncomeExpense = eLower.includes('income') || eLower.includes('expense') ||
+                                   eLower.includes('non-current asset') || eLower.includes('non-current liabil') ||
+                                   eTypeLower.includes('income') || eTypeLower.includes('expense') ||
+                                   eTypeLower.includes('non-current');
+          const isNotReceivablePayable = !e.particulars.toLowerCase().includes('receivable') &&
+                                          !e.particulars.toLowerCase().includes('payable');
+          return isIncomeExpense || isNotReceivablePayable;
+        });
+
+        if (underlyingEntries.length > 0) {
+          // Calculate total of underlying entries for proportional allocation
+          const totalUnderlying = underlyingEntries.reduce((sum, e) => sum + e.amount, 0);
+
+          // Allocate the cash amount proportionally across underlying categories
+          underlyingEntries.forEach(entry => {
+            const proportion = totalUnderlying > 0 ? entry.amount / totalUnderlying : 1 / underlyingEntries.length;
+            const allocatedAmount = amount * proportion;
+
+            const lineCategory = entry.category || 'Uncategorized';
+            const lineNote = noteNumberByCategory[lineCategory] || '';
+
+            const classDebit = bankDirection === 'payment' ? allocatedAmount : 0;
+            const classCredit = bankDirection === 'receipt' ? allocatedAmount : 0;
+            const classification = _classifyCashFlowLine_(entry.reportMapping, entry.accountType, classDebit, classCredit);
+
+            if (classification) {
+              addToCashFlow(lineCategory, lineNote, allocatedAmount, classification, targetYear);
+            }
+          });
+          return; // Skip normal processing since we handled via tracing
+        }
+      }
+
+      // Normal processing for non-traced entries
       const isNetAssets = mappingLower.includes('net asset');
       let classification = null;
       let lineCategory = category;
@@ -2080,39 +2184,8 @@ function getCashFlowReport(currentYear, comparativeYear) {
         classification = _classifyCashFlowLine_(reportMapping, accountType, classDebit, classCredit);
       }
       if (!classification) return;
-      const targetYear = rowYear === notes.currentYear ? 'current' : 'comparative';
 
-      if (classification.section === 'operating') {
-        if (classification.direction === 'receipt') {
-          operatingReceipts[lineCategory] = operatingReceipts[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
-          operatingReceipts[lineCategory][targetYear + 'Amount'] += amount;
-          if (targetYear === 'current') receiptsCurrent += amount;
-          else receiptsComparative += amount;
-        } else {
-          operatingPayments[lineCategory] = operatingPayments[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
-          operatingPayments[lineCategory][targetYear + 'Amount'] += amount;
-          if (targetYear === 'current') paymentsCurrent += amount;
-          else paymentsComparative += amount;
-        }
-        return;
-      }
-
-      if (classification.section === 'investing') {
-        investing[lineCategory] = investing[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
-        const signedAmount = classification.direction === 'receipt' ? amount : -Math.abs(amount);
-        investing[lineCategory][targetYear + 'Amount'] += signedAmount;
-        if (targetYear === 'current') investingCurrent += signedAmount;
-        else investingComparative += signedAmount;
-        return;
-      }
-
-      if (classification.section === 'financing') {
-        financing[lineCategory] = financing[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
-        const signedAmount = classification.direction === 'receipt' ? amount : -Math.abs(amount);
-        financing[lineCategory][targetYear + 'Amount'] += signedAmount;
-        if (targetYear === 'current') financingCurrent += signedAmount;
-        else financingComparative += signedAmount;
-      }
+      addToCashFlow(lineCategory, lineNote, amount, classification, targetYear);
     });
   }
 

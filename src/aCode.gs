@@ -2262,6 +2262,325 @@ function recordReceipt(data) {
   });
 }
 
+// ============================================================
+// REVERSAL FUNCTIONS - Invoice and GRN Reversals
+// ============================================================
+
+/**
+ * Reverse a customer invoice (receivable)
+ */
+function reverseReceivable(invoiceId, reason) {
+  return _reverseInvoice(invoiceId, 'AR', reason);
+}
+
+/**
+ * Reverse a supplier invoice (payable)
+ */
+function reversePayable(invoiceId, reason) {
+  return _reverseInvoice(invoiceId, 'AP', reason);
+}
+
+/**
+ * Core invoice reversal function
+ */
+function _reverseInvoice(invoiceId, invoiceType, reason) {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.INVOICES);
+  if (!sheet) return { success: false, message: 'Invoices sheet not found.' };
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: false, message: 'Invoice not found.' };
+
+  const data = sheet.getRange(2, 1, lastRow - 1, INVOICE_HEADERS.length).getValues();
+  let rowIndex = -1, invoice = null;
+
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === invoiceId) {
+      rowIndex = i + 2;
+      invoice = {};
+      INVOICE_HEADERS.forEach((h, j) => invoice[h] = data[i][j]);
+      break;
+    }
+  }
+
+  if (!invoice) return { success: false, message: 'Invoice not found.' };
+  if (invoice.Status === 'Reversed') return { success: false, message: 'Invoice is already reversed.' };
+
+  // Check if any payments have been made
+  const paidAmount = parseFloat(invoice.Paid_Amount) || 0;
+  if (paidAmount > 0) {
+    return { success: false, message: 'Cannot reverse invoice with payments. Paid amount: ' + paidAmount.toLocaleString() };
+  }
+
+  // Create reversing journal entries
+  try {
+    const amount = parseFloat(invoice.Amount) || 0;
+    const lineItems = invoice.Line_Items ? (typeof invoice.Line_Items === 'string' ? JSON.parse(invoice.Line_Items) : invoice.Line_Items) : [];
+
+    if (invoiceType === 'AR') {
+      _createReceivableReversalJournal({
+        invoiceId: invoiceId,
+        invoiceNumber: invoice.Invoice_Number,
+        customerName: invoice.Contact_Name,
+        amount: amount,
+        lineItems: lineItems,
+        reason: reason
+      });
+    } else {
+      _createPayableReversalJournal({
+        invoiceId: invoiceId,
+        invoiceNumber: invoice.Invoice_Number,
+        supplierName: invoice.Contact_Name,
+        amount: amount,
+        lineItems: lineItems,
+        reason: reason
+      });
+    }
+  } catch (error) {
+    return { success: false, message: 'Failed to create reversal journal: ' + error.message };
+  }
+
+  // Update invoice status to Reversed
+  const statusCol = INVOICE_HEADERS.indexOf('Status') + 1;
+  const balanceCol = INVOICE_HEADERS.indexOf('Balance') + 1;
+  sheet.getRange(rowIndex, statusCol).setValue('Reversed');
+  sheet.getRange(rowIndex, balanceCol).setValue(0);
+
+  const user = getCurrentUser();
+  logSystemEvent(user.email, 'REVERSE_INVOICE', invoiceId, (invoiceType === 'AR' ? 'Receivable' : 'Payable') + ' reversed: ' + reason);
+
+  return {
+    success: true,
+    message: (invoiceType === 'AR' ? 'Customer invoice' : 'Supplier invoice') + ' reversed successfully. Reversing journal entries created.'
+  };
+}
+
+/**
+ * Create reversing journal entries for receivable
+ */
+function _createReceivableReversalJournal(data) {
+  const ss = _getOrCreateSpreadsheet();
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) sheet = _ensureSheet(ss, 'DB_JOURNAL');
+
+  const user = getCurrentUser();
+  const now = new Date();
+  const batchId = _generateId('REVR');
+  const description = 'Reversal: ' + data.invoiceNumber + ' - ' + (data.reason || 'No reason provided');
+
+  // Reverse Accounts Receivable (Credit to reverse the Debit)
+  const arRow = [
+    _generateId('JRN'), batchId, now, '', 'AR001', data.customerName,
+    'REV-' + data.invoiceNumber, '', 'Invoice Reversal', '', 'Accounts Receivable',
+    description, 0, data.amount, 'Assets', 'Balance Sheet', '', '', ''
+  ];
+  sheet.appendRow(arRow);
+
+  // Reverse Income entries (Debit to reverse the Credit)
+  if (data.lineItems && data.lineItems.length > 0) {
+    data.lineItems.forEach(item => {
+      const lineAmount = parseFloat(item.total) || 0;
+      if (lineAmount > 0) {
+        const incomeRow = [
+          _generateId('JRN'), batchId, now, '', 'INC001', data.customerName,
+          'REV-' + data.invoiceNumber, '', item.particulars || 'Income Reversal', item.subCategory || '', item.category || 'Income',
+          description, lineAmount, 0, 'Income', 'Income Statement', '', '', ''
+        ];
+        sheet.appendRow(incomeRow);
+      }
+    });
+  } else {
+    // Single reversal entry for income
+    const incomeRow = [
+      _generateId('JRN'), batchId, now, '', 'INC001', data.customerName,
+      'REV-' + data.invoiceNumber, '', 'Income Reversal', '', 'Income',
+      description, data.amount, 0, 'Income', 'Income Statement', '', '', ''
+    ];
+    sheet.appendRow(incomeRow);
+  }
+
+  return { success: true, batchId: batchId };
+}
+
+/**
+ * Create reversing journal entries for payable
+ */
+function _createPayableReversalJournal(data) {
+  const ss = _getOrCreateSpreadsheet();
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) sheet = _ensureSheet(ss, 'DB_JOURNAL');
+
+  const user = getCurrentUser();
+  const now = new Date();
+  const batchId = _generateId('REVP');
+  const description = 'Reversal: ' + data.invoiceNumber + ' - ' + (data.reason || 'No reason provided');
+
+  // Reverse Accounts Payable (Debit to reverse the Credit)
+  const apRow = [
+    _generateId('JRN'), batchId, now, '', 'AP001', data.supplierName,
+    'REV-' + data.invoiceNumber, '', 'Invoice Reversal', '', 'Accounts Payable',
+    description, data.amount, 0, 'Liabilities', 'Balance Sheet', '', '', ''
+  ];
+  sheet.appendRow(apRow);
+
+  // Reverse Expense entries (Credit to reverse the Debit)
+  if (data.lineItems && data.lineItems.length > 0) {
+    data.lineItems.forEach(item => {
+      const lineAmount = parseFloat(item.totalPrice || item.total) || 0;
+      if (lineAmount > 0) {
+        const expenseRow = [
+          _generateId('JRN'), batchId, now, '', 'EXP001', data.supplierName,
+          'REV-' + data.invoiceNumber, '', item.particulars || item.itemDescription || 'Expense Reversal', item.subCategory || '', item.category || 'Expenses',
+          description, 0, lineAmount, 'Expenses', 'Income Statement', '', '', ''
+        ];
+        sheet.appendRow(expenseRow);
+      }
+    });
+  } else {
+    // Single reversal entry for expense
+    const expenseRow = [
+      _generateId('JRN'), batchId, now, '', 'EXP001', data.supplierName,
+      'REV-' + data.invoiceNumber, '', 'Expense Reversal', '', 'Expenses',
+      description, 0, data.amount, 'Expenses', 'Income Statement', '', '', ''
+    ];
+    sheet.appendRow(expenseRow);
+  }
+
+  return { success: true, batchId: batchId };
+}
+
+/**
+ * Reverse a GRN (Goods Received Note)
+ */
+function reverseGRN(grnId, reason) {
+  const ss = _getOrCreateSpreadsheet();
+  const grnSheet = ss.getSheetByName(CONFIG.SHEETS.GRN);
+  if (!grnSheet) return { success: false, message: 'GRN sheet not found.' };
+
+  const grnHeaders = SHEET_HEADERS.GRN;
+  const lastRow = grnSheet.getLastRow();
+  if (lastRow < 2) return { success: false, message: 'GRN not found.' };
+
+  const data = grnSheet.getRange(2, 1, lastRow - 1, grnHeaders.length).getValues();
+  let rowIndex = -1, grn = null;
+
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === grnId) {
+      rowIndex = i + 2;
+      grn = {};
+      grnHeaders.forEach((h, j) => grn[h] = data[i][j]);
+      break;
+    }
+  }
+
+  if (!grn) return { success: false, message: 'GRN not found.' };
+  if (grn.Status === 'Reversed') return { success: false, message: 'GRN is already reversed.' };
+
+  // Check if there's a linked payable that has payments
+  if (grn.Invoice_Number) {
+    const invoiceSheet = ss.getSheetByName(CONFIG.SHEETS.INVOICES);
+    if (invoiceSheet) {
+      const invoiceData = invoiceSheet.getDataRange().getValues();
+      for (let i = 1; i < invoiceData.length; i++) {
+        if (invoiceData[i][8] === grnId) { // GRN_ID column
+          const paidAmount = parseFloat(invoiceData[i][14]) || 0; // Paid_Amount column
+          if (paidAmount > 0) {
+            return { success: false, message: 'Cannot reverse GRN. Linked invoice has payments of ' + paidAmount.toLocaleString() };
+          }
+          // Also reverse the linked invoice
+          const linkedInvoiceId = invoiceData[i][0];
+          const statusCol = INVOICE_HEADERS.indexOf('Status') + 1;
+          const balanceCol = INVOICE_HEADERS.indexOf('Balance') + 1;
+          invoiceSheet.getRange(i + 1, statusCol).setValue('Reversed');
+          invoiceSheet.getRange(i + 1, balanceCol).setValue(0);
+          break;
+        }
+      }
+    }
+  }
+
+  // Reverse PO line item quantities
+  if (grn.PO_ID) {
+    const lineItems = grn.Line_Items ? (typeof grn.Line_Items === 'string' ? JSON.parse(grn.Line_Items) : grn.Line_Items) : [];
+    _reversePOLineItemsReceived(ss, grn.PO_ID, lineItems);
+  }
+
+  // Update GRN status to Reversed
+  const statusIndex = grnHeaders.indexOf('Status') + 1;
+  grnSheet.getRange(rowIndex, statusIndex).setValue('Reversed');
+
+  const user = getCurrentUser();
+  logSystemEvent(user.email, 'REVERSE_GRN', grnId, 'GRN reversed: ' + reason);
+
+  return {
+    success: true,
+    message: 'GRN reversed successfully.' + (grn.Invoice_Number ? ' Linked invoice also reversed.' : '')
+  };
+}
+
+/**
+ * Reverse PO line items received quantities
+ */
+function _reversePOLineItemsReceived(ss, poId, grnLines) {
+  const poSheet = ss.getSheetByName(CONFIG.SHEETS.PURCHASE_ORDERS);
+  if (!poSheet) return;
+
+  const headers = SHEET_HEADERS.PURCHASE_ORDERS;
+  const lineItemsIndex = headers.indexOf('Line_Items');
+  const statusIndex = headers.indexOf('Status');
+  const data = poSheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === poId) {
+      // Parse existing line items
+      let poLines = [];
+      try {
+        poLines = data[i][lineItemsIndex] ? JSON.parse(data[i][lineItemsIndex]) : [];
+      } catch (e) {
+        poLines = [];
+      }
+
+      // Reverse received quantities
+      let anyReceived = false;
+
+      poLines.forEach(poLine => {
+        // Find matching GRN line
+        const grnLine = grnLines.find(g => g.lineNo === poLine.lineNo || g.poLineNo === poLine.lineNo);
+        if (grnLine) {
+          poLine.receivedQty = Math.max(0, (poLine.receivedQty || 0) - (grnLine.qtyAccepted || 0));
+          if (poLine.receivedQty >= poLine.quantity) {
+            poLine.status = 'Received';
+            anyReceived = true;
+          } else if (poLine.receivedQty > 0) {
+            poLine.status = 'Partial';
+            anyReceived = true;
+          } else {
+            poLine.status = 'Pending';
+          }
+        } else {
+          if (poLine.status === 'Received' || poLine.status === 'Partial') {
+            anyReceived = true;
+          }
+        }
+      });
+
+      // Update PO line items JSON
+      poSheet.getRange(i + 1, lineItemsIndex + 1).setValue(JSON.stringify(poLines));
+
+      // Update PO status - revert to Approved if no items received
+      let newStatus = data[i][statusIndex];
+      if (!anyReceived && (newStatus === 'Completed' || newStatus === 'Partial')) {
+        newStatus = 'Approved';
+      } else if (anyReceived && newStatus === 'Completed') {
+        newStatus = 'Partial';
+      }
+      poSheet.getRange(i + 1, statusIndex + 1).setValue(newStatus);
+
+      break;
+    }
+  }
+}
+
 function _generateCustomerInvoiceNumber(sheet) {
   const lastRow = sheet.getLastRow();
   let maxNumber = 1000000;

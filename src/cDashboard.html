@@ -10108,6 +10108,7 @@
                   <th>Invoice #</th>
                   <th>Amount</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -10115,6 +10116,7 @@
 
           grns.forEach(grn => {
             const amount = parseFloat(grn.Invoice_Amount) || 0;
+            const statusClass = grn.Status === 'Reversed' ? 'status-badge--bad' : 'status-badge--ok';
             html += `
               <tr>
                 <td><strong>${grn.GRN_Number || ''}</strong></td>
@@ -10123,7 +10125,10 @@
                 <td>${grn.Supplier_Name || '-'}</td>
                 <td>${grn.Invoice_Number || '-'}</td>
                 <td style="text-align:right;">${amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                <td><span class="status-badge status-badge--ok">${grn.Status || 'Received'}</span></td>
+                <td><span class="status-badge ${statusClass}">${grn.Status || 'Received'}</span></td>
+                <td>
+                  ${grn.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;background:#dc2626;border-color:#dc2626;color:#fff;" onclick="openReversalModal('grn', '${grn.GRN_ID}', '${grn.GRN_Number}', '${grn.Supplier_Name}', ${amount})">Reverse</button>` : '<span style="color:#6b7280;">Reversed</span>'}
+                </td>
               </tr>
             `;
           });
@@ -10504,7 +10509,10 @@
                 <td style="text-align:right;font-weight:600;">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td><span class="status-badge ${statusClass}">${p.Status || 'Unknown'}</span></td>
                 <td>
-                  ${p.Status !== 'Paid' ? `<button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoicePaymentModal('${p.Payable_ID}', '${p.Supplier_Name}', '${p.Invoice_Number}', ${balance})">Pay</button>` : '-'}
+                  <div style="display:flex;gap:4px;">
+                    ${p.Status !== 'Paid' && p.Status !== 'Reversed' ? `<button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoicePaymentModal('${p.Payable_ID}', '${p.Supplier_Name}', '${p.Invoice_Number}', ${balance})">Pay</button>` : ''}
+                    ${p.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;background:#dc2626;border-color:#dc2626;color:#fff;" onclick="openReversalModal('payable', '${p.Payable_ID}', '${p.Invoice_Number}', '${p.Supplier_Name}', ${amount})">Reverse</button>` : '<span style="color:#6b7280;">Reversed</span>'}
+                  </div>
                 </td>
               </tr>
             `;
@@ -10748,6 +10756,113 @@
           paymentRef: paymentRef,
           bankAccount: bankAccount
         });
+    }
+
+    // ============================================================
+    // REVERSAL MODAL - For invoices and GRN
+    // ============================================================
+    function openReversalModal(type, id, number, name, amount) {
+      const typeLabels = {
+        'receivable': { title: 'Customer Invoice', entityLabel: 'Customer' },
+        'payable': { title: 'Supplier Invoice', entityLabel: 'Supplier' },
+        'grn': { title: 'GRN', entityLabel: 'Supplier' }
+      };
+      const labels = typeLabels[type] || { title: 'Document', entityLabel: 'Entity' };
+
+      const modalHtml = `
+        <div class="modal open" id="reversalModal">
+          <div class="modal-card" style="max-width:500px;">
+            <div class="modal-header" style="background:#dc2626;">
+              <span>Reverse ${labels.title}</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('reversalModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div style="background:#fef2f2;padding:12px;border-radius:6px;margin-bottom:16px;border:1px solid #fecaca;">
+                <p style="font-size:13px;color:#991b1b;margin-bottom:8px;font-weight:600;">⚠️ Warning: This action cannot be undone</p>
+                <p style="font-size:12px;color:#b91c1c;">Reversing this ${labels.title.toLowerCase()} will:</p>
+                <ul style="font-size:12px;color:#b91c1c;margin:8px 0 0 16px;">
+                  <li>Mark the document as "Reversed"</li>
+                  <li>Create reversing journal entries</li>
+                  ${type === 'grn' ? '<li>Reverse received quantities on the PO</li>' : ''}
+                </ul>
+              </div>
+
+              <div style="background:#f3f4f6;padding:12px;border-radius:6px;margin-bottom:16px;">
+                <p style="font-size:13px;color:#6b7280;">${type === 'grn' ? 'GRN Number' : 'Invoice Number'}</p>
+                <p style="font-weight:600;">${number}</p>
+                <p style="font-size:13px;color:#6b7280;margin-top:8px;">${labels.entityLabel}</p>
+                <p style="font-weight:600;">${name}</p>
+                <p style="font-size:13px;color:#6b7280;margin-top:8px;">Amount</p>
+                <p style="font-weight:600;font-size:18px;color:#1f2937;">${amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+
+              <input type="hidden" id="reversalType" value="${type}">
+              <input type="hidden" id="reversalId" value="${id}">
+
+              <div class="form-group">
+                <label for="reversalReason">Reason for Reversal *</label>
+                <textarea id="reversalReason" rows="3" placeholder="Enter reason for reversing this ${labels.title.toLowerCase()}..." style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;resize:vertical;"></textarea>
+              </div>
+
+              <div id="reversalFormStatus" style="min-height:24px;margin:12px 0;"></div>
+
+              <button class="btn" onclick="processReversal()" style="width:100%;background:#dc2626;border-color:#dc2626;color:#fff;">Confirm Reversal</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function processReversal() {
+      const type = document.getElementById('reversalType').value;
+      const id = document.getElementById('reversalId').value;
+      const reason = document.getElementById('reversalReason').value.trim();
+      const statusDiv = document.getElementById('reversalFormStatus');
+
+      if (!reason) {
+        statusDiv.innerHTML = '<span style="color:#dc2626;">Reason for reversal is required.</span>';
+        return;
+      }
+
+      statusDiv.innerHTML = 'Processing reversal...';
+
+      let reversalFn;
+      if (type === 'receivable') {
+        reversalFn = 'reverseReceivable';
+      } else if (type === 'payable') {
+        reversalFn = 'reversePayable';
+      } else if (type === 'grn') {
+        reversalFn = 'reverseGRN';
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            document.getElementById('reversalModal').remove();
+            showInfoModal(
+              'Reversal Complete',
+              result.message || 'Document reversed successfully.'
+            );
+            // Refresh appropriate view
+            if (type === 'receivable') {
+              if (document.getElementById('receivablesTableContainer')) loadReceivables();
+              else if (document.getElementById('customerReceivablesContainer')) loadCustomerReceivables();
+            } else if (type === 'payable') {
+              if (document.getElementById('payablesTableContainer')) loadPayables();
+              else if (document.getElementById('supplierPayablesContainer')) loadSupplierPayables();
+            } else if (type === 'grn') {
+              if (document.getElementById('grnTableContainer')) loadGRNs();
+            }
+          } else {
+            statusDiv.innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to reverse document.') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          statusDiv.innerHTML = '<span style="color:#dc2626;">Error: ' + error.message + '</span>';
+        })
+        [reversalFn](id, reason);
     }
 
     // Aging Report
@@ -11970,7 +12085,10 @@
                 <td style="text-align:right;font-weight:600;">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td><span class="status-badge ${statusClass}">${r.Status || 'Unknown'}</span></td>
                 <td>
-                  ${r.Status !== 'Paid' ? `<button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoiceReceiptModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Receive</button>` : '-'}
+                  <div style="display:flex;gap:4px;">
+                    ${r.Status !== 'Paid' && r.Status !== 'Reversed' ? `<button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoiceReceiptModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Receive</button>` : ''}
+                    ${r.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;background:#dc2626;border-color:#dc2626;color:#fff;" onclick="openReversalModal('receivable', '${r.Receivable_ID}', '${r.Invoice_Number}', '${r.Customer_Name}', ${amount})">Reverse</button>` : '<span style="color:#6b7280;">Reversed</span>'}
+                  </div>
                 </td>
               </tr>
             `;
