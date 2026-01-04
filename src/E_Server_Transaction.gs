@@ -2149,6 +2149,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
   const performanceCategories = Array.isArray(performanceNotes.categories) ? performanceNotes.categories : [];
   const noteMaps = _buildNoteMapsForReports_(performanceCategories, categories);
   const cashFlowNoteNumberByCategory = noteMaps.cashNotesByCategory || {};
+  const performanceNoteNumberByCategory = noteMaps.performanceNotesByCategory || {};
 
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -2510,7 +2511,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
     },
     netIncreaseCurrent: netIncreaseCurrent,
     netIncreaseComparative: netIncreaseComparative,
-    cashNote: cashNote ? (noteNumberByCategory[cashNote.category] || '') : '',
+    cashNote: cashNote ? (performanceNoteNumberByCategory[cashNote.category] || '') : '',
     cashOpeningCurrent: cashOpeningCurrent,
     cashOpeningComparative: cashOpeningComparative,
     cashClosingCurrent: cashClosingCurrent,
