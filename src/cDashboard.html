@@ -12130,6 +12130,7 @@
                 <td>
                   <div style="display:flex;gap:4px;">
                     ${r.Status !== 'Paid' && r.Status !== 'Reversed' ? `<button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoiceReceiptModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Receive</button>` : ''}
+                    ${r.Status !== 'Paid' && r.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openAdvanceApplyModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Apply Advance</button>` : ''}
                     ${r.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;background:#dc2626;border-color:#dc2626;color:#fff;" onclick="openReversalModal('receivable', '${r.Receivable_ID}', '${r.Invoice_Number}', '${r.Customer_Name}', ${amount})">Reverse</button>` : '<span style="color:#6b7280;">Reversed</span>'}
                   </div>
                 </td>
@@ -12240,6 +12241,7 @@
                 <td><span class="status-badge ${r.Status === 'Partial' ? 'status-badge--warn' : 'status-badge--bad'}">${r.Status}</span></td>
                 <td>
                   <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoiceReceiptModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Receive</button>
+                  <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openAdvanceApplyModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Apply Advance</button>
                 </td>
               </tr>
             `;
@@ -12320,6 +12322,144 @@
 
       document.body.insertAdjacentHTML('beforeend', modalHtml);
       loadInvoiceBankAccounts('receiptBankAccount');
+    }
+
+    function openAdvanceApplyModal(receivableId, customerName, invoiceNumber, balance) {
+      const today = new Date().toISOString().split('T')[0];
+      const modalHtml = `
+        <div class="modal open" id="advanceApplyModal">
+          <div class="modal-card" style="max-width:520px;">
+            <div class="modal-header">
+              <span>Apply Customer Advance</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('advanceApplyModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div style="background:#f8fafc;padding:12px;border-radius:6px;margin-bottom:16px;">
+                <p style="font-size:13px;color:#0f172a;">Customer</p>
+                <p style="font-weight:600;">${customerName}</p>
+                <p style="font-size:13px;color:#0f172a;margin-top:8px;">Invoice</p>
+                <p style="font-weight:600;">${invoiceNumber}</p>
+                <p style="font-size:13px;color:#0f172a;margin-top:8px;">Outstanding Balance</p>
+                <p style="font-weight:600;font-size:18px;color:#0f172a;">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+
+              <div class="form-group">
+                <label for="advanceSelect">Advance</label>
+                <select id="advanceSelect" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                  <option value="">Loading advances...</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="advanceApplyDate">Date</label>
+                <input type="date" id="advanceApplyDate" value="${today}" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+
+              <div class="form-group">
+                <label for="advanceApplyAmount">Amount</label>
+                <input type="number" id="advanceApplyAmount" min="0.01" step="0.01" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+                <div id="advanceApplyHint" style="font-size:12px;color:#6b7280;margin-top:6px;"></div>
+              </div>
+
+              <div id="advanceApplyStatus" style="font-size:12px;color:#6b7280;margin-top:8px;"></div>
+            </div>
+            <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #e5e7eb;">
+              <button class="btn btn-secondary" onclick="document.getElementById('advanceApplyModal').remove()">Cancel</button>
+              <button class="btn btn-primary" id="advanceApplyBtn">Apply</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      const select = document.getElementById('advanceSelect');
+      const amountInput = document.getElementById('advanceApplyAmount');
+      const hint = document.getElementById('advanceApplyHint');
+      const status = document.getElementById('advanceApplyStatus');
+      const applyBtn = document.getElementById('advanceApplyBtn');
+
+      const updateAmountDefaults = function() {
+        const option = select.options[select.selectedIndex];
+        if (!option || !option.value) {
+          amountInput.value = '';
+          amountInput.max = '';
+          hint.textContent = '';
+          return;
+        }
+        const remaining = parseFloat(option.getAttribute('data-remaining')) || 0;
+        const maxApply = Math.min(balance, remaining);
+        amountInput.max = maxApply.toFixed(2);
+        amountInput.value = maxApply.toFixed(2);
+        hint.textContent = `Available advance balance: ${formatPerformanceAmount(remaining)}`;
+      };
+
+      select.addEventListener('change', updateAmountDefaults);
+
+      status.textContent = 'Loading advances...';
+      applyBtn.disabled = true;
+      google.script.run
+        .withSuccessHandler(function(advances) {
+          const list = advances || [];
+          select.innerHTML = '<option value="">-- Select Advance --</option>';
+          if (!list.length) {
+            status.textContent = 'No available advances for this customer.';
+            return;
+          }
+          list.forEach(function(a) {
+            const option = document.createElement('option');
+            option.value = a.advanceId || '';
+            option.setAttribute('data-remaining', String(a.remaining || 0));
+            option.textContent = `${a.advanceId} | ${a.particulars || 'Advance'} | Bal ${formatPerformanceAmount(a.remaining)}`;
+            select.appendChild(option);
+          });
+          status.textContent = '';
+          applyBtn.disabled = false;
+          select.value = list[0].advanceId || '';
+          updateAmountDefaults();
+        })
+        .withFailureHandler(function(error) {
+          status.textContent = error.message || 'Failed to load advances.';
+        })
+        .getCustomerAdvances(customerName);
+
+      applyBtn.addEventListener('click', function() {
+        const advanceId = select.value.trim();
+        const amount = parseFloat(amountInput.value) || 0;
+        if (!advanceId) {
+          status.textContent = 'Select an advance to apply.';
+          return;
+        }
+        if (amount <= 0) {
+          status.textContent = 'Enter a valid amount.';
+          return;
+        }
+        status.textContent = 'Applying advance...';
+        applyBtn.disabled = true;
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (!result || !result.success) {
+              status.textContent = (result && result.message) || 'Failed to apply advance.';
+              applyBtn.disabled = false;
+              return;
+            }
+            document.getElementById('advanceApplyModal').remove();
+            if (document.getElementById('receivablesTableContainer')) {
+              loadReceivables();
+            }
+            if (document.getElementById('customerReceivablesContainer')) {
+              loadCustomerReceivables();
+            }
+          })
+          .withFailureHandler(function(error) {
+            status.textContent = error.message || 'Failed to apply advance.';
+            applyBtn.disabled = false;
+          })
+          .applyReceivableAdvance(receivableId, {
+            advanceId: advanceId,
+            amount: amount,
+            date: document.getElementById('advanceApplyDate').value
+          });
+      });
     }
 
     function loadInvoiceBankAccounts(selectId, selectedValue) {
