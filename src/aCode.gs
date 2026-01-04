@@ -1438,7 +1438,7 @@ function saveContact(contactType, data) {
 
   sheet.appendRow(row);
   logSystemEvent(user.email, 'CREATE_CONTACT', contactId, row[2]);
-  CacheService.getScriptCache().remove('dropdownData');
+  CacheService.getScriptCache().remove('dropdownData_v3');
 
   return { success: true, contactId: contactId };
 }
@@ -1484,6 +1484,7 @@ function updateContact(contactId, data) {
 
   sheet.getRange(rowIndex, 3, 1, 12).setValues([updates]);
   logSystemEvent(getCurrentUser().email, 'UPDATE_CONTACT', contactId, updates[0]);
+  CacheService.getScriptCache().remove('dropdownData_v3');
 
   return { success: true };
 }
