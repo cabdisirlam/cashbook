@@ -1746,15 +1746,16 @@ function getNotesReport(currentYear, comparativeYear, options) {
       const rowYear = String(row[cols.financialYear - 1] || '').trim();
       if (rowYear !== year && rowYear !== compare) return;
       const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
-      if (accountCode) return;
-      const particulars = String(row[cols.particulars - 1] || '').trim();
-      if (!particulars) return;
-
       if (useCashBasis) {
+        if (!accountCode) return;
         const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
         if (rowYear === year && !cashBatchCurrent.has(batchId)) return;
         if (rowYear === compare && !cashBatchComparative.has(batchId)) return;
+      } else {
+        if (accountCode) return;
       }
+      const particulars = String(row[cols.particulars - 1] || '').trim();
+      if (!particulars) return;
 
       const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
       const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;

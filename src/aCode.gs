@@ -2888,6 +2888,57 @@ function _pickPayablesParticular_(particularMeta) {
   return '';
 }
 
+function _isReceivablePayableMeta_(meta) {
+  const accountTypeLower = String(meta && meta.accountType || '').toLowerCase();
+  const mappingLower = String(meta && meta.reportMapping || '').toLowerCase();
+  return accountTypeLower.includes('receivable') || accountTypeLower.includes('payable') ||
+    mappingLower.includes('receivable') || mappingLower.includes('payable');
+}
+
+function _resolveInvoiceCashMeta_(invoice, meta, invoiceType) {
+  const lineItems = invoice.Line_Items
+    ? (typeof invoice.Line_Items === 'string' ? JSON.parse(invoice.Line_Items) : invoice.Line_Items)
+    : [];
+
+  if (lineItems && lineItems.length) {
+    for (let i = 0; i < lineItems.length; i++) {
+      const particulars = String(lineItems[i].particulars || '').trim();
+      if (!particulars) continue;
+      const particularsMeta = meta.particularMeta[particulars];
+      if (!particularsMeta) continue;
+      if (invoiceType === 'AP' && !_isAccountType_(particularsMeta, 'Expense')) continue;
+      if (invoiceType !== 'AP' && !_isAccountType_(particularsMeta, 'Income')) continue;
+      return { particulars: particulars, meta: particularsMeta };
+    }
+  }
+
+  const ss = _getOrCreateSpreadsheet();
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) return null;
+  const journalLastRow = journal.getLastRow();
+  const journalLastCol = journal.getLastColumn();
+  if (journalLastRow < 2) return null;
+  const headers = journal.getRange(1, 1, 1, journalLastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  if (!cols.advanceId || !cols.particulars) return null;
+  const data = journal.getRange(2, 1, journalLastRow - 1, journalLastCol).getValues();
+  const targetId = String(invoice.Invoice_ID || '').trim();
+  if (!targetId) return null;
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const advanceId = String(row[cols.advanceId - 1] || '').trim();
+    if (advanceId !== targetId) continue;
+    const particulars = String(row[cols.particulars - 1] || '').trim();
+    if (!particulars) continue;
+    const particularsMeta = meta.particularMeta[particulars];
+    if (!particularsMeta || _isReceivablePayableMeta_(particularsMeta)) continue;
+    return { particulars: particulars, meta: particularsMeta };
+  }
+
+  return null;
+}
+
 function _createReceivableJournalEntry(entry) {
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -3133,7 +3184,11 @@ function _createPaymentJournalEntry(invoice, paymentData, invoiceType) {
     throw new Error('Particulars not found: ' + counterParticulars + '.');
   }
 
-  const bankMeta = meta.accountMeta[bankAccount] || {};
+  const cashMeta = _resolveInvoiceCashMeta_(invoice, meta, invoiceType);
+  const bankParticulars = cashMeta && cashMeta.particulars ? cashMeta.particulars : counterParticulars;
+  const bankParticularsMeta = cashMeta && cashMeta.meta ? cashMeta.meta : counterMeta;
+
+  const bankAccountMeta = meta.accountMeta[bankAccount] || {};
   const paymentDate = paymentData.paymentDate ? new Date(paymentData.paymentDate) : new Date();
   if (Number.isNaN(paymentDate.getTime())) throw new Error('Invalid payment date.');
 
@@ -3178,14 +3233,14 @@ function _createPaymentJournalEntry(invoice, paymentData, invoiceType) {
       invoice.Contact_Name || '',
       refNo,
       refNo,
-      counterParticulars,
-      counterMeta.subCategory || '',
-      counterMeta.category || '',
+      bankParticulars,
+      bankParticularsMeta.subCategory || '',
+      bankParticularsMeta.category || '',
       description,
       bankDebit,
       bankCredit,
-      bankMeta.accountType || '',
-      bankMeta.reportMapping || '',
+      bankParticularsMeta.accountType || '',
+      bankParticularsMeta.reportMapping || '',
       'Unreconciled',
       '',
       invoice.Invoice_ID || ''
