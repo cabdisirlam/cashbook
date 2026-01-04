@@ -2094,16 +2094,6 @@ function getCashFlowReport(currentYear, comparativeYear) {
       return false;
     };
 
-    const resolveCashFlowNote = function(lineCategory, overrideNote) {
-      if (overrideNote !== undefined) return overrideNote;
-      if (!lineCategory) return '';
-      if (!cashFlowNoteNumberByCategory[lineCategory]) {
-        cashFlowNoteNumberByCategory[lineCategory] = nextCashFlowNoteNumber;
-        nextCashFlowNoteNumber += 1;
-      }
-      return cashFlowNoteNumberByCategory[lineCategory];
-    };
-
     // Build map of original entries by Advance_ID for tracing receivable/payable settlements
     const originalEntriesByAdvanceId = {};
     journalData.forEach(row => {
@@ -2149,7 +2139,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
 
     // Helper function to add amounts to cash flow sections
     function addToCashFlow(lineCategory, amount, classification, targetYear, noteOverride) {
-      const lineNote = resolveCashFlowNote(lineCategory, noteOverride);
+      const lineNote = noteOverride !== undefined ? noteOverride : '';
       if (classification.section === 'operating') {
         if (classification.direction === 'receipt') {
           operatingReceipts[lineCategory] = operatingReceipts[lineCategory] || { description: lineCategory, note: lineNote, currentAmount: 0, comparativeAmount: 0 };
@@ -2262,6 +2252,21 @@ function getCashFlowReport(currentYear, comparativeYear) {
   const operatingPaymentsRows = Object.values(operatingPayments);
   const investingRows = Object.values(investing);
   const financingRows = Object.values(financing);
+  const cashFlowOrder = [operatingReceiptsRows, operatingPaymentsRows, investingRows, financingRows];
+  cashFlowOrder.forEach(rows => {
+    rows.forEach(row => {
+      if (!row || !row.description) return;
+      if (row.description === 'Prior year adjustment') {
+        row.note = '';
+        return;
+      }
+      if (!cashFlowNoteNumberByCategory[row.description]) {
+        cashFlowNoteNumberByCategory[row.description] = nextCashFlowNoteNumber;
+        nextCashFlowNoteNumber += 1;
+      }
+      row.note = cashFlowNoteNumberByCategory[row.description];
+    });
+  });
 
   const cashNote = categories.find(category => String(category.category || '').toLowerCase().includes('cash and cash equivalent')) || null;
   const netOperatingCurrent = receiptsCurrent - paymentsCurrent;
@@ -4061,6 +4066,11 @@ function _classifyCashFlowLine_(reportMapping, accountType, debit, credit) {
   const type = String(accountType || '').toLowerCase();
   const direction = credit > 0 ? 'receipt' : 'payment';
 
+  if (mapping.includes('loan') || mapping.includes('borrow') || mapping.includes('debt') || mapping.includes('overdraft') ||
+      type.includes('loan') || type.includes('borrow') || type.includes('debt')) {
+    return { section: 'financing', direction: direction };
+  }
+
   if (mapping.includes('operating income') || mapping.includes('operating revenue')) {
     return { section: 'operating', direction: 'receipt' };
   }
@@ -4123,6 +4133,10 @@ function _classifyCashFlowCategory_(categoryName, accountTypes, reportMappings) 
 
   if (name.includes('cash and cash equivalent')) return 'cash';
 
+  if (mappingValues.some(value => value.includes('loan') || value.includes('borrow') || value.includes('debt') || value.includes('overdraft'))) {
+    return 'financing';
+  }
+
   if (mappingValues.some(value => value.includes('operating income'))) return 'operating_receipt';
   if (mappingValues.some(value => value.includes('operating expense'))) return 'operating_payment';
 
@@ -4142,6 +4156,7 @@ function _classifyCashFlowCategory_(categoryName, accountTypes, reportMappings) 
     return 'financing';
   }
 
+  if (typeValues.some(value => value.includes('loan') || value.includes('borrow') || value.includes('debt'))) return 'financing';
   if (name.includes('liabilit')) return 'financing';
   return null;
 }
