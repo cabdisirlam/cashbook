@@ -1132,16 +1132,7 @@
   }
 
   function applyParticularFilter() {
-    const filtered = (allParticulars || []).filter(function(particulars) {
-      const meta = paymentState.particularMeta[particulars] || {};
-      if (transactionMode === 'Receipt') {
-        return isOperatingIncomeParticular(meta);
-      }
-      if (transactionMode === 'Payment') {
-        return !isIncomeMappedParticular(meta);
-      }
-      return true;
-    });
+    const filtered = (allParticulars || []).slice();
     fillList('particularList', filtered);
   }
 
@@ -1215,20 +1206,8 @@
       onLinePayeeTypeChange(lineId, true);
     });
 
-    // Validate particulars on change
     row.querySelector('.particular-select').addEventListener('change', function() {
-      const particulars = this.value.trim();
-      const meta = paymentState.particularMeta[particulars] || {};
-      if (isIncomeMappedParticular(meta) && transactionMode === 'Payment') {
-        this.value = '';
-        setStatus('Payments cannot use particulars mapped as operating income.');
-        return;
-      }
-      if (!isOperatingIncomeParticular(meta) && transactionMode === 'Receipt') {
-        this.value = '';
-        setStatus('Receipts can only use particulars mapped as operating income.');
-        return;
-      }
+      setStatus('');
     });
 
     row.querySelector('.amount-input').addEventListener('input', updateTotal);
@@ -1288,14 +1267,7 @@
 
     const filteredParts = (allParticulars || []).filter(function(p) {
       const meta = paymentState.particularMeta[p] || {};
-      if (meta.subCategory !== selectedSubCat) return false;
-      if (transactionMode === 'Receipt') {
-        return isOperatingIncomeParticular(meta);
-      }
-      if (transactionMode === 'Payment') {
-        return !isIncomeMappedParticular(meta);
-      }
-      return true;
+      return meta.subCategory === selectedSubCat;
     });
 
     partSelect.innerHTML = '<option value="">-- Particulars --</option>';
@@ -1320,18 +1292,7 @@
   function onBankParticularsChange() {
     const select = document.getElementById('bankParticulars');
     if (!select) return;
-    const particulars = select.value.trim();
-    const meta = paymentState.particularMeta[particulars] || {};
-    if (isIncomeMappedParticular(meta) && transactionMode === 'Payment') {
-      select.value = '';
-      setStatus('Payments cannot use particulars mapped as operating income.');
-      return;
-    }
-    if (!isOperatingIncomeParticular(meta) && transactionMode === 'Receipt') {
-      select.value = '';
-      setStatus('Receipts can only use particulars mapped as operating income.');
-      return;
-    }
+    setStatus('');
   }
 
   function resetBankClassification() {
@@ -1402,14 +1363,7 @@
     // Filter particulars by selected sub-category and transaction mode
     const filteredParts = (allParticulars || []).filter(function(p) {
       const meta = paymentState.particularMeta[p] || {};
-      if (meta.subCategory !== selectedSubCat) return false;
-      if (transactionMode === 'Receipt') {
-        return isOperatingIncomeParticular(meta);
-      }
-      if (transactionMode === 'Payment') {
-        return !isIncomeMappedParticular(meta);
-      }
-      return true;
+      return meta.subCategory === selectedSubCat;
     });
 
     partSelect.innerHTML = '<option value="">-- Particulars --</option>';
@@ -1926,18 +1880,6 @@
 
       if (!particulars && !subCategory && !category && !payeeType && !payee && !description && isNaN(amount)) return;
 
-      const meta = paymentState.particularMeta[particulars] || {};
-      if (isIncomeMappedParticular(meta) && transactionMode === 'Payment') {
-        setStatus('Payments cannot use particulars mapped as operating income.');
-        hasInvalid = true;
-        return;
-      }
-      if (!isOperatingIncomeParticular(meta) && transactionMode === 'Receipt') {
-        setStatus('Receipts can only use particulars mapped as operating income.');
-        hasInvalid = true;
-        return;
-      }
-
       if (!payeeType || !payee) {
         setStatus('Each line needs payee type and payee.');
         hasInvalid = true;
@@ -1968,15 +1910,6 @@
     const bankMeta = paymentState.particularMeta[header.bankParticulars] || {};
     if (!bankMeta.subCategory || !bankMeta.category) {
       setStatus('Bank particulars not found in master data.');
-      return;
-    }
-
-    if (isIncomeMappedParticular(bankMeta) && transactionMode === 'Payment') {
-      setStatus('Payments cannot use particulars mapped as operating income.');
-      return;
-    }
-    if (!isOperatingIncomeParticular(bankMeta) && transactionMode === 'Receipt') {
-      setStatus('Receipts can only use particulars mapped as operating income.');
       return;
     }
 
