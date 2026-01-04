@@ -1967,84 +1967,18 @@ function getNotesReport(currentYear, comparativeYear, options) {
 
 /**
  * Helper to assign note numbers starting from 6, following government reporting order
- * Revenue: 6+, Expenses: 11+, Current Assets: 19+, Non-Current Assets: 23+, Current Liabilities: 26+
+ * Categories are already sorted in correct order, just assign sequential numbers starting from 6
  */
 function _buildNoteNumberByCategory(categories) {
   const noteNumberByCategory = {};
   if (!categories || !categories.length) return noteNumberByCategory;
 
-  // Define section starting numbers
-  const sectionStarts = {
-    revenue: 6,      // Notes 6-10
-    expense: 11,     // Notes 11-18 (with gap)
-    currentAsset: 19,    // Notes 19-22
-    nonCurrentAsset: 23, // Notes 23-25
-    currentLiability: 26, // Notes 26-31
-    nonCurrentLiability: 32, // Notes 32+
-    other: 40
-  };
-
-  // Track current note number for each section
-  const sectionCounters = {
-    revenue: sectionStarts.revenue,
-    expense: sectionStarts.expense,
-    currentAsset: sectionStarts.currentAsset,
-    nonCurrentAsset: sectionStarts.nonCurrentAsset,
-    currentLiability: sectionStarts.currentLiability,
-    nonCurrentLiability: sectionStarts.nonCurrentLiability,
-    other: sectionStarts.other
-  };
-
-  // Determine which section a category belongs to
-  function getCategorySection(category) {
-    const name = String(category.category || '').toLowerCase();
-    const accountTypes = (category.accountTypes || []).map(v => String(v || '').toLowerCase());
-    const mappings = (category.reportMappings || []).map(v => String(v || '').toLowerCase());
-
-    const isIncome = accountTypes.some(v => v.includes('income')) || mappings.some(v => v.includes('operating income'));
-    const isExpense = accountTypes.some(v => v.includes('expense')) || mappings.some(v => v.includes('operating expense'));
-    const isCurrentAsset = mappings.some(v => v.includes('current asset') && !v.includes('non-current') && !v.includes('non current'));
-    const isNonCurrentAsset = mappings.some(v => v.includes('non-current asset') || v.includes('non current asset'));
-    const isCurrentLiability = mappings.some(v => v.includes('current liab') && !v.includes('non-current') && !v.includes('non current'));
-    const isNonCurrentLiability = mappings.some(v => v.includes('non-current liab') || v.includes('non current liab'));
-
-    if (isIncome || name.includes('income') || name.includes('revenue') || name.includes('fee') || name.includes('donation') || name.includes('contribution')) {
-      return 'revenue';
-    }
-    if (isExpense || name.includes('expense') || name.includes('cost')) {
-      return 'expense';
-    }
-    if (name.includes('cash and cash equivalent') || name.includes('receivable') || name.includes('advance') ||
-        name.includes('inventor') || name.includes('stock') || isCurrentAsset) {
-      return 'currentAsset';
-    }
-    if (name.includes('property') || name.includes('plant') || name.includes('equipment') || name.includes('ppe') ||
-        name.includes('intangible') || name.includes('investment property') || isNonCurrentAsset) {
-      return 'nonCurrentAsset';
-    }
-    if (name.includes('payable') || name.includes('deposit') || name.includes('provision') ||
-        name.includes('lease') || name.includes('deferred') || name.includes('borrowing') || isCurrentLiability) {
-      return 'currentLiability';
-    }
-    if (isNonCurrentLiability || name.includes('non-current liab') || name.includes('non current liab')) {
-      return 'nonCurrentLiability';
-    }
-    if (name.includes('liabil')) {
-      return 'currentLiability';
-    }
-    if (name.includes('asset') || accountTypes.some(v => v.includes('asset'))) {
-      return 'currentAsset';
-    }
-
-    return 'other';
-  }
-
-  // Assign note numbers to each category
+  // Assign sequential note numbers starting from 6
+  let noteNumber = 6;
   categories.forEach(category => {
     if (!category || !category.category) return;
-    const section = getCategorySection(category);
-    noteNumberByCategory[category.category] = sectionCounters[section];
-    sectionCounters[section]++;
+    noteNumberByCategory[category.category] = noteNumber;
+    noteNumber++;
   });
 
   return noteNumberByCategory;
