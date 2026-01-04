@@ -11460,27 +11460,43 @@
             return;
           }
 
-          window.pendingJournalPayee = { type: 'Staff', name: advanceData.payee || '' };
-          window.pendingJournalYear = advanceData.financialYear || '';
-          window.pendingJournalTemplate = {
-            amount: remaining,
-            originalAmount: originalAmount,
-            surrendered: used,
-            advanceId: batchKey,
-            refNo: advanceData.refNo || '',
-            particulars: advanceData.particulars || '',
-            subCategory: advanceData.subCategory || '',
-            category: advanceData.category || '',
-            payee: advanceData.payee || ''
+          const finalizeSurrender = function(bankInfo) {
+            const bankData = bankInfo || {};
+            window.pendingJournalPayee = { type: 'Staff', name: advanceData.payee || '' };
+            window.pendingJournalYear = advanceData.financialYear || '';
+            window.pendingJournalTemplate = {
+              amount: remaining,
+              originalAmount: originalAmount,
+              surrendered: used,
+              advanceId: batchKey,
+              refNo: advanceData.refNo || '',
+              particulars: advanceData.particulars || '',
+              subCategory: advanceData.subCategory || '',
+              category: advanceData.category || '',
+              payee: advanceData.payee || '',
+              bankParticulars: bankData.particulars || '',
+              bankSubCategory: bankData.subCategory || '',
+              bankCategory: bankData.category || '',
+              bankDescription: bankData.description || ''
+            };
+            window.pendingJournalNote = `Advance: ${batchKey} | Original: ${formatPerformanceAmount(originalAmount)} | Surrendered: ${formatPerformanceAmount(used)} | Balance: ${formatPerformanceAmount(remaining)}`;
+            openTxnJournalModal();
+            setTimeout(function() {
+              if (window.pendingJournalNote) {
+                setJournalStatus(window.pendingJournalNote);
+                window.pendingJournalNote = null;
+              }
+            }, 300);
           };
-          window.pendingJournalNote = `Advance: ${batchKey} | Original: ${formatPerformanceAmount(originalAmount)} | Surrendered: ${formatPerformanceAmount(used)} | Balance: ${formatPerformanceAmount(remaining)}`;
-          openTxnJournalModal();
-          setTimeout(function() {
-            if (window.pendingJournalNote) {
-              setJournalStatus(window.pendingJournalNote);
-              window.pendingJournalNote = null;
-            }
-          }, 300);
+
+          google.script.run
+            .withSuccessHandler(function(bankInfo) {
+              finalizeSurrender(bankInfo);
+            })
+            .withFailureHandler(function() {
+              finalizeSurrender({});
+            })
+            .getAdvanceBankClassification(batchKey);
         })
         .withFailureHandler(function(error) {
           showAlert(error.message || 'Failed to load surrender balance.', 'error');

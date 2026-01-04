@@ -644,6 +644,40 @@ function getAdvanceSurrenderTotals(batchIds) {
   return totals;
 }
 
+function getAdvanceBankClassification(advanceId) {
+  const target = String(advanceId || '').trim();
+  if (!target) return {};
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return {};
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  if (!cols.batchId) return {};
+
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const batchId = String(row[cols.batchId - 1] || '').trim();
+    if (batchId !== target) continue;
+    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+    if (!accountCode) continue;
+    return {
+      particulars: cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '',
+      subCategory: cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '',
+      category: cols.category ? String(row[cols.category - 1] || '').trim() : '',
+      description: cols.description ? String(row[cols.description - 1] || '').trim() : ''
+    };
+  }
+
+  return {};
+}
+
 function searchJournal(criteria) {
   const ss = _getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
