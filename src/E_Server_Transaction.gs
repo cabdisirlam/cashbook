@@ -2890,6 +2890,43 @@ function getReceivablePayableSummary(type, criteria) {
   return { rows: rows };
 }
 
+function getNettingSummary(criteria) {
+  const receivable = getReceivablePayableSummary('receivable', criteria).rows || [];
+  const payable = getReceivablePayableSummary('payable', criteria).rows || [];
+  const summary = {};
+
+  const ensure = function(row) {
+    const key = row.contactId || row.payee;
+    if (!key) return null;
+    if (!summary[key]) {
+      summary[key] = { contactId: row.contactId || '', payee: row.payee || '', receivable: 0, payable: 0, net: 0 };
+    }
+    if (!summary[key].payee && row.payee) summary[key].payee = row.payee;
+    if (!summary[key].contactId && row.contactId) summary[key].contactId = row.contactId;
+    return summary[key];
+  };
+
+  receivable.forEach(function(row) {
+    const item = ensure(row);
+    if (!item) return;
+    item.receivable += Number(row.closing || 0);
+  });
+
+  payable.forEach(function(row) {
+    const item = ensure(row);
+    if (!item) return;
+    item.payable += Number(row.closing || 0);
+  });
+
+  const rows = Object.values(summary).map(function(item) {
+    item.net = (Number(item.receivable || 0) - Number(item.payable || 0));
+    return item;
+  }).filter(item => Math.abs(item.net) > 0.01 || Math.abs(item.receivable) > 0.01 || Math.abs(item.payable) > 0.01)
+    .sort((a, b) => String(a.payee || '').localeCompare(String(b.payee || '')));
+
+  return { rows: rows };
+}
+
 function getReceivablePayableStatement(type, payeeName, criteria) {
   const kind = String(type || '').toLowerCase();
   const isReceivable = kind.includes('receivable');

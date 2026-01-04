@@ -2285,7 +2285,11 @@ function getCustomerAdvances(customerRef) {
     const rowPayee = cols.payee ? String(row[cols.payee - 1] || '').trim() : '';
     const rowContactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
     if (contactId) {
-      if (!rowContactId || rowContactId !== contactId) return;
+      if (rowContactId) {
+        if (rowContactId !== contactId) return;
+      } else {
+        if (!payee || !rowPayee || rowPayee.toLowerCase() !== payeeKey) return;
+      }
     } else {
       if (!rowPayee || rowPayee.toLowerCase() !== payeeKey) return;
     }

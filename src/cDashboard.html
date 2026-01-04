@@ -1813,6 +1813,11 @@
         return;
       }
 
+      if (label === 'Netting Summary') {
+        renderNettingSummaryContent();
+        return;
+      }
+
       if (label === 'Staff Statements') {
         renderStaffStatementsContent();
         return;
@@ -4532,6 +4537,49 @@
       loadPayablesYears();
     }
 
+    function renderNettingSummaryContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div id="nettingAlert"></div>
+        ${renderSectionHero('Netting Summary', 'Compare receivables and payables by contact.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Netting Summary</h2>
+              <p style="color:#6b7280;font-size:13px;">Select a financial year or date range, then run the summary.</p>
+            </div>
+            <div>
+              <button class="btn btn-secondary" onclick="renderNettingSummaryContent()">Refresh</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="nettingFinancialYear">Financial Year</label>
+              <select id="nettingFinancialYear"></select>
+            </div>
+            <div class="form-group">
+              <label for="nettingStartDate">From</label>
+              <input type="date" id="nettingStartDate">
+            </div>
+            <div class="form-group">
+              <label for="nettingEndDate">To</label>
+              <input type="date" id="nettingEndDate">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="refreshNettingSummary()">Run</button>
+            </div>
+          </div>
+
+          <div id="nettingStatus" style="color:#6b7280;font-size:12px;margin-bottom:10px;"></div>
+          <div id="nettingSummaryReport"></div>
+        </div>
+      `;
+
+      loadNettingYears();
+    }
+
     function renderStaffStatementsContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
@@ -5022,6 +5070,29 @@
           showPayablesAlert(error.message || 'Failed to load statements.', 'error');
         })
         .getReceivablePayableSummary('payable', { financialYear: financialYear, startDate: startDate, endDate: endDate, payee: payeeFilter });
+    }
+
+    function refreshNettingSummary() {
+      const financialYear = document.getElementById('nettingFinancialYear').value.trim();
+      const startDate = document.getElementById('nettingStartDate').value;
+      const endDate = document.getElementById('nettingEndDate').value;
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showNettingAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      const status = document.getElementById('nettingStatus');
+      if (status) status.textContent = 'Loading summary...';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          lastNettingResult = result || { rows: [] };
+          renderNettingSummary(lastNettingResult);
+          if (status) status.textContent = '';
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = '';
+          showNettingAlert(error.message || 'Failed to load summary.', 'error');
+        })
+        .getNettingSummary({ financialYear: financialYear, startDate: startDate, endDate: endDate });
     }
 
     function refreshStaffStatements() {
@@ -5688,6 +5759,41 @@
 
     function renderPayablesStatements(result) {
       renderStatementCards('payable', result, 'payablesReport', 'No payables found for the selected period.');
+    }
+
+    function renderNettingSummary(result) {
+      const container = document.getElementById('nettingSummaryReport');
+      if (!container) return;
+      const rows = result && result.rows ? result.rows : [];
+      if (!rows.length) {
+        container.innerHTML = '<div class="card"><p>No netting rows found for the selected period.</p></div>';
+        return;
+      }
+
+      const body = rows.map(row => `
+        <tr>
+          <td data-label="Contact ID">${escapeHtml(row.contactId || '')}</td>
+          <td data-label="Payee">${escapeHtml(row.payee || '')}</td>
+          <td data-label="Receivables" style="text-align:right;">${formatPerformanceAmount(row.receivable)}</td>
+          <td data-label="Payables" style="text-align:right;">${formatPerformanceAmount(row.payable)}</td>
+          <td data-label="Net" style="text-align:right;">${formatPerformanceAmount(row.net)}</td>
+        </tr>
+      `).join('');
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Contact ID</th>
+              <th>Payee</th>
+              <th style="text-align:right;">Receivables</th>
+              <th style="text-align:right;">Payables</th>
+              <th style="text-align:right;">Net</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      `;
     }
 
     function renderStaffStatements(result) {
@@ -6795,6 +6901,32 @@
       }
     }
 
+    function showNettingAlert(message, type = 'success', duration = 6000) {
+      const container = document.getElementById('nettingAlert');
+      if (!container) {
+        showAlert(message, type, duration);
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-message alert-${type} show">
+          ${message}
+        </div>
+      `;
+
+      if (type !== 'info') {
+        setTimeout(() => {
+          const alert = container.querySelector('.alert-message');
+          if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => {
+              container.innerHTML = '';
+            }, 300);
+          }
+        }, duration);
+      }
+    }
+
     function showStaffStatementsAlert(message, type = 'success', duration = 6000) {
       const container = document.getElementById('staffStatementsAlert');
       if (!container) {
@@ -7801,6 +7933,7 @@
     let lastNetAssetsResult = null;
     let lastReceivablesResult = null;
     let lastPayablesResult = null;
+    let lastNettingResult = null;
     let lastAssetPurchasesResult = null;
     let currentBatchRows = [];
     let currentBatchId = '';
@@ -9807,6 +9940,25 @@
           if (years && years.length > 0) {
             select.value = years[years.length - 1];
           }
+        })
+        .getFinancialYears();
+    }
+
+    function loadNettingYears() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showNettingAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(years) {
+          fillSelectOptionsWithDefault('nettingFinancialYear', years, 'All years');
+          const currentSelect = document.getElementById('nettingFinancialYear');
+          if (currentSelect && years && years.length) {
+            currentSelect.value = years[0];
+          }
+        })
+        .withFailureHandler(function(error) {
+          showNettingAlert(error.message || 'Failed to load financial years.', 'error');
         })
         .getFinancialYears();
     }
