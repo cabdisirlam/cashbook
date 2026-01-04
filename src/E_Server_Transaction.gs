@@ -154,6 +154,48 @@ function saveTransaction(data) {
   const particularMeta = _buildParticularMeta_(masterData, masterCols);
   const accountMeta = _buildAccountMeta_(masterData, masterCols);
 
+  const contactsSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
+  const contactMapByName = {};
+  if (contactsSheet) {
+    const contactsLastRow = contactsSheet.getLastRow();
+    if (contactsLastRow >= 2) {
+      const contactsData = contactsSheet.getRange(2, 1, contactsLastRow - 1, 3).getValues();
+      contactsData.forEach(function(row) {
+        const contactId = String(row[0] || '').trim();
+        const contactName = String(row[2] || '').trim();
+        if (!contactId || !contactName) return;
+        const nameKey = contactName.toLowerCase();
+        if (!contactMapByName[nameKey]) {
+          contactMapByName[nameKey] = contactId;
+        }
+      });
+    }
+  }
+
+  const contactsSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
+  const contactMapByType = {};
+  const contactMapByName = {};
+  if (contactsSheet) {
+    const contactsLastRow = contactsSheet.getLastRow();
+    if (contactsLastRow >= 2) {
+      const contactsData = contactsSheet.getRange(2, 1, contactsLastRow - 1, 3).getValues();
+      contactsData.forEach(function(row) {
+        const contactId = String(row[0] || '').trim();
+        const contactType = _normalizeContactType_(row[1]);
+        const contactName = String(row[2] || '').trim();
+        if (!contactId || !contactName) return;
+        if (contactType) {
+          if (!contactMapByType[contactType]) contactMapByType[contactType] = {};
+          contactMapByType[contactType][contactName.toLowerCase()] = contactId;
+        }
+        const nameKey = contactName.toLowerCase();
+        if (!contactMapByName[nameKey]) {
+          contactMapByName[nameKey] = contactId;
+        }
+      });
+    }
+  }
+
   if (!bankParticulars) throw new Error('Bank particulars are required.');
   const bankParticularMeta = particularMeta[bankParticulars];
   if (!bankParticularMeta || !bankParticularMeta.subCategory || !bankParticularMeta.category) {
@@ -164,6 +206,7 @@ function saveTransaction(data) {
     const amount = Number(row.amount || 0);
     const particulars = String(row.particulars || '').trim();
     const rowPayee = String(row.payee || '').trim();
+    const rowPayeeType = String(row.payeeType || '').trim();
     const description = String(row.description || '').trim();
 
     if (!particulars) throw new Error('Each line needs particulars.');
@@ -179,11 +222,17 @@ function saveTransaction(data) {
     const accountTypeValue = meta.accountType || '';
     const reportMappingValue = meta.reportMapping || '';
 
+    const payeeTypeKey = _normalizeContactType_(rowPayeeType);
+    const contactId = payeeTypeKey && contactMapByType[payeeTypeKey]
+      ? (contactMapByType[payeeTypeKey][rowPayee.toLowerCase()] || '')
+      : (contactMapByName[rowPayee.toLowerCase()] || '');
+
     return {
       particulars,
       subCategory,
       category,
       payee: rowPayee,
+      contactId: contactId,
       description,
       amount,
       accountType: accountTypeValue,
@@ -210,6 +259,7 @@ function saveTransaction(data) {
       dateValue,
       financialYear,
       '',
+      row.contactId || '',
       row.payee,
       refNo,
       bankRef,
@@ -235,12 +285,14 @@ function saveTransaction(data) {
   const bankDebit = isReceipt ? total : 0;
   const bankCredit = isReceipt ? 0 : total;
   const bankPayee = _resolveBatchPayee_(cleanedRows, payee);
+  const bankContactId = cleanedRows[0] ? (cleanedRows[0].contactId || '') : '';
   entries.push([
     Utilities.getUuid(),
     batchId,
     dateValue,
     financialYear,
     accountCode,
+    bankContactId,
     bankPayee,
     refNo,
     bankRef,
@@ -416,6 +468,7 @@ function saveJournalEntry(payload) {
     refNo = getNextJournalRef();
   }
 
+  const contactId = String(header.contactId || '').trim() || (payee ? (contactMapByName[payee.toLowerCase()] || '') : '');
   const batchId = 'JRN-' + new Date().getTime();
   const entries = cleanedRows.map(function(row) {
     const useFallback = row.accountCode && fallbackDetail;
@@ -431,6 +484,7 @@ function saveJournalEntry(payload) {
       dateValue,
       financialYear,
       row.accountCode || '',
+      contactId,
       payee,
       refNo,
       '',
@@ -2158,6 +2212,8 @@ function getCashFlowReport(currentYear, comparativeYear) {
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!journal) throw new Error('DB_JOURNAL not found.');
+  _ensureJournalContactColumn_(journal);
+  _ensureJournalContactColumn_(journal);
   const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
   if (!master) throw new Error('MASTER_DATA not found.');
 
@@ -2750,6 +2806,7 @@ function getReceivablePayableSummary(type, criteria) {
   const isReceivable = kind.includes('receivable');
   const financialYear = String(criteria && criteria.financialYear || '').trim();
   const payeeFilter = String(criteria && criteria.payee || '').trim().toLowerCase();
+  const contactFilter = String(criteria && criteria.contactId || '').trim();
   const startDate = _parseDate_(criteria && criteria.startDate);
   const endDate = _parseDate_(criteria && criteria.endDate);
   const hasDateFilter = Boolean(startDate || endDate);
@@ -2767,10 +2824,25 @@ function getReceivablePayableSummary(type, criteria) {
   const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   const summaries = {};
 
+  const isAdvanceLike = function(category, reportMapping, accountType, particulars) {
+    const categoryLower = String(category || '').toLowerCase();
+    const mappingLower = String(reportMapping || '').toLowerCase();
+    const accountTypeLower = String(accountType || '').toLowerCase();
+    const particularsLower = String(particulars || '').toLowerCase();
+    if (categoryLower.includes('advance') || particularsLower.includes('advance')) return true;
+    if (categoryLower.includes('deposit') || particularsLower.includes('deposit')) return true;
+    if (categoryLower.includes('unearned') || particularsLower.includes('unearned')) return true;
+    if (categoryLower.includes('deferred') || particularsLower.includes('deferred')) return true;
+    if (mappingLower.includes('liabil') || accountTypeLower.includes('liabil')) return true;
+    return false;
+  };
+
   data.forEach(function(row) {
     if (!cols.payee || !cols.particulars) return;
     const payee = String(row[cols.payee - 1] || '').trim();
     if (!payee) return;
+    const contactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
+    if (contactFilter && contactId !== contactFilter) return;
     if (payeeFilter && !payee.toLowerCase().includes(payeeFilter)) return;
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     if (accountCode) return;
@@ -2781,45 +2853,50 @@ function getReceivablePayableSummary(type, criteria) {
 
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
+    const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
 
-    const matches = isReceivable
-      ? (mappingLower.includes('receivable') || categoryLower.includes('receivable'))
-      : (mappingLower.includes('payable') || categoryLower.includes('payable'));
+    const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
+    const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
+    const matchesAdvance = isReceivable && isAdvanceLike(category, reportMapping, accountType, particulars);
+    const matches = isReceivable ? (matchesReceivable || matchesAdvance) : matchesPayable;
     if (!matches) return;
 
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
-    const increase = isReceivable ? debit : credit;
-    const decrease = isReceivable ? credit : debit;
+    if (matchesAdvance && credit <= 0) return;
+    const increase = matchesAdvance ? 0 : (isReceivable ? debit : credit);
+    const decrease = matchesAdvance ? credit : (isReceivable ? credit : debit);
 
     const isYearMatch = !financialYear || (rowYear && rowYear === financialYear);
 
-    if (!summaries[payee]) {
-      summaries[payee] = { payee: payee, opening: 0, additions: 0, payments: 0, closing: 0 };
+    const key = contactId || payee;
+    if (!summaries[key]) {
+      summaries[key] = { payee: payee, contactId: contactId, opening: 0, additions: 0, payments: 0, closing: 0 };
     }
 
     if (hasDateFilter) {
       if (financialYear && !isYearMatch) return;
       if (!rowDate) return;
       if (startDate && rowDate < startDate) {
-        summaries[payee].opening += increase - decrease;
+        summaries[key].opening += increase - decrease;
         return;
       }
       if (endDate && rowDate > endDate) return;
-      summaries[payee].additions += increase;
-      summaries[payee].payments += decrease;
+      summaries[key].additions += increase;
+      summaries[key].payments += decrease;
       return;
     }
 
     if (financialYear && !isYearMatch) {
-      summaries[payee].opening += increase - decrease;
+      summaries[key].opening += increase - decrease;
       return;
     }
 
-    summaries[payee].additions += increase;
-    summaries[payee].payments += decrease;
+    summaries[key].additions += increase;
+    summaries[key].payments += decrease;
   });
 
   const rows = Object.values(summaries).map(function(item) {
@@ -2835,7 +2912,8 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
   const kind = String(type || '').toLowerCase();
   const isReceivable = kind.includes('receivable');
   const payee = String(payeeName || '').trim();
-  if (!payee) throw new Error('Payee is required.');
+  const contactFilter = String(criteria && criteria.contactId || '').trim();
+  if (!payee && !contactFilter) throw new Error('Payee is required.');
   const financialYear = String(criteria && criteria.financialYear || '').trim();
   const startDate = _parseDate_(criteria && criteria.startDate);
   const endDate = _parseDate_(criteria && criteria.endDate);
@@ -2852,6 +2930,18 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
   const cols = _getJournalColumns_(headers);
   const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const isAdvanceLike = function(category, reportMapping, accountType, particulars) {
+    const categoryLower = String(category || '').toLowerCase();
+    const mappingLower = String(reportMapping || '').toLowerCase();
+    const accountTypeLower = String(accountType || '').toLowerCase();
+    const particularsLower = String(particulars || '').toLowerCase();
+    if (categoryLower.includes('advance') || particularsLower.includes('advance')) return true;
+    if (categoryLower.includes('deposit') || particularsLower.includes('deposit')) return true;
+    if (categoryLower.includes('unearned') || particularsLower.includes('unearned')) return true;
+    if (categoryLower.includes('deferred') || particularsLower.includes('deferred')) return true;
+    if (mappingLower.includes('liabil') || accountTypeLower.includes('liabil')) return true;
+    return false;
+  };
 
   let opening = 0;
   const rows = [];
@@ -2859,29 +2949,37 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
   data.forEach(function(row, index) {
     if (!cols.payee || !cols.particulars) return;
     const rowPayee = String(row[cols.payee - 1] || '').trim();
-    if (rowPayee !== payee) return;
+    const contactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
+    if (contactFilter) {
+      if (contactId !== contactFilter) return;
+    } else if (rowPayee !== payee) {
+      return;
+    }
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     if (accountCode) return;
 
     const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
+    const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
-    const matches = isReceivable
-      ? (mappingLower.includes('receivable') || categoryLower.includes('receivable'))
-      : (mappingLower.includes('payable') || categoryLower.includes('payable'));
+    const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
+    const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
+    const matchesAdvance = isReceivable && isAdvanceLike(category, reportMapping, accountType, particulars);
+    const matches = isReceivable ? (matchesReceivable || matchesAdvance) : matchesPayable;
     if (!matches) return;
 
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
-    const increase = isReceivable ? debit : credit;
-    const decrease = isReceivable ? credit : debit;
+    if (matchesAdvance && credit <= 0) return;
+    const increase = matchesAdvance ? 0 : (isReceivable ? debit : credit);
+    const decrease = matchesAdvance ? credit : (isReceivable ? credit : debit);
 
     const dateCell = cols.date ? row[cols.date - 1] : '';
     const rowDate = dateCell instanceof Date ? dateCell : _parseDate_(dateCell);
     const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
-    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
 
     if (hasDateFilter) {
       if (financialYear && rowYear !== financialYear) return;
@@ -2905,7 +3003,8 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
       debit: debit,
       credit: credit,
       increase: increase,
-      decrease: decrease
+      decrease: decrease,
+      advanceId: cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : ''
     });
   });
 
@@ -2925,12 +3024,14 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
       narration: row.narration,
       debit: row.debit,
       credit: row.credit,
-      balance: balance
+      balance: balance,
+      advanceId: row.advanceId
     };
   });
 
   return {
-    payee: payee,
+    payee: payee || '',
+    contactId: contactFilter || '',
     financialYear: financialYear,
     opening: opening,
     rows: finalRows
@@ -4228,6 +4329,7 @@ function _getJournalColumns_(headers) {
     date: _resolveColumn_(headers, ['date'], 0),
     financialYear: _resolveColumn_(headers, ['financial_year', 'financialyear'], 0),
     accountCode: _resolveColumn_(headers, ['account_code', 'accountcode'], 0),
+    contactId: _resolveColumn_(headers, ['contact_id', 'contactid'], 0),
     payee: _resolveColumn_(headers, ['payee'], 0),
     refNo: _resolveColumn_(headers, ['ref_no', 'refno'], 0),
     bankRef: _resolveColumn_(headers, ['bank_ref', 'bankref'], 0),
@@ -4243,6 +4345,17 @@ function _getJournalColumns_(headers) {
     receiptUrl: _resolveColumn_(headers, ['receipt_url', 'receipturl'], 0),
     advanceId: _resolveColumn_(headers, ['advance_id', 'advanceid'], 0)
   };
+}
+
+function _ensureJournalContactColumn_(sheet) {
+  const lastCol = sheet.getLastColumn();
+  if (lastCol < 1) return;
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  if (headers.indexOf('contact_id') >= 0) return;
+  const accountIdx = headers.indexOf('account_code');
+  const insertAt = accountIdx >= 0 ? accountIdx + 2 : lastCol + 1;
+  sheet.insertColumnBefore(insertAt);
+  sheet.getRange(1, insertAt).setValue('Contact_ID');
 }
 
 function _resolveColumn_(headers, names, fallback) {

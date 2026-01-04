@@ -33,7 +33,7 @@ const CONFIG = {
 
 // Sheet header definitions - single source of truth
 const SHEET_HEADERS = {
-  DB_JOURNAL: ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Payee', 'Ref_No',
+  DB_JOURNAL: ['UUID', 'Batch_ID', 'Date', 'Financial_Year', 'Account_Code', 'Contact_ID', 'Payee', 'Ref_No',
                'Bank_Ref', 'Particulars', 'Sub_Category', 'Category', 'Description', 'Debit', 'Credit',
                'Account_Type', 'Report_Mapping', 'Recon_Status', 'Receipt_URL', 'Advance_ID'],
   DB_BANK: ['Account_Code', 'Financial_Year', 'Txn_Date', 'Value_Date', 'Bank_Ref',
@@ -2112,6 +2112,7 @@ function createInvoice(invoiceType, data) {
         invoiceNumber: row[2],
         invoiceDate: invoiceDate,
         financialYear: data.financialYear || '',
+        customerId: data.contactId || data.customerId || '',
         customerName: data.contactName || data.customerName || '',
         particulars: data.particulars || '',
         description: data.description || '',
@@ -2129,6 +2130,7 @@ function createInvoice(invoiceType, data) {
         invoiceNumber: row[2],
         invoiceDate: invoiceDate,
         financialYear: data.financialYear || '',
+        supplierId: data.contactId || data.supplierId || '',
         supplierName: data.contactName || data.supplierName || '',
         description: data.description || '',
         amount: amount,
@@ -2254,9 +2256,16 @@ function _isAdvanceCandidate_(category, particulars, accountType, reportMapping)
   return false;
 }
 
-function getCustomerAdvances(customerName) {
-  const payee = String(customerName || '').trim();
-  if (!payee) return [];
+function getCustomerAdvances(customerRef) {
+  let payee = '';
+  let contactId = '';
+  if (customerRef && typeof customerRef === 'object') {
+    payee = String(customerRef.customerName || '').trim();
+    contactId = String(customerRef.contactId || '').trim();
+  } else {
+    payee = String(customerRef || '').trim();
+  }
+  if (!payee && !contactId) return [];
   const payeeKey = payee.toLowerCase();
 
   const ss = _getOrCreateSpreadsheet();
@@ -2274,7 +2283,12 @@ function getCustomerAdvances(customerName) {
 
   data.forEach(function(row) {
     const rowPayee = cols.payee ? String(row[cols.payee - 1] || '').trim() : '';
-    if (!rowPayee || rowPayee.toLowerCase() !== payeeKey) return;
+    const rowContactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
+    if (contactId) {
+      if (!rowContactId || rowContactId !== contactId) return;
+    } else {
+      if (!rowPayee || rowPayee.toLowerCase() !== payeeKey) return;
+    }
     const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
     if (!batchId) return;
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
@@ -2373,6 +2387,7 @@ function applyReceivableAdvance(receivableId, payload) {
 
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!journal) return { success: false, message: 'DB_JOURNAL not found.' };
+  _ensureJournalContactColumn_(journal);
   const journalLastRow = journal.getLastRow();
   const journalLastCol = journal.getLastColumn();
   if (journalLastRow < 2) return { success: false, message: 'Advance not found.' };
@@ -2384,6 +2399,7 @@ function applyReceivableAdvance(receivableId, payload) {
   let advanceMeta = null;
   let advanceTotal = 0;
   let advancePayee = '';
+  let advanceContactId = '';
   journalData.forEach(function(row) {
     const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
     if (batchId !== advanceId) return;
@@ -2400,7 +2416,9 @@ function applyReceivableAdvance(receivableId, payload) {
     if (!_isAdvanceCandidate_(category, particulars, accountType, reportMapping)) return;
 
     const rowPayee = cols.payee ? String(row[cols.payee - 1] || '').trim() : '';
+    const rowContactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
     if (rowPayee) advancePayee = rowPayee;
+    if (rowContactId) advanceContactId = rowContactId;
     advanceTotal += credit;
     if (!advanceParticulars) {
       advanceParticulars = particulars;
@@ -2412,7 +2430,10 @@ function applyReceivableAdvance(receivableId, payload) {
     return { success: false, message: 'Advance particulars not found for selected advance.' };
   }
 
-  if (advancePayee && invoice.Contact_Name && advancePayee !== invoice.Contact_Name) {
+  if (advanceContactId && invoice.Contact_ID && advanceContactId !== invoice.Contact_ID) {
+    return { success: false, message: 'Advance contact does not match invoice customer.' };
+  }
+  if (!advanceContactId && advancePayee && invoice.Contact_Name && advancePayee !== invoice.Contact_Name) {
     return { success: false, message: 'Advance payee does not match invoice customer.' };
   }
 
@@ -2434,6 +2455,7 @@ function applyReceivableAdvance(receivableId, payload) {
       paymentDate,
       invoice.Financial_Year || '',
       '',
+      invoice.Contact_ID || '',
       invoice.Contact_Name || '',
       refNo,
       '',
@@ -2455,6 +2477,7 @@ function applyReceivableAdvance(receivableId, payload) {
       paymentDate,
       invoice.Financial_Year || '',
       '',
+      invoice.Contact_ID || '',
       invoice.Contact_Name || '',
       refNo,
       '',
@@ -2573,6 +2596,7 @@ function _reverseInvoice(invoiceId, invoiceType, reason) {
       _createReceivableReversalJournal({
         invoiceId: invoiceId,
         invoiceNumber: invoice.Invoice_Number,
+        contactId: invoice.Contact_ID,
         customerName: invoice.Contact_Name,
         amount: amount,
         lineItems: lineItems,
@@ -2582,6 +2606,7 @@ function _reverseInvoice(invoiceId, invoiceType, reason) {
       _createPayableReversalJournal({
         invoiceId: invoiceId,
         invoiceNumber: invoice.Invoice_Number,
+        contactId: invoice.Contact_ID,
         supplierName: invoice.Contact_Name,
         amount: amount,
         lineItems: lineItems,
@@ -2614,6 +2639,7 @@ function _createReceivableReversalJournal(data) {
   const ss = _getOrCreateSpreadsheet();
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!sheet) sheet = _ensureSheet(ss, 'DB_JOURNAL');
+  _ensureJournalContactColumn_(sheet);
 
   const user = getCurrentUser();
   const now = new Date();
@@ -2622,7 +2648,7 @@ function _createReceivableReversalJournal(data) {
 
   // Reverse Accounts Receivable (Credit to reverse the Debit)
   const arRow = [
-    _generateId('JRN'), batchId, now, '', 'AR001', data.customerName,
+    _generateId('JRN'), batchId, now, '', 'AR001', data.contactId || '', data.customerName,
     'REV-' + data.invoiceNumber, '', 'Invoice Reversal', '', 'Accounts Receivable',
     description, 0, data.amount, 'Assets', 'Balance Sheet', '', '', ''
   ];
@@ -2634,7 +2660,7 @@ function _createReceivableReversalJournal(data) {
       const lineAmount = parseFloat(item.total) || 0;
       if (lineAmount > 0) {
         const incomeRow = [
-          _generateId('JRN'), batchId, now, '', 'INC001', data.customerName,
+          _generateId('JRN'), batchId, now, '', 'INC001', data.contactId || '', data.customerName,
           'REV-' + data.invoiceNumber, '', item.particulars || 'Income Reversal', item.subCategory || '', item.category || 'Income',
           description, lineAmount, 0, 'Income', 'Income Statement', '', '', ''
         ];
@@ -2644,7 +2670,7 @@ function _createReceivableReversalJournal(data) {
   } else {
     // Single reversal entry for income
     const incomeRow = [
-      _generateId('JRN'), batchId, now, '', 'INC001', data.customerName,
+      _generateId('JRN'), batchId, now, '', 'INC001', data.contactId || '', data.customerName,
       'REV-' + data.invoiceNumber, '', 'Income Reversal', '', 'Income',
       description, data.amount, 0, 'Income', 'Income Statement', '', '', ''
     ];
@@ -2661,6 +2687,7 @@ function _createPayableReversalJournal(data) {
   const ss = _getOrCreateSpreadsheet();
   let sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!sheet) sheet = _ensureSheet(ss, 'DB_JOURNAL');
+  _ensureJournalContactColumn_(sheet);
 
   const user = getCurrentUser();
   const now = new Date();
@@ -2669,7 +2696,7 @@ function _createPayableReversalJournal(data) {
 
   // Reverse Accounts Payable (Debit to reverse the Credit)
   const apRow = [
-    _generateId('JRN'), batchId, now, '', 'AP001', data.supplierName,
+    _generateId('JRN'), batchId, now, '', 'AP001', data.contactId || '', data.supplierName,
     'REV-' + data.invoiceNumber, '', 'Invoice Reversal', '', 'Accounts Payable',
     description, data.amount, 0, 'Liabilities', 'Balance Sheet', '', '', ''
   ];
@@ -2681,7 +2708,7 @@ function _createPayableReversalJournal(data) {
       const lineAmount = parseFloat(item.totalPrice || item.total) || 0;
       if (lineAmount > 0) {
         const expenseRow = [
-          _generateId('JRN'), batchId, now, '', 'EXP001', data.supplierName,
+          _generateId('JRN'), batchId, now, '', 'EXP001', data.contactId || '', data.supplierName,
           'REV-' + data.invoiceNumber, '', item.particulars || item.itemDescription || 'Expense Reversal', item.subCategory || '', item.category || 'Expenses',
           description, 0, lineAmount, 'Expenses', 'Income Statement', '', '', ''
         ];
@@ -2691,7 +2718,7 @@ function _createPayableReversalJournal(data) {
   } else {
     // Single reversal entry for expense
     const expenseRow = [
-      _generateId('JRN'), batchId, now, '', 'EXP001', data.supplierName,
+      _generateId('JRN'), batchId, now, '', 'EXP001', data.contactId || '', data.supplierName,
       'REV-' + data.invoiceNumber, '', 'Expense Reversal', '', 'Expenses',
       description, 0, data.amount, 'Expenses', 'Income Statement', '', '', ''
     ];
@@ -2883,6 +2910,18 @@ function _isAccountType_(meta, expected) {
   return Boolean(actual && target && actual === target);
 }
 
+function _ensureJournalContactColumn_(sheet) {
+  const lastCol = sheet.getLastColumn();
+  if (lastCol < 1) return;
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const normalized = headers.map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_'));
+  if (normalized.indexOf('contact_id') >= 0) return;
+  const accountIdx = normalized.indexOf('account_code');
+  const insertAt = accountIdx >= 0 ? accountIdx + 2 : lastCol + 1;
+  sheet.insertColumnBefore(insertAt);
+  sheet.getRange(1, insertAt).setValue('Contact_ID');
+}
+
 function _pickPayablesParticular_(particularMeta) {
   if (particularMeta['Accounts Payables']) return 'Accounts Payables';
   if (particularMeta['Accounts Payable']) return 'Accounts Payable';
@@ -2944,6 +2983,7 @@ function _createReceivableJournalEntry(entry) {
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!journal) throw new Error('DB_JOURNAL not found.');
+  _ensureJournalContactColumn_(journal);
 
   const meta = _loadMasterMeta_();
   const receivableParticulars = 'Accounts Receivables';
@@ -3009,6 +3049,7 @@ function _createReceivableJournalEntry(entry) {
       entry.invoiceDate,
       entry.financialYear || '',
       '',
+      entry.customerId || '',
       entry.customerName || '',
       entry.invoiceNumber || '',
       '',
@@ -3033,6 +3074,7 @@ function _createReceivableJournalEntry(entry) {
       entry.invoiceDate,
       entry.financialYear || '',
       '',
+      entry.customerId || '',
       entry.customerName || '',
       entry.invoiceNumber || '',
       '',
@@ -3064,6 +3106,7 @@ function _createPayableJournalEntry(entry) {
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!journal) throw new Error('DB_JOURNAL not found.');
+  _ensureJournalContactColumn_(journal);
 
   const meta = _loadMasterMeta_();
   const payablesParticulars = _pickPayablesParticular_(meta.particularMeta);
@@ -3114,6 +3157,7 @@ function _createPayableJournalEntry(entry) {
       entry.invoiceDate,
       entry.financialYear || '',
       '',
+      entry.supplierId || '',
       entry.supplierName || '',
       entry.invoiceNumber || '',
       '',
@@ -3137,6 +3181,7 @@ function _createPayableJournalEntry(entry) {
     entry.invoiceDate,
     entry.financialYear || '',
     '',
+    entry.supplierId || '',
     entry.supplierName || '',
     entry.invoiceNumber || '',
     '',
@@ -3173,6 +3218,7 @@ function _createPaymentJournalEntry(invoice, paymentData, invoiceType) {
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!journal) throw new Error('DB_JOURNAL not found.');
+  _ensureJournalContactColumn_(journal);
 
   const meta = _loadMasterMeta_();
   const receivableParticulars = 'Accounts Receivables';
@@ -3210,6 +3256,7 @@ function _createPaymentJournalEntry(invoice, paymentData, invoiceType) {
       paymentDate,
       invoice.Financial_Year || '',
       '',
+      invoice.Contact_ID || '',
       invoice.Contact_Name || '',
       refNo,
       refNo,
@@ -3231,6 +3278,7 @@ function _createPaymentJournalEntry(invoice, paymentData, invoiceType) {
       paymentDate,
       invoice.Financial_Year || '',
       bankAccount,
+      invoice.Contact_ID || '',
       invoice.Contact_Name || '',
       refNo,
       refNo,

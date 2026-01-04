@@ -5705,6 +5705,7 @@
 
       const body = rows.map((row) => `
         <tr>
+          <td data-label="Contact ID">${escapeHtml(row.contactId || '')}</td>
           <td data-label="Payee">${escapeHtml(row.payee || '')}</td>
           <td data-label="Opening">${formatPerformanceAmount(row.opening)}</td>
           <td data-label="Amount">${formatPerformanceAmount(row.additions)}</td>
@@ -5712,8 +5713,8 @@
           <td data-label="Balance">${formatPerformanceAmount(row.closing)}</td>
           <td data-label="Action">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn btn-secondary" type="button" onclick="printStatementRow('${kind}', '${escapeHtml(row.payee || '')}')">Print</button>
-              <button class="btn btn-secondary" type="button" onclick="downloadStatementRowCsv('${kind}', '${escapeHtml(row.payee || '')}')">Download</button>
+              <button class="btn btn-secondary" type="button" onclick="printStatementRow('${kind}', '${escapeHtml(row.payee || '')}', '${escapeHtml(row.contactId || '')}')">Print</button>
+              <button class="btn btn-secondary" type="button" onclick="downloadStatementRowCsv('${kind}', '${escapeHtml(row.payee || '')}', '${escapeHtml(row.contactId || '')}')">Download</button>
             </div>
           </td>
         </tr>
@@ -5723,6 +5724,7 @@
         <table class="table">
           <thead>
             <tr>
+              <th>Contact ID</th>
               <th>Payee</th>
               <th>Opening</th>
               <th>Amount</th>
@@ -5736,11 +5738,11 @@
       `;
     }
 
-    function renderStatementDetail(kind, payee, targetId) {
+    function renderStatementDetail(kind, payee, targetId, contactId) {
       const container = document.getElementById(targetId);
       if (!container) return;
       container.innerHTML = '<div style="font-size:12px;color:#6b7280;">Loading statement...</div>';
-      fetchStatementDetails(kind, payee, function(data) {
+      fetchStatementDetails(kind, payee, contactId, function(data) {
         if (!data) {
           container.innerHTML = '<div style="font-size:12px;color:#6b7280;">Statement not found.</div>';
           return;
@@ -5759,6 +5761,7 @@
             <td>${escapeHtml(data.payee || '')}</td>
             <td>${row.date || ''}</td>
             <td>${escapeHtml(descParts.join(' - '))}</td>
+            <td>${escapeHtml(row.advanceId || '')}</td>
             <td style="text-align:right;">${formatPerformanceAmount(amounts.amount)}</td>
             <td style="text-align:right;">${formatPerformanceAmount(amounts.payment)}</td>
             <td style="text-align:right;">${formatPerformanceAmount(row.balance)}</td>
@@ -5766,7 +5769,7 @@
         `;
       }).join('') : `
         <tr>
-          <td colspan="6" style="text-align:center;color:#6b7280;">No data available.</td>
+          <td colspan="7" style="text-align:center;color:#6b7280;">No data available.</td>
         </tr>
       `;
 
@@ -5778,6 +5781,7 @@
               <th>Payee</th>
               <th>Date</th>
               <th>Description</th>
+              <th>Advance ID</th>
               <th style="text-align:right;">Amount</th>
               <th style="text-align:right;">Payment</th>
               <th style="text-align:right;">Cumulative Balance</th>
@@ -5892,9 +5896,10 @@
       const rows = [];
       const rowsData = result && result.rows ? result.rows : [];
       rows.push([`${title} Statement Summary`]);
-      rows.push(['Payee', 'Opening', 'Additions', 'Payments', 'Closing']);
+      rows.push(['Contact ID', 'Payee', 'Opening', 'Additions', 'Payments', 'Closing']);
       rowsData.forEach(row => {
         rows.push([
+          row.contactId || '',
           row.payee || '',
           formatPerformanceAmount(row.opening),
           formatPerformanceAmount(row.additions),
@@ -5905,8 +5910,8 @@
       return rows;
     }
 
-    function printStatementRow(kind, payee) {
-      fetchStatementDetails(kind, payee, function(data) {
+    function printStatementRow(kind, payee, contactId) {
+      fetchStatementDetails(kind, payee, contactId, function(data) {
         if (!data) {
           showAlert('Statement not found for selected payee.', 'error');
           return;
@@ -5921,6 +5926,7 @@
               <td>${escapeHtml(data.payee || '')}</td>
               <td>${row.date || ''}</td>
               <td>${escapeHtml(descParts.join(' - '))}</td>
+              <td>${escapeHtml(row.advanceId || '')}</td>
               <td>${formatPerformanceAmount(amounts.amount)}</td>
               <td>${formatPerformanceAmount(amounts.payment)}</td>
               <td>${formatPerformanceAmount(row.balance)}</td>
@@ -5948,6 +5954,7 @@
                     <th>Payee</th>
                     <th>Date</th>
                     <th>Description</th>
+                    <th>Advance ID</th>
                     <th>Amount</th>
                     <th>Payment</th>
                     <th>Cumulative Balance</th>
@@ -5970,8 +5977,8 @@
       });
     }
 
-    function downloadStatementRowCsv(kind, payee) {
-      fetchStatementDetails(kind, payee, function(data) {
+    function downloadStatementRowCsv(kind, payee, contactId) {
+      fetchStatementDetails(kind, payee, contactId, function(data) {
         if (!data) {
           showAlert('Statement not found for selected payee.', 'error');
           return;
@@ -5980,7 +5987,7 @@
         const rows = [
           [`${label} Statement - ${data.payee}`],
           [`Opening Balance`, formatPerformanceAmount(data.opening)],
-          ['Payee', 'Date', 'Description', 'Amount', 'Payment', 'Cumulative Balance']
+          ['Payee', 'Date', 'Description', 'Advance ID', 'Amount', 'Payment', 'Cumulative Balance']
         ];
         (data.rows || []).forEach(row => {
           const amounts = getStatementAmounts(kind, row);
@@ -5989,6 +5996,7 @@
             data.payee || '',
             row.date || '',
             descParts.join(' - '),
+            row.advanceId || '',
             formatPerformanceAmount(amounts.amount),
             formatPerformanceAmount(amounts.payment),
             formatPerformanceAmount(row.balance)
@@ -6000,7 +6008,7 @@
       });
     }
 
-    function fetchStatementDetails(kind, payee, callback) {
+    function fetchStatementDetails(kind, payee, contactId, callback) {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
@@ -6015,7 +6023,7 @@
         .withFailureHandler(function(error) {
           showAlert(error.message || 'Failed to load statement details.', 'error');
         })
-        .getReceivablePayableStatement(requestKind, payee, { financialYear: financialYear, startDate: dateRange.startDate, endDate: dateRange.endDate });
+        .getReceivablePayableStatement(requestKind, payee, { financialYear: financialYear, startDate: dateRange.startDate, endDate: dateRange.endDate, contactId: contactId || '' });
     }
 
     function getStatementYear(kind) {
@@ -9307,6 +9315,7 @@
             <table class="table">
               <thead>
                 <tr>
+                  <th>Contact ID</th>
                   <th>Supplier Name</th>
                   <th>Contact</th>
                   <th>Phone</th>
@@ -9323,6 +9332,7 @@
             const statusClass = s.Status === 'Active' ? 'status-badge--ok' : 'status-badge--bad';
             html += `
               <tr>
+                <td>${s.Supplier_ID || ''}</td>
                 <td><strong>${s.Supplier_Name || ''}</strong></td>
                 <td>${s.Contact_Person || '-'}</td>
                 <td>${s.Phone || '-'}</td>
@@ -10132,6 +10142,7 @@
                   <th>Date</th>
                   <th>PO Number</th>
                   <th>Supplier</th>
+                  <th>Contact ID</th>
                   <th>Invoice #</th>
                   <th>Amount</th>
                   <th>Status</th>
@@ -10150,6 +10161,7 @@
                 <td>${grn.GRN_Date || ''}</td>
                 <td>${grn.PO_Number || '-'}</td>
                 <td>${grn.Supplier_Name || '-'}</td>
+                <td>${grn.Supplier_ID || '-'}</td>
                 <td>${grn.Invoice_Number || '-'}</td>
                 <td style="text-align:right;">${amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td><span class="status-badge ${statusClass}">${grn.Status || 'Received'}</span></td>
@@ -10504,6 +10516,7 @@
               <thead>
                 <tr>
                   <th>Invoice #</th>
+                  <th>Contact ID</th>
                   <th>Supplier</th>
                   <th>Invoice Date</th>
                   <th>Due Date</th>
@@ -10528,6 +10541,7 @@
             html += `
               <tr>
                 <td><strong>${p.Invoice_Number || '-'}</strong></td>
+                <td>${p.Supplier_ID || '-'}</td>
                 <td>${p.Supplier_Name || '-'}</td>
                 <td>${p.Invoice_Date || '-'}</td>
                 <td>${p.Due_Date || '-'}${overdue}</td>
@@ -10622,6 +10636,7 @@
               <thead>
                 <tr>
                   <th>Invoice #</th>
+                  <th>Contact ID</th>
                   <th>Invoice Date</th>
                   <th>Due Date</th>
                   <th style="text-align:right;">Amount</th>
@@ -10641,6 +10656,7 @@
             html += `
               <tr>
                 <td><strong>${p.Invoice_Number || '-'}</strong></td>
+                <td>${p.Supplier_ID || '-'}</td>
                 <td>${p.Invoice_Date || '-'}</td>
                 <td>${p.Due_Date || '-'} ${overdue}</td>
                 <td style="text-align:right;">${parseFloat(p.Amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
@@ -10657,7 +10673,7 @@
               </tbody>
               <tfoot>
                 <tr style="font-weight:600;background:#f9fafb;">
-                  <td colspan="4" style="text-align:right;">Total Outstanding:</td>
+                  <td colspan="5" style="text-align:right;">Total Outstanding:</td>
                   <td style="text-align:right;">${totalOutstanding.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                   <td colspan="2"></td>
                 </tr>
@@ -11000,6 +11016,7 @@
             <table class="table">
               <thead>
                 <tr>
+                  <th>Contact ID</th>
                   <th>Name</th>
                   <th>Type</th>
                   <th>Contact</th>
@@ -11017,6 +11034,7 @@
             const statusClass = c.Status === 'Active' ? 'status-badge--ok' : 'status-badge--bad';
             html += `
               <tr>
+                <td>${c.Customer_ID || ''}</td>
                 <td><strong>${c.Customer_Name || ''}</strong></td>
                 <td>${c.Customer_Type || '-'}</td>
                 <td>${c.Contact_Person || '-'}</td>
@@ -11519,6 +11537,7 @@
             <table class="table">
               <thead>
                 <tr>
+                  <th>Contact ID</th>
                   <th>Name</th>
                   <th>Department</th>
                   <th>Phone</th>
@@ -11534,6 +11553,7 @@
             const statusClass = s.Status === 'Active' ? 'status-badge--ok' : 'status-badge--bad';
             html += `
               <tr>
+                <td>${s.Staff_ID || ''}</td>
                 <td><strong>${s.Staff_Name || ''}</strong></td>
                 <td>${s.Department || '-'}</td>
                 <td>${s.Phone || '-'}</td>
@@ -12096,6 +12116,7 @@
               <thead>
                 <tr>
                   <th>Invoice #</th>
+                  <th>Contact ID</th>
                   <th>Customer</th>
                   <th>Invoice Date</th>
                   <th>Due Date</th>
@@ -12120,6 +12141,7 @@
             html += `
               <tr>
                 <td><strong>${r.Invoice_Number || '-'}</strong></td>
+                <td>${r.Customer_ID || '-'}</td>
                 <td>${r.Customer_Name || '-'}</td>
                 <td>${r.Invoice_Date || '-'}</td>
                 <td>${r.Due_Date || '-'}${overdue}</td>
@@ -12130,7 +12152,7 @@
                 <td>
                   <div style="display:flex;gap:4px;">
                     ${r.Status !== 'Paid' && r.Status !== 'Reversed' ? `<button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoiceReceiptModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Receive</button>` : ''}
-                    ${r.Status !== 'Paid' && r.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openAdvanceApplyModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Apply Advance</button>` : ''}
+                    ${r.Status !== 'Paid' && r.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openAdvanceApplyModal('${r.Receivable_ID}', '${r.Customer_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Apply Advance</button>` : ''}
                     ${r.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;background:#dc2626;border-color:#dc2626;color:#fff;" onclick="openReversalModal('receivable', '${r.Receivable_ID}', '${r.Invoice_Number}', '${r.Customer_Name}', ${amount})">Reverse</button>` : '<span style="color:#6b7280;">Reversed</span>'}
                   </div>
                 </td>
@@ -12215,6 +12237,7 @@
               <thead>
                 <tr>
                   <th>Invoice #</th>
+                  <th>Contact ID</th>
                   <th>Invoice Date</th>
                   <th>Due Date</th>
                   <th style="text-align:right;">Amount</th>
@@ -12234,6 +12257,7 @@
             html += `
               <tr>
                 <td><strong>${r.Invoice_Number || '-'}</strong></td>
+                <td>${r.Customer_ID || '-'}</td>
                 <td>${r.Invoice_Date || '-'}</td>
                 <td>${r.Due_Date || '-'} ${overdue}</td>
                 <td style="text-align:right;">${parseFloat(r.Amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
@@ -12241,7 +12265,7 @@
                 <td><span class="status-badge ${r.Status === 'Partial' ? 'status-badge--warn' : 'status-badge--bad'}">${r.Status}</span></td>
                 <td>
                   <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoiceReceiptModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Receive</button>
-                  <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openAdvanceApplyModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Apply Advance</button>
+                  <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openAdvanceApplyModal('${r.Receivable_ID}', '${r.Customer_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Apply Advance</button>
                 </td>
               </tr>
             `;
@@ -12251,7 +12275,7 @@
               </tbody>
               <tfoot>
                 <tr style="font-weight:600;background:#f9fafb;">
-                  <td colspan="4" style="text-align:right;">Total Outstanding:</td>
+                  <td colspan="5" style="text-align:right;">Total Outstanding:</td>
                   <td style="text-align:right;">${totalOutstanding.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                   <td colspan="2"></td>
                 </tr>
@@ -12324,7 +12348,7 @@
       loadInvoiceBankAccounts('receiptBankAccount');
     }
 
-    function openAdvanceApplyModal(receivableId, customerName, invoiceNumber, balance) {
+    function openAdvanceApplyModal(receivableId, customerId, customerName, invoiceNumber, balance) {
       const today = new Date().toISOString().split('T')[0];
       const modalHtml = `
         <div class="modal open" id="advanceApplyModal">
@@ -12421,7 +12445,7 @@
           select.innerHTML = '<option value="">-- Select Advance --</option>';
           status.textContent = error.message || 'Failed to load advances.';
         })
-        .getCustomerAdvances(customerName);
+        .getCustomerAdvances({ contactId: customerId, customerName: customerName });
 
       applyBtn.addEventListener('click', function() {
         const advanceId = select.value.trim();
