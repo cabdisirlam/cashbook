@@ -1886,32 +1886,61 @@ function getNotesReport(currentYear, comparativeYear, options) {
     });
   }
 
+  // Sort categories in government-required order for financial statements
   const getCategoryOrder = (item) => {
     const name = String(item.category || '').toLowerCase();
     const accountTypes = (item.accountTypes || []).map(value => String(value || '').toLowerCase());
     const mappings = (item.reportMappings || []).map(value => String(value || '').toLowerCase());
+    const isIncome = accountTypes.some(v => v.includes('income')) || mappings.some(v => v.includes('operating income'));
+    const isExpense = accountTypes.some(v => v.includes('expense')) || mappings.some(v => v.includes('operating expense'));
+    const isCurrentAsset = mappings.some(v => v.includes('current asset') && !v.includes('non-current') && !v.includes('non current'));
+    const isNonCurrentAsset = mappings.some(v => v.includes('non-current asset') || v.includes('non current asset'));
+    const isCurrentLiability = mappings.some(v => v.includes('current liab') && !v.includes('non-current') && !v.includes('non current'));
+    const isNonCurrentLiability = mappings.some(v => v.includes('non-current liab') || v.includes('non current liab'));
 
-    if (name.includes('income') || name.includes('revenue') || accountTypes.some(v => v.includes('income')) || mappings.some(v => v.includes('operating income'))) {
-      return 0;
-    }
-    if (name.includes('expense') || accountTypes.some(v => v.includes('expense')) || mappings.some(v => v.includes('operating expense'))) {
-      return 1;
-    }
-    if (name.includes('receivable') || name.includes('debtors')) return 2;
-    if (name.includes('inventory') || name.includes('inventories') || name.includes('stock')) return 3;
-    if (name.includes('property, plant') || name.includes('property plant') || name.includes('property and equipment') || name.includes('ppe')) return 4;
-    if (name.includes('intangible')) return 5;
-    if (name.includes('cash and cash equivalent')) return 6;
-    if (name.includes('non current asset') || name.includes('non-current asset') || mappings.some(v => v.includes('non-current asset') || v.includes('non current asset'))) {
-      return 7;
-    }
-    if (name.includes('asset') || accountTypes.some(v => v.includes('asset')) || mappings.some(v => v.includes('current asset'))) {
-      return 8;
-    }
-    if (name.includes('liabil') || accountTypes.some(v => v.includes('liabil')) || mappings.some(v => v.includes('liability'))) {
-      return 9;
-    }
-    return 99;
+    // Revenue categories (Notes 6-10)
+    if (name.includes('transfer') && (name.includes('ppf') || name.includes('political parties'))) return 100;
+    if (name.includes('membership fee')) return 101;
+    if (name.includes('public contribution') || name.includes('donation')) return 102;
+    if (name.includes('investment income')) return 103;
+    if (name.includes('miscellaneous revenue') || name.includes('other revenue') || name.includes('other income')) return 104;
+    if (isIncome || name.includes('income') || name.includes('revenue')) return 105;
+
+    // Expense categories (Notes 11-14)
+    if (name.includes('administrative expense') || name.includes('admin expense')) return 200;
+    if (name.includes('special interest') || name.includes('interest group')) return 201;
+    if (name.includes('advocacy') || name.includes('electoral')) return 202;
+    if (name.includes('finance cost') || name.includes('interest expense')) return 203;
+    if (isExpense || name.includes('expense')) return 204;
+
+    // Current Assets (Notes 19-22)
+    if (name.includes('cash and cash equivalent') || name.includes('cash & cash equivalent')) return 300;
+    if (name.includes('receivable') || name.includes('debtors') || name.includes('advance')) return 301;
+    if (name.includes('inventor') || name.includes('stock')) return 302;
+    if ((name.includes('investment') && isCurrentAsset) || name.includes('current investment')) return 303;
+    if (isCurrentAsset) return 304;
+
+    // Non-Current Assets (Notes 23-25)
+    if (name.includes('investment') && (isNonCurrentAsset || (!isCurrentAsset && !name.includes('current')))) return 400;
+    if (name.includes('property') && (name.includes('plant') || name.includes('equipment')) || name.includes('ppe')) return 401;
+    if (name.includes('intangible')) return 402;
+    if (name.includes('investment property')) return 403;
+    if (isNonCurrentAsset || name.includes('non-current asset') || name.includes('non current asset')) return 404;
+
+    // Current Liabilities (Notes 26-31)
+    if (name.includes('trade') && name.includes('payable') || name.includes('other payable') || name.includes('accounts payable')) return 500;
+    if (name.includes('refundable deposit') || name.includes('customer deposit')) return 501;
+    if (name.includes('current provision') || (name.includes('provision') && isCurrentLiability)) return 502;
+    if (name.includes('finance lease') || name.includes('lease obligation')) return 503;
+    if (name.includes('deferred income') || name.includes('unearned revenue')) return 504;
+    if (name.includes('current portion') && name.includes('borrowing')) return 505;
+    if (isCurrentLiability) return 506;
+
+    // Non-Current Liabilities
+    if (isNonCurrentLiability || name.includes('non-current liab') || name.includes('non current liab')) return 600;
+    if (name.includes('liabil')) return 601;
+
+    return 999;
   };
 
   results.sort((a, b) => {
@@ -1921,6 +1950,14 @@ function getNotesReport(currentYear, comparativeYear, options) {
     return String(a.category || '').localeCompare(String(b.category || ''));
   });
 
+  // Assign note numbers to each category (starting from 6)
+  const noteNumbers = _buildNoteNumberByCategory(results);
+  results.forEach(category => {
+    if (category && category.category) {
+      category.noteNumber = noteNumbers[category.category] || '';
+    }
+  });
+
   return {
     currentYear: year,
     comparativeYear: compare,
@@ -1928,15 +1965,95 @@ function getNotesReport(currentYear, comparativeYear, options) {
   };
 }
 
+/**
+ * Helper to assign note numbers starting from 6, following government reporting order
+ * Revenue: 6+, Expenses: 11+, Current Assets: 19+, Non-Current Assets: 23+, Current Liabilities: 26+
+ */
+function _buildNoteNumberByCategory(categories) {
+  const noteNumberByCategory = {};
+  if (!categories || !categories.length) return noteNumberByCategory;
+
+  // Define section starting numbers
+  const sectionStarts = {
+    revenue: 6,      // Notes 6-10
+    expense: 11,     // Notes 11-18 (with gap)
+    currentAsset: 19,    // Notes 19-22
+    nonCurrentAsset: 23, // Notes 23-25
+    currentLiability: 26, // Notes 26-31
+    nonCurrentLiability: 32, // Notes 32+
+    other: 40
+  };
+
+  // Track current note number for each section
+  const sectionCounters = {
+    revenue: sectionStarts.revenue,
+    expense: sectionStarts.expense,
+    currentAsset: sectionStarts.currentAsset,
+    nonCurrentAsset: sectionStarts.nonCurrentAsset,
+    currentLiability: sectionStarts.currentLiability,
+    nonCurrentLiability: sectionStarts.nonCurrentLiability,
+    other: sectionStarts.other
+  };
+
+  // Determine which section a category belongs to
+  function getCategorySection(category) {
+    const name = String(category.category || '').toLowerCase();
+    const accountTypes = (category.accountTypes || []).map(v => String(v || '').toLowerCase());
+    const mappings = (category.reportMappings || []).map(v => String(v || '').toLowerCase());
+
+    const isIncome = accountTypes.some(v => v.includes('income')) || mappings.some(v => v.includes('operating income'));
+    const isExpense = accountTypes.some(v => v.includes('expense')) || mappings.some(v => v.includes('operating expense'));
+    const isCurrentAsset = mappings.some(v => v.includes('current asset') && !v.includes('non-current') && !v.includes('non current'));
+    const isNonCurrentAsset = mappings.some(v => v.includes('non-current asset') || v.includes('non current asset'));
+    const isCurrentLiability = mappings.some(v => v.includes('current liab') && !v.includes('non-current') && !v.includes('non current'));
+    const isNonCurrentLiability = mappings.some(v => v.includes('non-current liab') || v.includes('non current liab'));
+
+    if (isIncome || name.includes('income') || name.includes('revenue') || name.includes('fee') || name.includes('donation') || name.includes('contribution')) {
+      return 'revenue';
+    }
+    if (isExpense || name.includes('expense') || name.includes('cost')) {
+      return 'expense';
+    }
+    if (name.includes('cash and cash equivalent') || name.includes('receivable') || name.includes('advance') ||
+        name.includes('inventor') || name.includes('stock') || isCurrentAsset) {
+      return 'currentAsset';
+    }
+    if (name.includes('property') || name.includes('plant') || name.includes('equipment') || name.includes('ppe') ||
+        name.includes('intangible') || name.includes('investment property') || isNonCurrentAsset) {
+      return 'nonCurrentAsset';
+    }
+    if (name.includes('payable') || name.includes('deposit') || name.includes('provision') ||
+        name.includes('lease') || name.includes('deferred') || name.includes('borrowing') || isCurrentLiability) {
+      return 'currentLiability';
+    }
+    if (isNonCurrentLiability || name.includes('non-current liab') || name.includes('non current liab')) {
+      return 'nonCurrentLiability';
+    }
+    if (name.includes('liabil')) {
+      return 'currentLiability';
+    }
+    if (name.includes('asset') || accountTypes.some(v => v.includes('asset'))) {
+      return 'currentAsset';
+    }
+
+    return 'other';
+  }
+
+  // Assign note numbers to each category
+  categories.forEach(category => {
+    if (!category || !category.category) return;
+    const section = getCategorySection(category);
+    noteNumberByCategory[category.category] = sectionCounters[section];
+    sectionCounters[section]++;
+  });
+
+  return noteNumberByCategory;
+}
+
 function getPerformanceReport(currentYear, comparativeYear) {
   const notes = getNotesReport(currentYear, comparativeYear);
   const categories = Array.isArray(notes.categories) ? notes.categories : [];
-  const noteNumberByCategory = {};
-  categories.forEach((category, index) => {
-    if (category && category.category) {
-      noteNumberByCategory[category.category] = index + 1;
-    }
-  });
+  const noteNumberByCategory = _buildNoteNumberByCategory(categories);
 
   const revenueRows = [];
   const expenseRows = [];
@@ -1989,12 +2106,7 @@ function getPerformanceReport(currentYear, comparativeYear) {
 function getCashFlowReport(currentYear, comparativeYear) {
   const notes = getNotesReport(currentYear, comparativeYear, { basis: 'cash' });
   const categories = Array.isArray(notes.categories) ? notes.categories : [];
-  const noteNumberByCategory = {};
-  categories.forEach((category, index) => {
-    if (category && category.category) {
-      noteNumberByCategory[category.category] = index + 1;
-    }
-  });
+  const noteNumberByCategory = _buildNoteNumberByCategory(categories);
 
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -2240,12 +2352,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
 function getPositionReport(currentYear, comparativeYear) {
   const notes = getNotesReport(currentYear, comparativeYear);
   const categories = Array.isArray(notes.categories) ? notes.categories : [];
-  const noteNumberByCategory = {};
-  categories.forEach((category, index) => {
-    if (category && category.category) {
-      noteNumberByCategory[category.category] = index + 1;
-    }
-  });
+  const noteNumberByCategory = _buildNoteNumberByCategory(categories);
 
   const currentAssets = [];
   const nonCurrentAssets = [];

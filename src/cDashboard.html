@@ -6099,7 +6099,7 @@
       const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
 
       categories.forEach((category, index) => {
-        const noteNumber = index + 1;
+        const noteNumber = category.noteNumber || (index + 6);
         rows.push([`${noteNumber}. ${category.category || ''}`, '', '']);
         rows.push(['Description', currentLabel, comparativeLabel]);
         (category.subCategories || []).forEach(sub => {
@@ -6936,7 +6936,7 @@
       const comparativeLabel = result.comparativeYear ? `Comparative FY (${result.comparativeYear})` : 'Comparative FY';
 
       const notesHtml = categories.map(function(category, index) {
-        const noteNumber = index + 1;
+        const noteNumber = category.noteNumber || (index + 6);
         const subRows = (category.subCategories || []).map(function(subCategory) {
           const items = (subCategory.items || []).map(function(item) {
             return `
