@@ -1745,7 +1745,7 @@ function savePurchaseOrder(data) {
     data.supplierName || '',
     data.description || '',
     totalAmount,
-    'Draft',
+    'Approved',
     user.email || '',
     now,
     '', // Approved_By

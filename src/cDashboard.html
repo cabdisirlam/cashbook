@@ -1428,6 +1428,16 @@
     </div>
   </div>
 
+  <div class="modal" id="infoModal">
+    <div class="confirm-modal-card">
+      <div class="confirm-title" id="infoTitle">Notice</div>
+      <div class="confirm-text" id="infoText"></div>
+      <div class="form-actions" style="justify-content:flex-end;">
+        <button class="btn btn-primary" onclick="closeInfoModal()">OK</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let sessionCheckInterval;
     let countdownInterval;
@@ -1502,7 +1512,7 @@
               loadUserInfo(retryAttempt + 1);
             }, 800);
           } else {
-            alert('Failed to load user information. Please refresh the page.');
+            showInfoModal('Error', 'Failed to load user information. Please refresh the page.');
           }
         })
         .getCurrentUser();
@@ -7311,7 +7321,7 @@
     function openAddSubCategoryModal(prefix) {
       const selectedCat = document.getElementById(prefix + 'Category').value;
       if (!selectedCat) {
-        alert('Please select a Category first.');
+        showInfoModal('Notice', 'Please select a Category first.');
         return;
       }
       const modalHtml = `
@@ -7375,7 +7385,7 @@
       const selectedCat = document.getElementById(prefix + 'Category').value;
       const selectedSubCat = document.getElementById(prefix + 'SubCategory').value;
       if (!selectedSubCat) {
-        alert('Please select a Sub-Category first.');
+        showInfoModal('Notice', 'Please select a Sub-Category first.');
         return;
       }
       const modalHtml = `
@@ -7636,7 +7646,7 @@
     function showBudgetAlert(message, type = 'success', duration = 6000) {
       const container = document.getElementById('budgetAlert');
       if (!container) {
-        alert(message);
+        showInfoModal(type === 'error' ? 'Error' : 'Notice', message);
         return;
       }
 
@@ -7662,7 +7672,7 @@
     function showBankImportAlert(message, type = 'success', duration = 6000) {
       const container = document.getElementById('bankImportAlert');
       if (!container) {
-        alert(message);
+        showInfoModal(type === 'error' ? 'Error' : 'Notice', message);
         return;
       }
 
@@ -7688,7 +7698,7 @@
     function showReconAlert(message, type = 'success', duration = 6000) {
       const container = document.getElementById('reconAlert');
       if (!container) {
-        alert(message);
+        showInfoModal(type === 'error' ? 'Error' : 'Notice', message);
         return;
       }
 
@@ -8707,6 +8717,21 @@
       if (button) button.textContent = 'Confirm';
     }
 
+    function showInfoModal(title, messageHtml) {
+      const modal = document.getElementById('infoModal');
+      if (!modal) return;
+      const titleEl = document.getElementById('infoTitle');
+      const textEl = document.getElementById('infoText');
+      if (titleEl) titleEl.textContent = title || 'Notice';
+      if (textEl) textEl.innerHTML = messageHtml || '';
+      modal.classList.add('open');
+    }
+
+    function closeInfoModal() {
+      const modal = document.getElementById('infoModal');
+      if (modal) modal.classList.remove('open');
+    }
+
     function renderReceiptLauncher() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
@@ -8797,7 +8822,7 @@
           document.getElementById('bankAccountNumberInput').value = settings.bankAccountNumber || '';
         })
         .withFailureHandler(function(error) {
-          alert(error.message || 'Failed to load settings.');
+          showInfoModal('Error', error.message || 'Failed to load settings.');
           console.error('Failed to load settings:', error);
         })
         .getSystemSettings();
@@ -8817,7 +8842,7 @@
       };
 
       if (!/^\d\.\d{2}$/.test(payload.decimals)) {
-        alert('Decimals must be in 0.00 format.');
+        showInfoModal('Notice', 'Decimals must be in 0.00 format.');
         return;
       }
 
@@ -9048,7 +9073,7 @@
 
       if (rowId) {
         if (typeof google === 'undefined' || !google.script || !google.script.run) {
-          alert('App runtime missing.');
+          showInfoModal('Error', 'App runtime missing.');
           return;
         }
 
@@ -9091,12 +9116,12 @@
       };
 
       if (!payload.rowId && !/^\d{4}$/.test(pinValue)) {
-        alert('PIN must be exactly 4 digits.');
+        showInfoModal('Notice', 'PIN must be exactly 4 digits.');
         return;
       }
 
       if (payload.rowId && pinValue && !/^\d{4}$/.test(pinValue)) {
-        alert('PIN must be exactly 4 digits.');
+        showInfoModal('Notice', 'PIN must be exactly 4 digits.');
         return;
       }
 
@@ -9125,7 +9150,7 @@
       if (!confirm('Deactivate this user?')) return;
 
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
-        alert('App runtime missing.');
+        showInfoModal('Error', 'App runtime missing.');
         return;
       }
 
@@ -9134,7 +9159,7 @@
           loadUsers();
         })
         .withFailureHandler(function(error) {
-          alert(error.message || 'Failed to deactivate user.');
+          showInfoModal('Error', error.message || 'Failed to deactivate user.');
           console.error('Failed to deactivate user:', error);
         })
         .deactivateUser(rowId);
@@ -9415,13 +9440,13 @@
         .withSuccessHandler(function(suppliers) {
           const supplier = (suppliers || []).find(s => s.Supplier_ID === supplierId);
           if (!supplier) {
-            alert('Supplier not found.');
+            showInfoModal('Error', 'Supplier not found.');
             return;
           }
           openEditSupplierModal(supplier);
         })
         .withFailureHandler(function(error) {
-          alert('Error loading supplier: ' + error.message);
+          showInfoModal('Error', 'Error loading supplier: ' + error.message);
         })
         .getSuppliers();
     }
@@ -9912,7 +9937,10 @@
           if (result.success) {
             closePOModal();
             loadPurchaseOrders();
-            alert('Purchase Order ' + result.poNumber + ' created successfully!\n\nStatus: Draft (pending approval)');
+            showInfoModal(
+              'Purchase Order Created',
+              'Purchase Order <strong>' + result.poNumber + '</strong> created successfully.'
+            );
           } else {
             document.getElementById('poFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to create PO') + '</span>';
           }
@@ -9928,13 +9956,13 @@
       google.script.run
         .withSuccessHandler(function(po) {
           if (!po) {
-            alert('Purchase Order not found.');
+            showInfoModal('Error', 'Purchase Order not found.');
             return;
           }
           showPODetailsModal(po);
         })
         .withFailureHandler(function(error) {
-          alert('Error loading PO: ' + error.message);
+          showInfoModal('Error', 'Error loading PO: ' + error.message);
         })
         .getPurchaseOrderWithLines(poId);
     }
@@ -10374,7 +10402,10 @@
           if (result.success) {
             closeGRNModal();
             loadGRNs();
-            alert('GRN ' + result.grnNumber + ' recorded successfully!');
+            showInfoModal(
+              'GRN Recorded',
+              'GRN <strong>' + result.grnNumber + '</strong> recorded successfully.'
+            );
           } else {
             document.getElementById('grnFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to record GRN') + '</span>';
           }
@@ -10693,7 +10724,10 @@
         .withSuccessHandler(function(result) {
           if (result.success) {
             document.getElementById('invoicePaymentModal').remove();
-            alert('Payment recorded successfully!' + (result.journalCreated ? ' Journal entry created.' : ''));
+            showInfoModal(
+              'Payment Recorded',
+              'Payment recorded successfully!' + (result.journalCreated ? ' Journal entry created.' : '')
+            );
             // Refresh the current view
             if (document.getElementById('payablesTableContainer')) {
               loadPayables();
@@ -10950,7 +10984,7 @@
           if (result.success) {
             document.getElementById('addCustomerModal').remove();
             loadCustomers();
-            alert('Customer saved successfully!');
+            showInfoModal('Customer Saved', 'Customer saved successfully.');
           } else {
             document.getElementById('customerFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to save') + '</span>';
           }
@@ -10966,7 +11000,7 @@
         .withSuccessHandler(function(customers) {
           const customer = (customers || []).find(c => c.Customer_ID === customerId);
           if (!customer) {
-            alert('Customer not found.');
+            showInfoModal('Error', 'Customer not found.');
             return;
           }
           openEditCustomerModal(customer);
@@ -11072,7 +11106,7 @@
           if (result.success) {
             document.getElementById('editCustomerModal').remove();
             loadCustomers();
-            alert('Customer updated successfully!');
+            showInfoModal('Customer Updated', 'Customer updated successfully.');
           } else {
             document.getElementById('editCustomerFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to update') + '</span>';
           }
@@ -11425,7 +11459,7 @@
           if (result.success) {
             document.getElementById('addStaffModal').remove();
             loadStaff();
-            alert('Staff saved successfully!');
+            showInfoModal('Staff Saved', 'Staff saved successfully.');
           } else {
             document.getElementById('staffFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to save') + '</span>';
           }
@@ -11441,7 +11475,7 @@
         .withSuccessHandler(function(staffList) {
           const staff = (staffList || []).find(s => s.Staff_ID === staffId);
           if (!staff) {
-            alert('Staff not found.');
+            showInfoModal('Error', 'Staff not found.');
             return;
           }
           openEditStaffModal(staff);
@@ -11522,7 +11556,7 @@
           if (result.success) {
             document.getElementById('editStaffModal').remove();
             loadStaff();
-            alert('Staff updated successfully!');
+            showInfoModal('Staff Updated', 'Staff updated successfully.');
           } else {
             document.getElementById('editStaffFormStatus').innerHTML = '<span style="color:#dc2626;">' + (result.message || 'Failed to update') + '</span>';
           }
@@ -11836,7 +11870,10 @@
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            alert('Invoice ' + result.invoiceNumber + ' created successfully!');
+            showInfoModal(
+              'Invoice Created',
+              'Invoice <strong>' + result.invoiceNumber + '</strong> created successfully.'
+            );
             closeIssueInvoiceModal();
             renderOutstandingInvoicesContent();
           } else {
@@ -12169,7 +12206,10 @@
         .withSuccessHandler(function(result) {
           if (result.success) {
             document.getElementById('invoiceReceiptModal').remove();
-            alert('Receipt recorded successfully!' + (result.journalCreated ? ' Journal entry created.' : ''));
+            showInfoModal(
+              'Receipt Recorded',
+              'Receipt recorded successfully!' + (result.journalCreated ? ' Journal entry created.' : '')
+            );
             // Refresh the current view
             if (document.getElementById('receivablesTableContainer')) {
               loadReceivables();
