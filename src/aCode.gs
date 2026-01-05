@@ -2294,36 +2294,41 @@ function getCustomerAdvances(customerRef) {
       if (!rowPayee || rowPayee.toLowerCase() !== payeeKey) return;
     }
     const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
-    if (!batchId) return;
+    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+    const advanceIdCol = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+    const hasAdvanceBankLine = Boolean(accountCode && advanceIdCol && rowContactId);
+    const advanceKey = advanceIdCol || batchId;
+    if (!advanceKey) return;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
-    if (credit <= 0) return;
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const amount = hasAdvanceBankLine ? debit : credit;
+    if (amount <= 0) return;
 
     const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
     const subCategory = cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '';
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
     const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
-    if (!_isAdvanceCandidate_(category, particulars, accountType, reportMapping)) return;
+    if (!_isAdvanceCandidate_(category, particulars, accountType, reportMapping) && !hasAdvanceBankLine) return;
 
     // Skip entries that already have an Advance_ID set (these are applications, not original advances)
-    const advanceIdCol = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
-    if (advanceIdCol) return;
+    if (advanceIdCol && !accountCode) return;
 
     const dateValue = cols.date ? row[cols.date - 1] : '';
     const refNo = cols.refNo ? String(row[cols.refNo - 1] || '').trim() : '';
-    const existing = advancesByBatch[batchId];
+    const existing = advancesByBatch[advanceKey];
     if (!existing) {
-      advancesByBatch[batchId] = {
-        advanceId: batchId,
+      advancesByBatch[advanceKey] = {
+        advanceId: advanceKey,
         date: dateValue ? _formatDate_(dateValue) : '',
         refNo: refNo,
         particulars: particulars,
         subCategory: subCategory,
         category: category,
-        amount: credit
+        amount: amount
       };
     } else {
-      existing.amount += credit;
+      existing.amount += amount;
     }
   });
 
@@ -2408,26 +2413,30 @@ function applyReceivableAdvance(receivableId, payload) {
   let advanceContactId = '';
   journalData.forEach(function(row) {
     const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
-    if (batchId !== advanceId) return;
+    const advanceIdCol = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+    if (batchId !== advanceId && advanceIdCol !== advanceId) return;
+    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
-    if (credit <= 0) return;
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const hasAdvanceBankLine = Boolean(accountCode && advanceIdCol === advanceId);
+    const amountFromRow = hasAdvanceBankLine ? debit : credit;
+    if (amountFromRow <= 0) return;
 
     const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
     const subCategory = cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '';
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
     const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
-    if (!_isAdvanceCandidate_(category, particulars, accountType, reportMapping)) return;
+    if (!_isAdvanceCandidate_(category, particulars, accountType, reportMapping) && !hasAdvanceBankLine) return;
 
     // Skip entries that already have an Advance_ID set (these are applications, not original advances)
-    const advanceIdCol = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
-    if (advanceIdCol) return;
+    if (advanceIdCol && !accountCode) return;
 
     const rowPayee = cols.payee ? String(row[cols.payee - 1] || '').trim() : '';
     const rowContactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
     if (rowPayee) advancePayee = rowPayee;
     if (rowContactId) advanceContactId = rowContactId;
-    advanceTotal += credit;
+    advanceTotal += amountFromRow;
     if (!advanceParticulars) {
       advanceParticulars = particulars;
       advanceMeta = meta.particularMeta[particulars] || null;

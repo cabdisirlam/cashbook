@@ -3113,14 +3113,17 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
       return;
     }
 
+    const displayDebit = isReceivable && hasAdvanceBankLine && matchesAdvance ? 0 : debit;
+    const displayCredit = isReceivable && hasAdvanceBankLine && matchesAdvance ? debit : credit;
+
     rows.push({
       index: index,
       dateValue: rowDate,
       date: rowDate ? _formatDate_(rowDate) : '',
       particulars: particulars,
       narration: description,
-      debit: debit,
-      credit: credit,
+      debit: displayDebit,
+      credit: displayCredit,
       increase: increase,
       decrease: decrease,
       advanceId: advanceId
