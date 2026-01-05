@@ -377,6 +377,24 @@ function saveJournalEntry(payload) {
   const particularMeta = _buildParticularMeta_(masterData, masterCols);
   const accountMeta = _buildAccountMeta_(masterData, masterCols);
 
+  const contactMapByName = {};
+  const contactsSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
+  if (contactsSheet) {
+    const contactsLastRow = contactsSheet.getLastRow();
+    if (contactsLastRow >= 2) {
+      const contactsData = contactsSheet.getRange(2, 1, contactsLastRow - 1, 3).getValues();
+      contactsData.forEach(function(row) {
+        const contactId = String(row[0] || '').trim();
+        const contactName = String(row[2] || '').trim();
+        if (!contactId || !contactName) return;
+        const nameKey = contactName.toLowerCase();
+        if (!contactMapByName[nameKey]) {
+          contactMapByName[nameKey] = contactId;
+        }
+      });
+    }
+  }
+
   const cleanedRows = rows.map(function(row) {
     const lineType = String(row.lineType || '').trim().toLowerCase();
     const particulars = String(row.particulars || '').trim();
@@ -2860,6 +2878,7 @@ function getReceivablePayableSummary(type, criteria) {
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
     const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
     const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+    const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
 
