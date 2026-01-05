@@ -2845,6 +2845,7 @@ function getReceivablePayableSummary(type, criteria) {
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     const advanceId = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
     const hasAdvanceBankLine = Boolean(accountCode && advanceId && contactId);
+    const isAdvanceApplication = Boolean(advanceId && !accountCode);
     if (accountCode && !hasAdvanceBankLine) return;
 
     // Filter by Contact_Type instead of Report_Mapping
@@ -2865,7 +2866,8 @@ function getReceivablePayableSummary(type, criteria) {
     // Check transaction nature - only include receivable/payable/advance entries
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
-    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) || hasAdvanceBankLine;
+    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
+      hasAdvanceBankLine || (isAdvanceApplication && debit > 0 && credit === 0);
 
     // Filter: only include relevant transaction types for the statement
     // Customer statement: receivables and advances only
@@ -3044,6 +3046,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     const advanceId = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
     const hasAdvanceBankLine = Boolean(accountCode && advanceId && contactId);
+    const isAdvanceApplication = Boolean(advanceId && !accountCode);
     if (accountCode && !hasAdvanceBankLine) return;
 
     // Filter by Contact_Type instead of Report_Mapping
@@ -3061,7 +3064,8 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     // Check transaction nature - only include receivable/payable/advance entries
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
-    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) || hasAdvanceBankLine;
+    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
+      hasAdvanceBankLine || (isAdvanceApplication && debit > 0 && credit === 0);
 
     // Filter: only include relevant transaction types for the statement
     // Customer statement: receivables and advances only
