@@ -3071,7 +3071,7 @@ function _createReceivableJournalEntry(entry) {
       receivableMeta.reportMapping || '',
       '',
       '',
-      entry.invoiceId || ''
+      ''  // Advance_ID should be empty for regular invoices
     ]
   ];
 
@@ -3096,7 +3096,7 @@ function _createReceivableJournalEntry(entry) {
       line.meta.reportMapping || '',
       '',
       '',
-      entry.invoiceId || ''
+      ''  // Advance_ID should be empty for regular invoices
     ]);
   });
 
@@ -3179,7 +3179,7 @@ function _createPayableJournalEntry(entry) {
       line.meta.reportMapping || '',
       '',
       '',
-      entry.invoiceId || ''
+      ''  // Advance_ID should be empty for regular invoices
     ];
   });
 
@@ -3203,7 +3203,7 @@ function _createPayableJournalEntry(entry) {
     payablesMeta.reportMapping || '',
     '',
     '',
-    entry.invoiceId || ''
+    ''  // Advance_ID should be empty for regular invoices
   ]);
 
   const startRow = journal.getLastRow() + 1;
@@ -3278,7 +3278,7 @@ function _createPaymentJournalEntry(invoice, paymentData, invoiceType) {
       counterMeta.reportMapping || '',
       '',
       '',
-      invoice.Invoice_ID || ''
+      ''  // Advance_ID should be empty for regular payments
     ],
     [
       Utilities.getUuid(),
@@ -3300,7 +3300,7 @@ function _createPaymentJournalEntry(invoice, paymentData, invoiceType) {
       bankParticularsMeta.reportMapping || '',
       'Unreconciled',
       '',
-      invoice.Invoice_ID || ''
+      ''  // Advance_ID should be empty for regular payments
     ]
   ];
 
