@@ -2941,6 +2941,8 @@ function getReceivablePayableSummary(type, criteria) {
     const isAdvanceApplicationLine = Boolean(
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
+    const skipAdvanceApplication = isAdvanceApplicationLine && matchesAdvance && !matchesReceivable && !matchesPayable;
+    if (skipAdvanceApplication) return;
     const staffRelevant = (matchesAdvance || matchesReceivable) && !hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
@@ -3175,6 +3177,8 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const isAdvanceApplicationLine = Boolean(
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
+    const skipAdvanceApplication = isAdvanceApplicationLine && matchesAdvance && !matchesReceivable && !matchesPayable;
+    if (skipAdvanceApplication) return;
     const staffRelevant = (matchesAdvance || matchesReceivable) && !hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
