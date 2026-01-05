@@ -3065,7 +3065,6 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
     const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
     const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
-    const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
 
