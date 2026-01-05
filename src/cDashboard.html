@@ -4603,7 +4603,7 @@
           <div class="panel-header">
             <div>
               <h2 style="margin-bottom:4px;">Staff Statements</h2>
-              <p style="color:#6b7280;font-size:13px;">Select a financial year, then run the statements.</p>
+              <p style="color:#6b7280;font-size:13px;">Select a staff member and date range to view their statement.</p>
             </div>
             <div>
               <button class="btn btn-secondary" onclick="renderStaffStatementsContent()">Refresh</button>
@@ -4611,6 +4611,18 @@
           </div>
 
           <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="staffStatementsPayeeSelect">Staff Name</label>
+              <select id="staffStatementsPayeeSelect" onchange="filterStaffContactIds()">
+                <option value="">-- All Staff --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="staffStatementsContactIdSelect">Contact ID</label>
+              <select id="staffStatementsContactIdSelect">
+                <option value="">-- All --</option>
+              </select>
+            </div>
             <div class="form-group">
               <label for="staffStatementsFinancialYear">Financial Year</label>
               <select id="staffStatementsFinancialYear"></select>
@@ -4624,10 +4636,6 @@
               <input type="date" id="staffStatementsEndDate">
             </div>
             <div class="form-group">
-              <label for="staffStatementsPayeeFilter">Payee</label>
-              <input type="text" id="staffStatementsPayeeFilter" placeholder="Filter payee">
-            </div>
-            <div class="form-group">
               <label>&nbsp;</label>
               <button class="btn btn-primary" onclick="refreshStaffStatements()">Run</button>
             </div>
@@ -4639,6 +4647,7 @@
       `;
 
       loadStaffStatementsYears();
+      loadStaffPayees();
     }
 
     function renderAssetPurchasesContent() {
@@ -4852,6 +4861,7 @@
 
     var receivablesContactsCache = [];
     var payablesContactsCache = [];
+    var staffContactsCache = [];
 
     function loadReceivablesPayees() {
       if (typeof google === 'undefined' || !google.script || !google.script.run) return;
@@ -4982,6 +4992,69 @@
       // Auto-select if only one contact ID for this name
       if (filtered.length === 1) {
         contactIdSelect.value = filtered[0].Contact_ID || '';
+      }
+    }
+
+    function loadStaffPayees() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+      google.script.run
+        .withSuccessHandler(function(staffList) {
+          staffContactsCache = staffList || [];
+          const payeeSelect = document.getElementById('staffStatementsPayeeSelect');
+          const contactIdSelect = document.getElementById('staffStatementsContactIdSelect');
+          if (!payeeSelect) return;
+
+          const uniqueNames = {};
+          staffContactsCache.forEach(function(s) {
+            const name = s.Staff_Name || '';
+            if (name && !uniqueNames[name]) uniqueNames[name] = true;
+          });
+
+          payeeSelect.innerHTML = '<option value="">-- All Staff --</option>';
+          Object.keys(uniqueNames).sort().forEach(function(name) {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            payeeSelect.appendChild(option);
+          });
+
+          if (contactIdSelect) {
+            contactIdSelect.innerHTML = '<option value="">-- All --</option>';
+            staffContactsCache.forEach(function(s) {
+              const option = document.createElement('option');
+              option.value = s.Staff_ID || '';
+              option.textContent = (s.Staff_ID || '') + ' - ' + (s.Staff_Name || '');
+              contactIdSelect.appendChild(option);
+            });
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load staff:', error);
+        })
+        .getStaff();
+    }
+
+    function filterStaffContactIds() {
+      const payeeSelect = document.getElementById('staffStatementsPayeeSelect');
+      const contactIdSelect = document.getElementById('staffStatementsContactIdSelect');
+      if (!contactIdSelect) return;
+
+      const selectedName = payeeSelect ? payeeSelect.value : '';
+      contactIdSelect.innerHTML = '<option value="">-- All --</option>';
+
+      const filtered = selectedName
+        ? staffContactsCache.filter(function(s) { return s.Staff_Name === selectedName; })
+        : staffContactsCache;
+
+      filtered.forEach(function(s) {
+        const option = document.createElement('option');
+        option.value = s.Staff_ID || '';
+        option.textContent = (s.Staff_ID || '') + ' - ' + (s.Staff_Name || '');
+        contactIdSelect.appendChild(option);
+      });
+
+      if (filtered.length === 1) {
+        contactIdSelect.value = filtered[0].Staff_ID || '';
       }
     }
 
@@ -5306,7 +5379,10 @@
       const financialYear = document.getElementById('staffStatementsFinancialYear').value.trim();
       const startDate = document.getElementById('staffStatementsStartDate').value;
       const endDate = document.getElementById('staffStatementsEndDate').value;
-      const payeeFilter = document.getElementById('staffStatementsPayeeFilter').value.trim().toLowerCase();
+      const payeeSelect = document.getElementById('staffStatementsPayeeSelect');
+      const contactIdSelect = document.getElementById('staffStatementsContactIdSelect');
+      const selectedPayeeName = payeeSelect ? payeeSelect.value : '';
+      const selectedContactId = contactIdSelect ? contactIdSelect.value : '';
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showStaffStatementsAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
@@ -5315,33 +5391,42 @@
       const status = document.getElementById('staffStatementsStatus');
       if (status) status.textContent = 'Loading statements...';
 
-      google.script.run
-        .withSuccessHandler(function(staffList) {
-          const staffNames = (staffList || [])
-            .map(item => String(item.Staff_Name || '').trim())
-            .filter(Boolean);
-          const staffLookup = new Set(staffNames.map(name => name.toLowerCase()));
-
-          google.script.run
-            .withSuccessHandler(function(result) {
-              let rows = (result && result.rows) ? result.rows.filter(row => staffLookup.has(String(row.payee || '').trim().toLowerCase())) : [];
-              if (payeeFilter) {
-                rows = rows.filter(row => String(row.payee || '').toLowerCase().includes(payeeFilter));
-              }
-              renderStaffStatements({ rows: rows });
-              if (status) status.textContent = '';
-            })
-            .withFailureHandler(function(error) {
-              if (status) status.textContent = '';
-              showStaffStatementsAlert(error.message || 'Failed to load statements.', 'error');
-            })
-            .getReceivablePayableSummary('receivable', { financialYear: financialYear, startDate: startDate, endDate: endDate, payee: payeeFilter });
-        })
-        .withFailureHandler(function(error) {
-          if (status) status.textContent = '';
-          showStaffStatementsAlert(error.message || 'Failed to load staff list.', 'error');
-        })
-        .getStaff();
+      if (selectedContactId) {
+        const staff = staffContactsCache.find(function(s) { return s.Staff_ID === selectedContactId; });
+        const payeeName = staff ? staff.Staff_Name : selectedPayeeName;
+        google.script.run
+          .withSuccessHandler(function(result) {
+            renderDetailedStatement('staff', result, 'staffStatementsReport', 'No transactions found for this staff member.');
+            if (status) status.textContent = '';
+          })
+          .withFailureHandler(function(error) {
+            if (status) status.textContent = '';
+            showStaffStatementsAlert(error.message || 'Failed to load statement.', 'error');
+          })
+          .getReceivablePayableStatement('staff', payeeName, { financialYear: financialYear, startDate: startDate, endDate: endDate, contactId: selectedContactId });
+      } else if (selectedPayeeName) {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            renderDetailedStatement('staff', result, 'staffStatementsReport', 'No transactions found for this staff member.');
+            if (status) status.textContent = '';
+          })
+          .withFailureHandler(function(error) {
+            if (status) status.textContent = '';
+            showStaffStatementsAlert(error.message || 'Failed to load statement.', 'error');
+          })
+          .getReceivablePayableStatement('staff', selectedPayeeName, { financialYear: financialYear, startDate: startDate, endDate: endDate });
+      } else {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            renderStaffStatements(result || { rows: [] });
+            if (status) status.textContent = '';
+          })
+          .withFailureHandler(function(error) {
+            if (status) status.textContent = '';
+            showStaffStatementsAlert(error.message || 'Failed to load statements.', 'error');
+          })
+          .getReceivablePayableSummary('staff', { financialYear: financialYear, startDate: startDate, endDate: endDate });
+      }
     }
 
     function refreshAssetPurchases() {

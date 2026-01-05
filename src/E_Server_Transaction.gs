@@ -2803,8 +2803,9 @@ function getPositionReport(currentYear, comparativeYear) {
 
 function getReceivablePayableSummary(type, criteria) {
   const kind = String(type || '').toLowerCase();
-  const isReceivable = kind.includes('receivable');
-  const targetContactType = isReceivable ? 'Customer' : 'Supplier';
+  const isStaff = kind.includes('staff');
+  const isReceivable = isStaff || kind.includes('receivable');
+  const targetContactType = isStaff ? 'Staff' : (isReceivable ? 'Customer' : 'Supplier');
   const financialYear = String(criteria && criteria.financialYear || '').trim();
   const payeeFilter = String(criteria && criteria.payee || '').trim().toLowerCase();
   const contactFilter = String(criteria && criteria.contactId || '').trim();
@@ -3006,8 +3007,9 @@ function getNettingSummary(criteria) {
 
 function getReceivablePayableStatement(type, payeeName, criteria) {
   const kind = String(type || '').toLowerCase();
-  const isReceivable = kind.includes('receivable');
-  const targetContactType = isReceivable ? 'Customer' : 'Supplier';
+  const isStaff = kind.includes('staff');
+  const isReceivable = isStaff || kind.includes('receivable');
+  const targetContactType = isStaff ? 'Staff' : (isReceivable ? 'Customer' : 'Supplier');
   const payee = String(payeeName || '').trim();
   const contactFilter = String(criteria && criteria.contactId || '').trim();
   if (!payee && !contactFilter) throw new Error('Payee is required.');
