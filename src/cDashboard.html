@@ -4445,12 +4445,12 @@
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
         <div id="receivablesAlert"></div>
-        ${renderSectionHero('Receivables', 'Summary by payee for amounts owed to you.')}
+        ${renderSectionHero('Customer Statements', 'View customer transactions and balances.')}
         <div class="card">
           <div class="panel-header">
             <div>
-              <h2 style="margin-bottom:4px;">Receivables Statements</h2>
-              <p style="color:#6b7280;font-size:13px;">Select a financial year or date range, then run the summary.</p>
+              <h2 style="margin-bottom:4px;">Customer Statements</h2>
+              <p style="color:#6b7280;font-size:13px;">Select a customer and date range to view their statement.</p>
             </div>
             <div>
               <button class="btn btn-secondary" onclick="renderReceivablesStatementsContent()">Refresh</button>
@@ -4459,6 +4459,18 @@
           </div>
 
           <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="receivablesPayeeSelect">Customer Name</label>
+              <select id="receivablesPayeeSelect" onchange="filterReceivablesContactIds()">
+                <option value="">-- All Customers --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="receivablesContactIdSelect">Contact ID</label>
+              <select id="receivablesContactIdSelect">
+                <option value="">-- All --</option>
+              </select>
+            </div>
             <div class="form-group">
               <label for="receivablesFinancialYear">Financial Year</label>
               <select id="receivablesFinancialYear"></select>
@@ -4472,10 +4484,6 @@
               <input type="date" id="receivablesEndDate">
             </div>
             <div class="form-group">
-              <label for="receivablesPayeeFilter">Payee</label>
-              <input type="text" id="receivablesPayeeFilter" placeholder="Filter payee">
-            </div>
-            <div class="form-group">
               <label>&nbsp;</label>
               <button class="btn btn-primary" onclick="refreshReceivablesStatements()">Run</button>
             </div>
@@ -4487,18 +4495,19 @@
       `;
 
       loadReceivablesYears();
+      loadReceivablesPayees();
     }
 
     function renderPayablesStatementsContent() {
       const contentArea = document.getElementById('contentArea');
       contentArea.innerHTML = `
         <div id="payablesAlert"></div>
-        ${renderSectionHero('Payables', 'Summary by payee for amounts you owe.')}
+        ${renderSectionHero('Supplier Statements', 'View supplier transactions and balances.')}
         <div class="card">
           <div class="panel-header">
             <div>
-              <h2 style="margin-bottom:4px;">Payables Statements</h2>
-              <p style="color:#6b7280;font-size:13px;">Select a financial year or date range, then run the summary.</p>
+              <h2 style="margin-bottom:4px;">Supplier Statements</h2>
+              <p style="color:#6b7280;font-size:13px;">Select a supplier and date range to view their statement.</p>
             </div>
             <div>
               <button class="btn btn-secondary" onclick="renderPayablesStatementsContent()">Refresh</button>
@@ -4507,6 +4516,18 @@
           </div>
 
           <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="payablesPayeeSelect">Supplier Name</label>
+              <select id="payablesPayeeSelect" onchange="filterPayablesContactIds()">
+                <option value="">-- All Suppliers --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="payablesContactIdSelect">Contact ID</label>
+              <select id="payablesContactIdSelect">
+                <option value="">-- All --</option>
+              </select>
+            </div>
             <div class="form-group">
               <label for="payablesFinancialYear">Financial Year</label>
               <select id="payablesFinancialYear"></select>
@@ -4520,10 +4541,6 @@
               <input type="date" id="payablesEndDate">
             </div>
             <div class="form-group">
-              <label for="payablesPayeeFilter">Payee</label>
-              <input type="text" id="payablesPayeeFilter" placeholder="Filter payee">
-            </div>
-            <div class="form-group">
               <label>&nbsp;</label>
               <button class="btn btn-primary" onclick="refreshPayablesStatements()">Run</button>
             </div>
@@ -4535,6 +4552,7 @@
       `;
 
       loadPayablesYears();
+      loadPayablesPayees();
     }
 
     function renderNettingSummaryContent() {
@@ -4836,6 +4854,141 @@
         .getDropdownData();
     }
 
+    var receivablesContactsCache = [];
+    var payablesContactsCache = [];
+
+    function loadReceivablesPayees() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+      google.script.run
+        .withSuccessHandler(function(contacts) {
+          receivablesContactsCache = contacts || [];
+          const payeeSelect = document.getElementById('receivablesPayeeSelect');
+          const contactIdSelect = document.getElementById('receivablesContactIdSelect');
+          if (!payeeSelect) return;
+
+          // Get unique payee names
+          const uniqueNames = {};
+          receivablesContactsCache.forEach(function(c) {
+            const name = c.Contact_Name || '';
+            if (name && !uniqueNames[name]) uniqueNames[name] = true;
+          });
+
+          payeeSelect.innerHTML = '<option value="">-- All Customers --</option>';
+          Object.keys(uniqueNames).sort().forEach(function(name) {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            payeeSelect.appendChild(option);
+          });
+
+          // Populate all contact IDs initially
+          if (contactIdSelect) {
+            contactIdSelect.innerHTML = '<option value="">-- All --</option>';
+            receivablesContactsCache.forEach(function(c) {
+              const option = document.createElement('option');
+              option.value = c.Contact_ID || '';
+              option.textContent = (c.Contact_ID || '') + ' - ' + (c.Contact_Name || '');
+              contactIdSelect.appendChild(option);
+            });
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load customers:', error);
+        })
+        .getContacts('Customer');
+    }
+
+    function filterReceivablesContactIds() {
+      const payeeSelect = document.getElementById('receivablesPayeeSelect');
+      const contactIdSelect = document.getElementById('receivablesContactIdSelect');
+      if (!contactIdSelect) return;
+
+      const selectedName = payeeSelect ? payeeSelect.value : '';
+      contactIdSelect.innerHTML = '<option value="">-- All --</option>';
+
+      const filtered = selectedName
+        ? receivablesContactsCache.filter(function(c) { return c.Contact_Name === selectedName; })
+        : receivablesContactsCache;
+
+      filtered.forEach(function(c) {
+        const option = document.createElement('option');
+        option.value = c.Contact_ID || '';
+        option.textContent = (c.Contact_ID || '') + ' - ' + (c.Contact_Name || '');
+        contactIdSelect.appendChild(option);
+      });
+
+      // Auto-select if only one contact ID for this name
+      if (filtered.length === 1) {
+        contactIdSelect.value = filtered[0].Contact_ID || '';
+      }
+    }
+
+    function loadPayablesPayees() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+      google.script.run
+        .withSuccessHandler(function(contacts) {
+          payablesContactsCache = contacts || [];
+          const payeeSelect = document.getElementById('payablesPayeeSelect');
+          const contactIdSelect = document.getElementById('payablesContactIdSelect');
+          if (!payeeSelect) return;
+
+          // Get unique payee names
+          const uniqueNames = {};
+          payablesContactsCache.forEach(function(c) {
+            const name = c.Contact_Name || '';
+            if (name && !uniqueNames[name]) uniqueNames[name] = true;
+          });
+
+          payeeSelect.innerHTML = '<option value="">-- All Suppliers --</option>';
+          Object.keys(uniqueNames).sort().forEach(function(name) {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            payeeSelect.appendChild(option);
+          });
+
+          // Populate all contact IDs initially
+          if (contactIdSelect) {
+            contactIdSelect.innerHTML = '<option value="">-- All --</option>';
+            payablesContactsCache.forEach(function(c) {
+              const option = document.createElement('option');
+              option.value = c.Contact_ID || '';
+              option.textContent = (c.Contact_ID || '') + ' - ' + (c.Contact_Name || '');
+              contactIdSelect.appendChild(option);
+            });
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load suppliers:', error);
+        })
+        .getContacts('Supplier');
+    }
+
+    function filterPayablesContactIds() {
+      const payeeSelect = document.getElementById('payablesPayeeSelect');
+      const contactIdSelect = document.getElementById('payablesContactIdSelect');
+      if (!contactIdSelect) return;
+
+      const selectedName = payeeSelect ? payeeSelect.value : '';
+      contactIdSelect.innerHTML = '<option value="">-- All --</option>';
+
+      const filtered = selectedName
+        ? payablesContactsCache.filter(function(c) { return c.Contact_Name === selectedName; })
+        : payablesContactsCache;
+
+      filtered.forEach(function(c) {
+        const option = document.createElement('option');
+        option.value = c.Contact_ID || '';
+        option.textContent = (c.Contact_ID || '') + ' - ' + (c.Contact_Name || '');
+        contactIdSelect.appendChild(option);
+      });
+
+      // Auto-select if only one contact ID for this name
+      if (filtered.length === 1) {
+        contactIdSelect.value = filtered[0].Contact_ID || '';
+      }
+    }
+
     function loadStaffStatementsYears() {
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showStaffStatementsAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
@@ -5016,7 +5169,11 @@
       const financialYear = document.getElementById('receivablesFinancialYear').value.trim();
       const startDate = document.getElementById('receivablesStartDate').value;
       const endDate = document.getElementById('receivablesEndDate').value;
-      const payeeFilter = document.getElementById('receivablesPayeeFilter').value.trim().toLowerCase();
+      const payeeSelect = document.getElementById('receivablesPayeeSelect');
+      const contactIdSelect = document.getElementById('receivablesContactIdSelect');
+      const selectedPayeeName = payeeSelect ? payeeSelect.value : '';
+      const selectedContactId = contactIdSelect ? contactIdSelect.value : '';
+
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showReceivablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
@@ -5025,28 +5182,57 @@
       const status = document.getElementById('receivablesStatus');
       if (status) status.textContent = 'Loading statements...';
 
-      google.script.run
-        .withSuccessHandler(function(result) {
-          const rows = (result && result.rows) ? result.rows : [];
-          const filtered = payeeFilter
-            ? rows.filter(row => String(row.payee || '').toLowerCase().includes(payeeFilter))
-            : rows;
-          lastReceivablesResult = { rows: filtered };
-          renderReceivablesStatements(lastReceivablesResult);
-          if (status) status.textContent = '';
-        })
-        .withFailureHandler(function(error) {
-          if (status) status.textContent = '';
-          showReceivablesAlert(error.message || 'Failed to load statements.', 'error');
-        })
-        .getReceivablePayableSummary('receivable', { financialYear: financialYear, startDate: startDate, endDate: endDate, payee: payeeFilter });
+      if (selectedContactId) {
+        // Show detailed statement for selected contact ID
+        const contact = receivablesContactsCache.find(function(c) { return c.Contact_ID === selectedContactId; });
+        const payeeName = contact ? contact.Contact_Name : selectedPayeeName;
+        google.script.run
+          .withSuccessHandler(function(result) {
+            renderDetailedStatement('receivable', result, 'receivablesReport', 'No transactions found for this customer.');
+            if (status) status.textContent = '';
+          })
+          .withFailureHandler(function(error) {
+            if (status) status.textContent = '';
+            showReceivablesAlert(error.message || 'Failed to load statement.', 'error');
+          })
+          .getReceivablePayableStatement('receivable', payeeName, { financialYear: financialYear, startDate: startDate, endDate: endDate, contactId: selectedContactId });
+      } else if (selectedPayeeName) {
+        // Show detailed statement for selected payee name (may include multiple contact IDs)
+        google.script.run
+          .withSuccessHandler(function(result) {
+            renderDetailedStatement('receivable', result, 'receivablesReport', 'No transactions found for this customer.');
+            if (status) status.textContent = '';
+          })
+          .withFailureHandler(function(error) {
+            if (status) status.textContent = '';
+            showReceivablesAlert(error.message || 'Failed to load statement.', 'error');
+          })
+          .getReceivablePayableStatement('receivable', selectedPayeeName, { financialYear: financialYear, startDate: startDate, endDate: endDate });
+      } else {
+        // Show summary for all customers
+        google.script.run
+          .withSuccessHandler(function(result) {
+            lastReceivablesResult = result || { rows: [] };
+            renderReceivablesStatements(lastReceivablesResult);
+            if (status) status.textContent = '';
+          })
+          .withFailureHandler(function(error) {
+            if (status) status.textContent = '';
+            showReceivablesAlert(error.message || 'Failed to load statements.', 'error');
+          })
+          .getReceivablePayableSummary('receivable', { financialYear: financialYear, startDate: startDate, endDate: endDate });
+      }
     }
 
     function refreshPayablesStatements() {
       const financialYear = document.getElementById('payablesFinancialYear').value.trim();
       const startDate = document.getElementById('payablesStartDate').value;
       const endDate = document.getElementById('payablesEndDate').value;
-      const payeeFilter = document.getElementById('payablesPayeeFilter').value.trim().toLowerCase();
+      const payeeSelect = document.getElementById('payablesPayeeSelect');
+      const contactIdSelect = document.getElementById('payablesContactIdSelect');
+      const selectedPayeeName = payeeSelect ? payeeSelect.value : '';
+      const selectedContactId = contactIdSelect ? contactIdSelect.value : '';
+
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         showPayablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
@@ -5055,21 +5241,46 @@
       const status = document.getElementById('payablesStatus');
       if (status) status.textContent = 'Loading statements...';
 
-      google.script.run
-        .withSuccessHandler(function(result) {
-          const rows = (result && result.rows) ? result.rows : [];
-          const filtered = payeeFilter
-            ? rows.filter(row => String(row.payee || '').toLowerCase().includes(payeeFilter))
-            : rows;
-          lastPayablesResult = { rows: filtered };
-          renderPayablesStatements(lastPayablesResult);
-          if (status) status.textContent = '';
-        })
-        .withFailureHandler(function(error) {
-          if (status) status.textContent = '';
-          showPayablesAlert(error.message || 'Failed to load statements.', 'error');
-        })
-        .getReceivablePayableSummary('payable', { financialYear: financialYear, startDate: startDate, endDate: endDate, payee: payeeFilter });
+      if (selectedContactId) {
+        // Show detailed statement for selected contact ID
+        const contact = payablesContactsCache.find(function(c) { return c.Contact_ID === selectedContactId; });
+        const payeeName = contact ? contact.Contact_Name : selectedPayeeName;
+        google.script.run
+          .withSuccessHandler(function(result) {
+            renderDetailedStatement('payable', result, 'payablesReport', 'No transactions found for this supplier.');
+            if (status) status.textContent = '';
+          })
+          .withFailureHandler(function(error) {
+            if (status) status.textContent = '';
+            showPayablesAlert(error.message || 'Failed to load statement.', 'error');
+          })
+          .getReceivablePayableStatement('payable', payeeName, { financialYear: financialYear, startDate: startDate, endDate: endDate, contactId: selectedContactId });
+      } else if (selectedPayeeName) {
+        // Show detailed statement for selected payee name (may include multiple contact IDs)
+        google.script.run
+          .withSuccessHandler(function(result) {
+            renderDetailedStatement('payable', result, 'payablesReport', 'No transactions found for this supplier.');
+            if (status) status.textContent = '';
+          })
+          .withFailureHandler(function(error) {
+            if (status) status.textContent = '';
+            showPayablesAlert(error.message || 'Failed to load statement.', 'error');
+          })
+          .getReceivablePayableStatement('payable', selectedPayeeName, { financialYear: financialYear, startDate: startDate, endDate: endDate });
+      } else {
+        // Show summary for all suppliers
+        google.script.run
+          .withSuccessHandler(function(result) {
+            lastPayablesResult = result || { rows: [] };
+            renderPayablesStatements(lastPayablesResult);
+            if (status) status.textContent = '';
+          })
+          .withFailureHandler(function(error) {
+            if (status) status.textContent = '';
+            showPayablesAlert(error.message || 'Failed to load statements.', 'error');
+          })
+          .getReceivablePayableSummary('payable', { financialYear: financialYear, startDate: startDate, endDate: endDate });
+      }
     }
 
     function refreshNettingSummary() {
@@ -5798,6 +6009,61 @@
 
     function renderStaffStatements(result) {
       renderStatementCards('staff', result, 'staffStatementsReport', 'No staff statements found for the selected period.');
+    }
+
+    function renderDetailedStatement(kind, result, containerId, emptyMessage) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const rows = result && result.rows ? result.rows : [];
+      const payeeName = result && result.payee ? result.payee : '';
+      const opening = result && result.opening ? result.opening : 0;
+
+      if (!rows.length) {
+        container.innerHTML = `<div class="card"><p>${emptyMessage}</p></div>`;
+        return;
+      }
+
+      // Sort rows by date
+      rows.sort(function(a, b) {
+        const dateA = a.date ? new Date(a.date) : new Date(0);
+        const dateB = b.date ? new Date(b.date) : new Date(0);
+        return dateA - dateB;
+      });
+
+      const body = rows.map(function(row) {
+        const amounts = getStatementAmounts(kind, row);
+        const descParts = [row.particulars, row.narration].filter(Boolean);
+        return `
+          <tr>
+            <td data-label="Date">${row.date || ''}</td>
+            <td data-label="Description">${escapeHtml(descParts.join(' - '))}</td>
+            <td data-label="Reference">${escapeHtml(row.advanceId || '')}</td>
+            <td data-label="Debit" style="text-align:right;">${row.debit ? formatPerformanceAmount(row.debit) : ''}</td>
+            <td data-label="Credit" style="text-align:right;">${row.credit ? formatPerformanceAmount(row.credit) : ''}</td>
+            <td data-label="Balance" style="text-align:right;">${formatPerformanceAmount(row.balance)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div style="margin-bottom:12px;">
+          <strong>Customer/Supplier:</strong> ${escapeHtml(payeeName)}<br>
+          <strong>Opening Balance:</strong> ${formatPerformanceAmount(opening)}
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Reference</th>
+              <th style="text-align:right;">Debit</th>
+              <th style="text-align:right;">Credit</th>
+              <th style="text-align:right;">Balance</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      `;
     }
 
     function renderStatementCards(kind, result, containerId, emptyMessage) {
