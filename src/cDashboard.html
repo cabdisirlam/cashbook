@@ -11050,7 +11050,6 @@
                 <td><span class="status-badge ${statusClass}">${p.Status || 'Unknown'}</span></td>
                 <td>
                   <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                    ${p.Status !== 'Paid' && p.Status !== 'Reversed' ? `<button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoicePaymentModal('${p.Payable_ID}', '${p.Supplier_Name}', '${p.Invoice_Number}', ${balance})">Pay</button>` : ''}
                     ${p.Status !== 'Paid' && p.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openSupplierAdvanceApplyModal('${p.Payable_ID}', '${p.Supplier_ID}', '${p.Supplier_Name}', '${p.Invoice_Number}', ${balance})">Apply Advance</button>` : ''}
                     ${p.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;background:#dc2626;border-color:#dc2626;color:#fff;" onclick="openReversalModal('payable', '${p.Payable_ID}', '${p.Invoice_Number}', '${p.Supplier_Name}', ${amount})">Reverse</button>` : '<span style="color:#6b7280;">Reversed</span>'}
                   </div>
@@ -11164,7 +11163,6 @@
                 <td><span class="status-badge ${p.Status === 'Partial' ? 'status-badge--warn' : 'status-badge--bad'}">${p.Status}</span></td>
                 <td>
                   <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                    <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoicePaymentModal('${p.Payable_ID}', '${p.Supplier_Name}', '${p.Invoice_Number}', ${balance})">Pay</button>
                     <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openSupplierAdvanceApplyModal('${p.Payable_ID}', '${p.Supplier_ID}', '${p.Supplier_Name}', '${p.Invoice_Number}', ${balance})">Apply Advance</button>
                   </div>
                 </td>
@@ -12908,7 +12906,6 @@
                 <td><span class="status-badge ${statusClass}">${r.Status || 'Unknown'}</span></td>
                 <td>
                   <div style="display:flex;gap:4px;">
-                    ${r.Status !== 'Paid' && r.Status !== 'Reversed' ? `<button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoiceReceiptModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Receive</button>` : ''}
                     ${r.Status !== 'Paid' && r.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openAdvanceApplyModal('${r.Receivable_ID}', '${r.Customer_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Apply Advance</button>` : ''}
                     ${r.Status !== 'Reversed' ? `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;background:#dc2626;border-color:#dc2626;color:#fff;" onclick="openReversalModal('receivable', '${r.Receivable_ID}', '${r.Invoice_Number}', '${r.Customer_Name}', ${amount})">Reverse</button>` : '<span style="color:#6b7280;">Reversed</span>'}
                   </div>
@@ -13021,7 +13018,6 @@
                 <td style="text-align:right;font-weight:600;">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td><span class="status-badge ${r.Status === 'Partial' ? 'status-badge--warn' : 'status-badge--bad'}">${r.Status}</span></td>
                 <td>
-                  <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="openInvoiceReceiptModal('${r.Receivable_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Receive</button>
                   <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openAdvanceApplyModal('${r.Receivable_ID}', '${r.Customer_ID}', '${r.Customer_Name}', '${r.Invoice_Number}', ${balance})">Apply Advance</button>
                 </td>
               </tr>
