@@ -3115,7 +3115,6 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
 
     const dateCell = cols.date ? row[cols.date - 1] : '';
     const rowDate = dateCell instanceof Date ? dateCell : _parseDate_(dateCell);
-    const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
 
     if (hasDateFilter) {
       if (financialYear && rowYear !== financialYear) return;
