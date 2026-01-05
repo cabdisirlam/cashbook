@@ -11339,7 +11339,10 @@
           <div class="modal-card" style="max-width:800px;">
             <div class="modal-header">
               <span>Select Invoice to Pay</span>
-              <button class="btn btn-secondary" onclick="document.getElementById('invoicePaymentSelector').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary" onclick="debugInvoiceData()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Debug</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('invoicePaymentSelector').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+              </div>
             </div>
             <div class="modal-body" style="padding:16px;">
               <div class="form-group" style="margin-bottom:16px;">
@@ -11362,17 +11365,55 @@
 
     var _outstandingPayables = [];
 
+    function debugInvoiceData() {
+      const container = document.getElementById('paymentInvoiceList');
+      container.innerHTML = '<p style="color:#6b7280;text-align:center;padding:20px;">Running debug...</p>';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          console.log('Debug result:', result);
+          let html = '<div style="background:#f3f4f6;padding:12px;border-radius:6px;font-size:12px;overflow:auto;max-height:350px;">';
+          html += '<p><strong>Headers Match:</strong> ' + result.headersMatch + '</p>';
+          html += '<p><strong>Rows:</strong> ' + result.lastRow + ', <strong>Cols:</strong> ' + result.lastCol + '</p>';
+          html += '<p><strong>Expected:</strong> ' + result.expectedHeaders.join(', ') + '</p>';
+          html += '<p><strong>Actual:</strong> ' + result.actualHeaders.join(', ') + '</p>';
+          html += '<hr style="margin:8px 0;">';
+          html += '<p><strong>Sample Data:</strong></p>';
+          if (result.sampleData && result.sampleData.length > 0) {
+            result.sampleData.forEach(function(row, idx) {
+              html += '<p style="margin-top:8px;"><strong>Row ' + (idx + 1) + ':</strong></p>';
+              html += '<pre style="white-space:pre-wrap;word-break:break-all;">' + JSON.stringify(row, null, 2) + '</pre>';
+            });
+          } else {
+            html += '<p>No data found</p>';
+          }
+          html += '</div>';
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;">Debug failed: ' + error.message + '</p>';
+        })
+        .debugInvoiceSheet();
+    }
+
     function loadOutstandingPayables() {
       const container = document.getElementById('paymentInvoiceList');
       google.script.run
         .withSuccessHandler(function(data) {
+          console.log('Raw payables data:', data);
+          console.log('Number of payables:', (data || []).length);
+          if (data && data.length > 0) {
+            console.log('First payable fields:', Object.keys(data[0]));
+            console.log('First payable:', data[0]);
+          }
           const invoices = (data || []).filter(function(inv) {
             return inv.Status !== 'Paid' && inv.Status !== 'Reversed' && parseFloat(inv.Balance || 0) > 0;
           });
+          console.log('Filtered invoices count:', invoices.length);
           _outstandingPayables = invoices;
           renderPaymentInvoiceList(invoices);
         })
         .withFailureHandler(function(error) {
+          console.error('Failed to load payables:', error);
           container.innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px;">Failed to load invoices: ' + error.message + '</p>';
         })
         .getPayables();

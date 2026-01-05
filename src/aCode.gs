@@ -2213,6 +2213,31 @@ function getPayables(filters) {
   }));
 }
 function getPayablesAgingSummary() { return getInvoiceAgingSummary('AP'); }
+
+// Debug function to check invoice sheet structure
+function debugInvoiceSheet() {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.INVOICES);
+  if (!sheet) return { error: 'INVOICES sheet not found' };
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  const actualHeaders = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  const expectedHeaders = INVOICE_HEADERS;
+  const sampleData = lastRow > 1 ? sheet.getRange(2, 1, Math.min(3, lastRow - 1), lastCol).getValues() : [];
+  return {
+    lastRow: lastRow,
+    lastCol: lastCol,
+    actualHeaders: actualHeaders,
+    expectedHeaders: expectedHeaders,
+    headersMatch: JSON.stringify(actualHeaders.slice(0, expectedHeaders.length)) === JSON.stringify(expectedHeaders),
+    sampleData: sampleData.map(function(row) {
+      var obj = {};
+      actualHeaders.forEach(function(h, i) { obj[h] = row[i]; });
+      return obj;
+    })
+  };
+}
+
 function createPayableFromGRN(grnData) {
   grnData.contactId = grnData.supplierId; grnData.contactName = grnData.supplierName; grnData.amount = grnData.invoiceAmount;
   return createInvoice('AP', grnData);
