@@ -2860,10 +2860,19 @@ function getReceivablePayableSummary(type, criteria) {
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
 
-    // Check transaction nature for amount calculation
+    // Check transaction nature - only include receivable/payable/advance entries
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
     const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars);
+
+    // Filter: only include relevant transaction types for the statement
+    // Customer statement: receivables and advances only
+    // Supplier statement: payables and advances only
+    if (isReceivable) {
+      if (!matchesReceivable && !matchesAdvance) return;
+    } else {
+      if (!matchesPayable && !matchesAdvance) return;
+    }
 
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
@@ -3045,10 +3054,19 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
 
-    // Check transaction nature for amount calculation
+    // Check transaction nature - only include receivable/payable/advance entries
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
     const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars);
+
+    // Filter: only include relevant transaction types for the statement
+    // Customer statement: receivables and advances only
+    // Supplier statement: payables and advances only
+    if (isReceivable) {
+      if (!matchesReceivable && !matchesAdvance) return;
+    } else {
+      if (!matchesPayable && !matchesAdvance) return;
+    }
 
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
