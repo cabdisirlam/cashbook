@@ -2871,8 +2871,14 @@ function getReceivablePayableSummary(type, criteria) {
     const contactType = contactId ? (contactTypes[contactId] || '') : '';
     const contactTypeLower = contactType.toLowerCase().trim();
     const targetLower = targetContactType.toLowerCase();
-    // Only filter by contact type if we have both a contactId AND a known contact type
-    if (contactId && contactType && contactTypeLower !== targetLower) return;
+
+    // For staff statements, exclude entries that belong to Customer or Supplier
+    if (isStaff && contactId && contactType) {
+      if (contactTypeLower === 'customer' || contactTypeLower === 'supplier') return;
+    } else if (contactId && contactType && contactTypeLower !== targetLower) {
+      // For customer/supplier statements, filter by matching contact type
+      return;
+    }
 
     const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
     const dateCell = cols.date ? row[cols.date - 1] : '';
@@ -3108,8 +3114,14 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const contactType = contactId ? (contactTypes[contactId] || '') : '';
     const contactTypeLower = contactType.toLowerCase().trim();
     const targetLower = targetContactType.toLowerCase();
-    // Only filter by contact type if we have both a contactId AND a known contact type
-    if (contactId && contactType && contactTypeLower !== targetLower) return;
+
+    // For staff statements, exclude entries that belong to Customer or Supplier
+    if (isStaff && contactId && contactType) {
+      if (contactTypeLower === 'customer' || contactTypeLower === 'supplier') return;
+    } else if (contactId && contactType && contactTypeLower !== targetLower) {
+      // For customer/supplier statements, filter by matching contact type
+      return;
+    }
 
     const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
