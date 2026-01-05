@@ -2871,6 +2871,8 @@ function getReceivablePayableSummary(type, criteria) {
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
     const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
       hasAdvanceBankLine || (isAdvanceApplication && debit > 0 && credit === 0);
+    const isAdvanceApplicationLine = isAdvanceApplication && matchesAdvance && !matchesReceivable && !matchesPayable;
+    if (isAdvanceApplicationLine) return;
 
     // Filter: only include relevant transaction types for the statement
     // Customer statement: receivables and advances only
@@ -3069,6 +3071,8 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
     const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
       hasAdvanceBankLine || (isAdvanceApplication && debit > 0 && credit === 0);
+    const isAdvanceApplicationLine = isAdvanceApplication && matchesAdvance && !matchesReceivable && !matchesPayable;
+    if (isAdvanceApplicationLine) return;
 
     // Filter: only include relevant transaction types for the statement
     // Customer statement: receivables and advances only
