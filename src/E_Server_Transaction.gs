@@ -2898,10 +2898,16 @@ function getReceivablePayableSummary(type, criteria) {
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
 
+    // For staff, also include entries with Advance_ID (surrenders/clearances)
+    const hasSurrenderLink = Boolean(advanceId);
+
     // Filter: only include relevant transaction types for the statement
     // Customer statement: receivables and advances only
     // Supplier statement: payables and advances only
-    if (isReceivable) {
+    // Staff statement: advances AND surrender entries (linked via Advance_ID)
+    if (isStaff) {
+      if (!matchesAdvance && !hasSurrenderLink) return;
+    } else if (isReceivable) {
       if (!matchesReceivable && !matchesAdvance) return;
     } else {
       if (!matchesPayable && !matchesAdvance) return;
@@ -2913,6 +2919,25 @@ function getReceivablePayableSummary(type, criteria) {
     if (isAdvanceApplicationLine) {
       increase = 0;
       decrease = 0;
+    } else if (isStaff) {
+      // Staff statement: debit increases balance (advance given), credit decreases (surrender/clearance)
+      if (matchesAdvance) {
+        // Advance to staff: bank line uses credit (payment out)
+        if (hasAdvanceBankLine) {
+          increase = credit;
+        } else {
+          // Advance receivable entry - debit increases what staff owes
+          increase = debit;
+          decrease = credit;
+        }
+      } else if (hasSurrenderLink) {
+        // Surrender entry - expense debits reduce the advance balance
+        decrease = debit;
+        increase = credit;
+      } else {
+        increase = debit;
+        decrease = credit;
+      }
     } else if (isReceivable) {
       // Customer statement: debit increases balance (invoice), credit decreases (payment/advance)
       if (matchesAdvance) {
@@ -3107,10 +3132,16 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
 
+    // For staff, also include entries with Advance_ID (surrenders/clearances)
+    const hasSurrenderLink = Boolean(advanceId);
+
     // Filter: only include relevant transaction types for the statement
     // Customer statement: receivables and advances only
     // Supplier statement: payables and advances only
-    if (isReceivable) {
+    // Staff statement: advances AND surrender entries (linked via Advance_ID)
+    if (isStaff) {
+      if (!matchesAdvance && !hasSurrenderLink) return;
+    } else if (isReceivable) {
       if (!matchesReceivable && !matchesAdvance) return;
     } else {
       if (!matchesPayable && !matchesAdvance) return;
@@ -3122,6 +3153,25 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     if (isAdvanceApplicationLine) {
       increase = 0;
       decrease = 0;
+    } else if (isStaff) {
+      // Staff statement: debit increases balance (advance given), credit decreases (surrender/clearance)
+      if (matchesAdvance) {
+        // Advance to staff: bank line uses credit (payment out)
+        if (hasAdvanceBankLine) {
+          increase = credit;
+        } else {
+          // Advance receivable entry - debit increases what staff owes
+          increase = debit;
+          decrease = credit;
+        }
+      } else if (hasSurrenderLink) {
+        // Surrender entry - expense debits reduce the advance balance
+        decrease = debit;
+        increase = credit;
+      } else {
+        increase = debit;
+        decrease = credit;
+      }
     } else if (isReceivable) {
       // Customer statement: debit increases balance (invoice), credit decreases (payment/advance)
       if (matchesAdvance) {
