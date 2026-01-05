@@ -2409,11 +2409,11 @@
           <div class="panel-header">
             <div>
               <h2 style="margin-bottom:4px;">New Payment</h2>
-              <p style="color:#6b7280;font-size:13px;">Open the split payment form.</p>
+              <p style="color:#6b7280;font-size:13px;">Pay supplier invoices or record other payments.</p>
             </div>
             <div>
               <button class="btn btn-secondary" onclick="renderPaymentLauncher()">Refresh</button>
-              <button class="btn btn-primary" onclick="openTxnPaymentModal()">Pay</button>
+              <button class="btn btn-primary" onclick="openPaymentTypeModal()">Pay</button>
             </div>
           </div>
 
@@ -9255,11 +9255,11 @@
           <div class="panel-header">
             <div>
               <h2 style="margin-bottom:4px;">New Receipt</h2>
-              <p style="color:#6b7280;font-size:13px;">Open the split receipt form.</p>
+              <p style="color:#6b7280;font-size:13px;">Receive customer invoice payments or record other receipts.</p>
             </div>
             <div>
               <button class="btn btn-secondary" onclick="renderReceiptLauncher()">Refresh</button>
-              <button class="btn btn-primary" onclick="openTxnReceiptModal()">Receive</button>
+              <button class="btn btn-primary" onclick="openReceiptTypeModal()">Receive</button>
             </div>
           </div>
 
@@ -11302,6 +11302,260 @@
           paymentRef: paymentRef,
           bankAccount: bankAccount
         });
+    }
+
+    // ============================================================
+    // PAYMENT TYPE CHOICE MODAL - Invoice vs Others
+    // ============================================================
+    function openPaymentTypeModal() {
+      const modalHtml = `
+        <div class="modal open" id="paymentTypeModal">
+          <div class="modal-card" style="max-width:400px;">
+            <div class="modal-header">
+              <span>New Payment</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('paymentTypeModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:24px;">
+              <p style="font-size:14px;color:#6b7280;margin-bottom:20px;text-align:center;">What type of payment do you want to record?</p>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <button class="btn btn-primary" onclick="document.getElementById('paymentTypeModal').remove(); openInvoicePaymentSelector();" style="padding:16px;font-size:15px;">
+                  Invoice Payment
+                  <span style="display:block;font-size:12px;font-weight:normal;opacity:0.8;margin-top:4px;">Pay against a supplier invoice</span>
+                </button>
+                <button class="btn btn-secondary" onclick="document.getElementById('paymentTypeModal').remove(); openTxnPaymentModal();" style="padding:16px;font-size:15px;">
+                  Other Payment
+                  <span style="display:block;font-size:12px;font-weight:normal;opacity:0.8;margin-top:4px;">General payment transaction</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    // Invoice Payment Selector - Shows all outstanding supplier invoices
+    function openInvoicePaymentSelector() {
+      const modalHtml = `
+        <div class="modal open" id="invoicePaymentSelector">
+          <div class="modal-card" style="max-width:800px;">
+            <div class="modal-header">
+              <span>Select Invoice to Pay</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('invoicePaymentSelector').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-group" style="margin-bottom:16px;">
+                <input type="text" id="paymentInvoiceSearch" placeholder="Search by supplier or invoice number..." style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+              <div id="paymentInvoiceList" style="max-height:400px;overflow-y:auto;">
+                <p style="color:#6b7280;text-align:center;padding:40px;">Loading outstanding invoices...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadOutstandingPayables();
+
+      document.getElementById('paymentInvoiceSearch').addEventListener('input', function() {
+        filterPaymentInvoices(this.value);
+      });
+    }
+
+    var _outstandingPayables = [];
+
+    function loadOutstandingPayables() {
+      const container = document.getElementById('paymentInvoiceList');
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const invoices = (data || []).filter(function(inv) {
+            return inv.Status !== 'Paid' && inv.Status !== 'Reversed' && parseFloat(inv.Balance || 0) > 0;
+          });
+          _outstandingPayables = invoices;
+          renderPaymentInvoiceList(invoices);
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px;">Failed to load invoices: ' + error.message + '</p>';
+        })
+        .getPayables();
+    }
+
+    function renderPaymentInvoiceList(invoices) {
+      const container = document.getElementById('paymentInvoiceList');
+      if (!invoices || invoices.length === 0) {
+        container.innerHTML = '<p style="color:#6b7280;text-align:center;padding:40px;">No outstanding supplier invoices found.</p>';
+        return;
+      }
+
+      let html = '<table class="data-table" style="width:100%;"><thead><tr>' +
+        '<th>Invoice #</th><th>Supplier</th><th>Date</th><th style="text-align:right;">Amount</th><th style="text-align:right;">Balance</th><th></th>' +
+        '</tr></thead><tbody>';
+
+      invoices.forEach(function(inv) {
+        const balance = parseFloat(inv.Balance || 0);
+        const amount = parseFloat(inv.Amount || 0);
+        html += '<tr>' +
+          '<td>' + (inv.InvoiceNumber || inv.Invoice_Number || '-') + '</td>' +
+          '<td>' + (inv.SupplierName || inv.Supplier_Name || '-') + '</td>' +
+          '<td>' + (inv.InvoiceDate || inv.Invoice_Date || '-') + '</td>' +
+          '<td style="text-align:right;">' + amount.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</td>' +
+          '<td style="text-align:right;color:#dc2626;font-weight:600;">' + balance.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</td>' +
+          '<td><button class="btn btn-primary" style="padding:6px 12px;font-size:12px;" onclick="selectInvoiceForPayment(\'' +
+            (inv.PayableId || inv.Payable_Id || '') + '\', \'' +
+            (inv.SupplierName || inv.Supplier_Name || '').replace(/'/g, "\\'") + '\', \'' +
+            (inv.InvoiceNumber || inv.Invoice_Number || '').replace(/'/g, "\\'") + '\', ' +
+            balance + ')">Pay</button></td>' +
+          '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function filterPaymentInvoices(query) {
+      const q = (query || '').toLowerCase().trim();
+      if (!q) {
+        renderPaymentInvoiceList(_outstandingPayables);
+        return;
+      }
+      const filtered = _outstandingPayables.filter(function(inv) {
+        const supplier = (inv.SupplierName || inv.Supplier_Name || '').toLowerCase();
+        const invoiceNum = (inv.InvoiceNumber || inv.Invoice_Number || '').toLowerCase();
+        return supplier.indexOf(q) !== -1 || invoiceNum.indexOf(q) !== -1;
+      });
+      renderPaymentInvoiceList(filtered);
+    }
+
+    function selectInvoiceForPayment(payableId, supplierName, invoiceNumber, balance) {
+      document.getElementById('invoicePaymentSelector').remove();
+      openInvoicePaymentModal(payableId, supplierName, invoiceNumber, balance);
+    }
+
+    // ============================================================
+    // RECEIPT TYPE CHOICE MODAL - Invoice vs Others
+    // ============================================================
+    function openReceiptTypeModal() {
+      const modalHtml = `
+        <div class="modal open" id="receiptTypeModal">
+          <div class="modal-card" style="max-width:400px;">
+            <div class="modal-header">
+              <span>New Receipt</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('receiptTypeModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:24px;">
+              <p style="font-size:14px;color:#6b7280;margin-bottom:20px;text-align:center;">What type of receipt do you want to record?</p>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <button class="btn btn-primary" onclick="document.getElementById('receiptTypeModal').remove(); openInvoiceReceiptSelector();" style="padding:16px;font-size:15px;">
+                  Invoice Receipt
+                  <span style="display:block;font-size:12px;font-weight:normal;opacity:0.8;margin-top:4px;">Receive payment against a customer invoice</span>
+                </button>
+                <button class="btn btn-secondary" onclick="document.getElementById('receiptTypeModal').remove(); openTxnReceiptModal();" style="padding:16px;font-size:15px;">
+                  Other Receipt
+                  <span style="display:block;font-size:12px;font-weight:normal;opacity:0.8;margin-top:4px;">General receipt transaction</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    // Invoice Receipt Selector - Shows all outstanding customer invoices
+    function openInvoiceReceiptSelector() {
+      const modalHtml = `
+        <div class="modal open" id="invoiceReceiptSelector">
+          <div class="modal-card" style="max-width:800px;">
+            <div class="modal-header">
+              <span>Select Invoice to Receive Payment</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('invoiceReceiptSelector').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-group" style="margin-bottom:16px;">
+                <input type="text" id="receiptInvoiceSearch" placeholder="Search by customer or invoice number..." style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+              <div id="receiptInvoiceList" style="max-height:400px;overflow-y:auto;">
+                <p style="color:#6b7280;text-align:center;padding:40px;">Loading outstanding invoices...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadOutstandingReceivables();
+
+      document.getElementById('receiptInvoiceSearch').addEventListener('input', function() {
+        filterReceiptInvoices(this.value);
+      });
+    }
+
+    var _outstandingReceivables = [];
+
+    function loadOutstandingReceivables() {
+      const container = document.getElementById('receiptInvoiceList');
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const invoices = (data || []).filter(function(inv) {
+            return inv.Status !== 'Paid' && inv.Status !== 'Reversed' && parseFloat(inv.Balance || 0) > 0;
+          });
+          _outstandingReceivables = invoices;
+          renderReceiptInvoiceList(invoices);
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px;">Failed to load invoices: ' + error.message + '</p>';
+        })
+        .getReceivables();
+    }
+
+    function renderReceiptInvoiceList(invoices) {
+      const container = document.getElementById('receiptInvoiceList');
+      if (!invoices || invoices.length === 0) {
+        container.innerHTML = '<p style="color:#6b7280;text-align:center;padding:40px;">No outstanding customer invoices found.</p>';
+        return;
+      }
+
+      let html = '<table class="data-table" style="width:100%;"><thead><tr>' +
+        '<th>Invoice #</th><th>Customer</th><th>Date</th><th style="text-align:right;">Amount</th><th style="text-align:right;">Balance</th><th></th>' +
+        '</tr></thead><tbody>';
+
+      invoices.forEach(function(inv) {
+        const balance = parseFloat(inv.Balance || 0);
+        const amount = parseFloat(inv.Amount || 0);
+        html += '<tr>' +
+          '<td>' + (inv.InvoiceNumber || inv.Invoice_Number || '-') + '</td>' +
+          '<td>' + (inv.CustomerName || inv.Customer_Name || '-') + '</td>' +
+          '<td>' + (inv.InvoiceDate || inv.Invoice_Date || '-') + '</td>' +
+          '<td style="text-align:right;">' + amount.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</td>' +
+          '<td style="text-align:right;color:#166534;font-weight:600;">' + balance.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</td>' +
+          '<td><button class="btn btn-primary" style="padding:6px 12px;font-size:12px;" onclick="selectInvoiceForReceipt(\'' +
+            (inv.ReceivableId || inv.Receivable_Id || '') + '\', \'' +
+            (inv.CustomerName || inv.Customer_Name || '').replace(/'/g, "\\'") + '\', \'' +
+            (inv.InvoiceNumber || inv.Invoice_Number || '').replace(/'/g, "\\'") + '\', ' +
+            balance + ')">Receive</button></td>' +
+          '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function filterReceiptInvoices(query) {
+      const q = (query || '').toLowerCase().trim();
+      if (!q) {
+        renderReceiptInvoiceList(_outstandingReceivables);
+        return;
+      }
+      const filtered = _outstandingReceivables.filter(function(inv) {
+        const customer = (inv.CustomerName || inv.Customer_Name || '').toLowerCase();
+        const invoiceNum = (inv.InvoiceNumber || inv.Invoice_Number || '').toLowerCase();
+        return customer.indexOf(q) !== -1 || invoiceNum.indexOf(q) !== -1;
+      });
+      renderReceiptInvoiceList(filtered);
+    }
+
+    function selectInvoiceForReceipt(receivableId, customerName, invoiceNumber, balance) {
+      document.getElementById('invoiceReceiptSelector').remove();
+      openInvoiceReceiptModal(receivableId, customerName, invoiceNumber, balance);
     }
 
     // ============================================================
