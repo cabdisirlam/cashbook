@@ -2295,8 +2295,6 @@ function getCustomerAdvances(customerRef) {
     }
     const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
     if (!batchId) return;
-    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
-    if (accountCode) return;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
     if (credit <= 0) return;
 
@@ -2306,6 +2304,10 @@ function getCustomerAdvances(customerRef) {
     const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
     if (!_isAdvanceCandidate_(category, particulars, accountType, reportMapping)) return;
+
+    // Skip entries that already have an Advance_ID set (these are applications, not original advances)
+    const advanceIdCol = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+    if (advanceIdCol) return;
 
     const dateValue = cols.date ? row[cols.date - 1] : '';
     const refNo = cols.refNo ? String(row[cols.refNo - 1] || '').trim() : '';
@@ -2407,8 +2409,6 @@ function applyReceivableAdvance(receivableId, payload) {
   journalData.forEach(function(row) {
     const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
     if (batchId !== advanceId) return;
-    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
-    if (accountCode) return;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
     if (credit <= 0) return;
 
@@ -2418,6 +2418,10 @@ function applyReceivableAdvance(receivableId, payload) {
     const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
     if (!_isAdvanceCandidate_(category, particulars, accountType, reportMapping)) return;
+
+    // Skip entries that already have an Advance_ID set (these are applications, not original advances)
+    const advanceIdCol = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+    if (advanceIdCol) return;
 
     const rowPayee = cols.payee ? String(row[cols.payee - 1] || '').trim() : '';
     const rowContactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';

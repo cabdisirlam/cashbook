@@ -2786,6 +2786,7 @@ function getPositionReport(currentYear, comparativeYear) {
 function getReceivablePayableSummary(type, criteria) {
   const kind = String(type || '').toLowerCase();
   const isReceivable = kind.includes('receivable');
+  const targetContactType = isReceivable ? 'Customer' : 'Supplier';
   const financialYear = String(criteria && criteria.financialYear || '').trim();
   const payeeFilter = String(criteria && criteria.payee || '').trim().toLowerCase();
   const contactFilter = String(criteria && criteria.contactId || '').trim();
@@ -2805,6 +2806,21 @@ function getReceivablePayableSummary(type, criteria) {
   const cols = _getJournalColumns_(headers);
   const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   const summaries = {};
+
+  // Build contact type lookup map
+  const contactTypes = {};
+  const contactSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
+  if (contactSheet) {
+    const contactLastRow = contactSheet.getLastRow();
+    if (contactLastRow >= 2) {
+      const contactData = contactSheet.getRange(2, 1, contactLastRow - 1, 3).getValues();
+      contactData.forEach(function(row) {
+        const cid = String(row[0] || '').trim();
+        const ctype = String(row[1] || '').trim();
+        if (cid) contactTypes[cid] = ctype;
+      });
+    }
+  }
 
   const isAdvanceLike = function(category, reportMapping, accountType, particulars) {
     const categoryLower = String(category || '').toLowerCase();
@@ -2829,6 +2845,10 @@ function getReceivablePayableSummary(type, criteria) {
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     if (accountCode) return;
 
+    // Filter by Contact_Type instead of Report_Mapping
+    const contactType = contactId ? (contactTypes[contactId] || '') : '';
+    if (contactId && contactType !== targetContactType) return;
+
     const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
     const dateCell = cols.date ? row[cols.date - 1] : '';
     const rowDate = dateCell instanceof Date ? dateCell : _parseDate_(dateCell);
@@ -2840,17 +2860,36 @@ function getReceivablePayableSummary(type, criteria) {
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
 
+    // Check transaction nature for amount calculation
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
-    const matchesAdvance = isReceivable && isAdvanceLike(category, reportMapping, accountType, particulars);
-    const matches = isReceivable ? (matchesReceivable || matchesAdvance) : matchesPayable;
-    if (!matches) return;
+    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars);
 
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
-    if (matchesAdvance && credit <= 0) return;
-    const increase = matchesAdvance ? 0 : (isReceivable ? debit : credit);
-    const decrease = matchesAdvance ? credit : (isReceivable ? credit : debit);
+
+    // Calculate increase/decrease based on transaction type
+    let increase = 0;
+    let decrease = 0;
+    if (isReceivable) {
+      // Customer statement: debit increases balance (invoice), credit decreases (payment/advance)
+      if (matchesAdvance) {
+        // Advance from customer: credit is a prepayment (reduces what they owe or creates credit balance)
+        decrease = credit;
+      } else {
+        increase = debit;
+        decrease = credit;
+      }
+    } else {
+      // Supplier statement: credit increases balance (invoice), debit decreases (payment)
+      if (matchesAdvance) {
+        // Advance to supplier: debit is prepayment (reduces what we owe or creates debit balance)
+        decrease = debit;
+      } else {
+        increase = credit;
+        decrease = debit;
+      }
+    }
 
     const isYearMatch = !financialYear || (rowYear && rowYear === financialYear);
 
@@ -2930,6 +2969,7 @@ function getNettingSummary(criteria) {
 function getReceivablePayableStatement(type, payeeName, criteria) {
   const kind = String(type || '').toLowerCase();
   const isReceivable = kind.includes('receivable');
+  const targetContactType = isReceivable ? 'Customer' : 'Supplier';
   const payee = String(payeeName || '').trim();
   const contactFilter = String(criteria && criteria.contactId || '').trim();
   if (!payee && !contactFilter) throw new Error('Payee is required.');
@@ -2949,6 +2989,22 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
   const cols = _getJournalColumns_(headers);
   const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  // Build contact type lookup map
+  const contactTypes = {};
+  const contactSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
+  if (contactSheet) {
+    const contactLastRow = contactSheet.getLastRow();
+    if (contactLastRow >= 2) {
+      const contactData = contactSheet.getRange(2, 1, contactLastRow - 1, 3).getValues();
+      contactData.forEach(function(row) {
+        const cid = String(row[0] || '').trim();
+        const ctype = String(row[1] || '').trim();
+        if (cid) contactTypes[cid] = ctype;
+      });
+    }
+  }
+
   const isAdvanceLike = function(category, reportMapping, accountType, particulars) {
     const categoryLower = String(category || '').toLowerCase();
     const mappingLower = String(reportMapping || '').toLowerCase();
@@ -2977,6 +3033,10 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     if (accountCode) return;
 
+    // Filter by Contact_Type instead of Report_Mapping
+    const contactType = contactId ? (contactTypes[contactId] || '') : '';
+    if (contactId && contactType !== targetContactType) return;
+
     const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
@@ -2984,17 +3044,35 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
+
+    // Check transaction nature for amount calculation
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
-    const matchesAdvance = isReceivable && isAdvanceLike(category, reportMapping, accountType, particulars);
-    const matches = isReceivable ? (matchesReceivable || matchesAdvance) : matchesPayable;
-    if (!matches) return;
+    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars);
 
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
-    if (matchesAdvance && credit <= 0) return;
-    const increase = matchesAdvance ? 0 : (isReceivable ? debit : credit);
-    const decrease = matchesAdvance ? credit : (isReceivable ? credit : debit);
+
+    // Calculate increase/decrease based on transaction type
+    let increase = 0;
+    let decrease = 0;
+    if (isReceivable) {
+      // Customer statement: debit increases balance (invoice), credit decreases (payment/advance)
+      if (matchesAdvance) {
+        decrease = credit;
+      } else {
+        increase = debit;
+        decrease = credit;
+      }
+    } else {
+      // Supplier statement: credit increases balance (invoice), debit decreases (payment)
+      if (matchesAdvance) {
+        decrease = debit;
+      } else {
+        increase = credit;
+        decrease = debit;
+      }
+    }
 
     const dateCell = cols.date ? row[cols.date - 1] : '';
     const rowDate = dateCell instanceof Date ? dateCell : _parseDate_(dateCell);
