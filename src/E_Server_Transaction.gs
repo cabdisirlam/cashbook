@@ -2867,9 +2867,12 @@ function getReceivablePayableSummary(type, criteria) {
     const isAdvanceApplication = Boolean(advanceId && !accountCode);
     if (accountCode && !hasAdvanceBankLine) return;
 
-    // Filter by Contact_Type instead of Report_Mapping
+    // Filter by Contact_Type instead of Report_Mapping (case-insensitive)
     const contactType = contactId ? (contactTypes[contactId] || '') : '';
-    if (contactId && contactType !== targetContactType) return;
+    const contactTypeLower = contactType.toLowerCase().trim();
+    const targetLower = targetContactType.toLowerCase();
+    // Only filter by contact type if we have both a contactId AND a known contact type
+    if (contactId && contactType && contactTypeLower !== targetLower) return;
 
     const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
     const dateCell = cols.date ? row[cols.date - 1] : '';
@@ -3076,9 +3079,12 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const isAdvanceApplication = Boolean(advanceId && !accountCode);
     if (accountCode && !hasAdvanceBankLine) return;
 
-    // Filter by Contact_Type instead of Report_Mapping
+    // Filter by Contact_Type instead of Report_Mapping (case-insensitive)
     const contactType = contactId ? (contactTypes[contactId] || '') : '';
-    if (contactId && contactType !== targetContactType) return;
+    const contactTypeLower = contactType.toLowerCase().trim();
+    const targetLower = targetContactType.toLowerCase();
+    // Only filter by contact type if we have both a contactId AND a known contact type
+    if (contactId && contactType && contactTypeLower !== targetLower) return;
 
     const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
