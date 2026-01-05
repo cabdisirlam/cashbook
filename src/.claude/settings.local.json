@@ -1,14 +1,15 @@
 {
-  "model": "opus",
   "permissions": {
     "allow": [
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nEnhance UI with professional design and smooth animations\n\n- Upgrade color scheme to professional blue palette (#2563eb) inspired by QuickBooks/SAP\n- Add smooth modal animations with slide-up and fade effects\n- Implement backdrop blur on overlays for modern depth\n- Enhance button styling with gradients and hover lift effects\n- Improve form inputs with focus rings and transitions\n- Update login page with purple gradient and glass-morphism\n- Refine table styling with hover states and proper spacing\n- Optimize mobile responsiveness with better touch targets (44px min)\n- Add professional typography with Inter font\n- Polish sidebar navigation with active state indicators\n- Improve overall performance with optimized CSS transitions\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git commit:*)",
       "Bash(claude doctor)",
-      "Bash(claude update:*)"
+      "Bash(claude update:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "model": "opus"
 }

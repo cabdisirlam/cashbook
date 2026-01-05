@@ -2056,10 +2056,10 @@ function getInvoices(invoiceType, filters) {
     } else { obj.Days_Overdue = 0; }
     return obj;
   }).filter(inv => inv.Invoice_ID);
-  if (invoiceType) results = results.filter(inv => inv.Invoice_Type === invoiceType);
+  if (invoiceType) results = results.filter(inv => String(inv.Invoice_Type || '').toUpperCase().trim() === invoiceType.toUpperCase().trim());
   if (filters) {
     if (filters.status) results = results.filter(inv => inv.Status === filters.status);
-    if (filters.contactId) results = results.filter(inv => inv.Contact_ID === filters.contactId);
+    if (filters.contactId) results = results.filter(inv => String(inv.Contact_ID || '').trim() === String(filters.contactId || '').trim());
     if (filters.overdue) results = results.filter(inv => inv.Days_Overdue > 0);
   }
   return results;
