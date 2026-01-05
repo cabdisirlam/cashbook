@@ -1171,6 +1171,7 @@ function exportJournal(criteria) {
   const endDate = _parseDate_(criteria && criteria.endDate);
 
   const headerMap = headers.map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headerMap);
   const dateIndex = headerMap.indexOf('date');
   const yearIndex = headerMap.indexOf('financial_year');
   const accountIndex = headerMap.indexOf('account_code');
@@ -1199,7 +1200,44 @@ function exportJournal(criteria) {
     return { csv: '', filename: '' };
   }
 
-  const output = [headers].concat(filtered).map(function(row) {
+  const exportHeaders = [
+    'Account_Code',
+    'Financial_Year',
+    'Txn_Date',
+    'Value_Date',
+    'Bank_Ref',
+    'Description',
+    'Category',
+    'Sub_Category',
+    'Particulars',
+    'Debit',
+    'Credit',
+    'Balance',
+    'Match_Status'
+  ];
+  const outputRows = filtered.map(function(row) {
+    const dateCell = cols.date ? row[cols.date - 1] : '';
+    const txnDate = dateCell instanceof Date ? _formatDate_(dateCell) : _formatDate_(_parseDate_(dateCell));
+    const bankRef = cols.bankRef ? String(row[cols.bankRef - 1] || '').trim() : '';
+    const refNo = cols.refNo ? String(row[cols.refNo - 1] || '').trim() : '';
+    return [
+      cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '',
+      cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '',
+      txnDate || '',
+      '',
+      bankRef || refNo,
+      cols.description ? String(row[cols.description - 1] || '').trim() : '',
+      cols.category ? String(row[cols.category - 1] || '').trim() : '',
+      cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '',
+      cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '',
+      cols.debit ? row[cols.debit - 1] : '',
+      cols.credit ? row[cols.credit - 1] : '',
+      '',
+      ''
+    ];
+  });
+
+  const output = [exportHeaders].concat(outputRows).map(function(row) {
     return row.map(function(cell) {
       if (cell instanceof Date) {
         return _formatDate_(cell);
@@ -1213,7 +1251,7 @@ function exportJournal(criteria) {
   logSystemEventSafe('EXPORT_JOURNAL', '', 'Rows: ' + filtered.length);
   return {
     csv: output,
-    filename: 'journal_export_' + stamp + '.csv'
+    filename: 'cash_book_export_' + stamp + '.csv'
   };
 }
 
@@ -2903,16 +2941,14 @@ function getReceivablePayableSummary(type, criteria) {
     const isAdvanceApplicationLine = Boolean(
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
-
-    // For staff, also include entries with Advance_ID (surrenders/clearances)
-    const hasSurrenderLink = Boolean(advanceId);
+    const staffRelevant = (matchesAdvance || matchesReceivable) && !hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
     // Customer statement: receivables and advances only
     // Supplier statement: payables and advances only
-    // Staff statement: advances AND surrender entries (linked via Advance_ID)
+    // Staff statement: advances and receivable-linked surrenders (exclude bank lines)
     if (isStaff) {
-      if (!matchesAdvance && !hasSurrenderLink) return;
+      if (!staffRelevant) return;
     } else if (isReceivable) {
       if (!matchesReceivable && !matchesAdvance) return;
     } else {
@@ -2936,10 +2972,6 @@ function getReceivablePayableSummary(type, criteria) {
           increase = debit;
           decrease = credit;
         }
-      } else if (hasSurrenderLink) {
-        // Surrender entry - expense debits reduce the advance balance
-        decrease = debit;
-        increase = credit;
       } else {
         increase = debit;
         decrease = credit;
@@ -3143,16 +3175,14 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const isAdvanceApplicationLine = Boolean(
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
-
-    // For staff, also include entries with Advance_ID (surrenders/clearances)
-    const hasSurrenderLink = Boolean(advanceId);
+    const staffRelevant = (matchesAdvance || matchesReceivable) && !hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
     // Customer statement: receivables and advances only
     // Supplier statement: payables and advances only
-    // Staff statement: advances AND surrender entries (linked via Advance_ID)
+    // Staff statement: advances and receivable-linked surrenders (exclude bank lines)
     if (isStaff) {
-      if (!matchesAdvance && !hasSurrenderLink) return;
+      if (!staffRelevant) return;
     } else if (isReceivable) {
       if (!matchesReceivable && !matchesAdvance) return;
     } else {
@@ -3176,10 +3206,6 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
           increase = debit;
           decrease = credit;
         }
-      } else if (hasSurrenderLink) {
-        // Surrender entry - expense debits reduce the advance balance
-        decrease = debit;
-        increase = credit;
       } else {
         increase = debit;
         decrease = credit;

@@ -3232,11 +3232,16 @@
       const headerRow = csvRows[0].map(value => String(value || '').trim());
       const headerMap = {};
       headerRow.forEach((header, index) => {
-        headerMap[header] = index;
+        const key = String(header || '').trim().toLowerCase().replace(/\s+/g, '_');
+        if (key) headerMap[key] = index;
       });
 
-      const requiredHeaders = ['Account_Code', 'Financial_Year', 'Txn_Date', 'Value_Date', 'Bank_Ref', 'Description', 'Debit', 'Credit', 'Balance', 'Match_Status'];
+      const requiredHeaders = ['account_code', 'financial_year', 'txn_date', 'value_date', 'bank_ref', 'description', 'balance', 'match_status'];
       const missing = requiredHeaders.filter(header => headerMap[header] === undefined);
+      const debitIndex = headerMap.debit ?? headerMap.dr;
+      const creditIndex = headerMap.credit ?? headerMap.cr;
+      if (debitIndex === undefined) missing.push('Debit');
+      if (creditIndex === undefined) missing.push('Credit');
       if (missing.length) {
         showBankImportAlert('Missing headers: ' + missing.join(', '), 'error');
         return;
@@ -3249,16 +3254,16 @@
         const row = csvRows[i];
         if (!row || !row.length) continue;
 
-        const accountCodeValue = String(row[headerMap.Account_Code] || '').trim() || selectedAccountCode;
-        const yearValue = String(row[headerMap.Financial_Year] || '').trim() || selectedFinancialYear;
-        const txnDateRaw = row[headerMap.Txn_Date];
-        const valueDateRaw = row[headerMap.Value_Date];
-        const bankRef = String(row[headerMap.Bank_Ref] || '').trim();
-        const description = String(row[headerMap.Description] || '').trim();
-        const debitParsed = parseBankImportNumber(row[headerMap.Debit]);
-        const creditParsed = parseBankImportNumber(row[headerMap.Credit]);
-        const balanceParsed = parseBankImportNumber(row[headerMap.Balance]);
-        const matchStatus = String(row[headerMap.Match_Status] || '').trim();
+        const accountCodeValue = String(row[headerMap.account_code] || '').trim() || selectedAccountCode;
+        const yearValue = String(row[headerMap.financial_year] || '').trim() || selectedFinancialYear;
+        const txnDateRaw = row[headerMap.txn_date];
+        const valueDateRaw = row[headerMap.value_date];
+        const bankRef = String(row[headerMap.bank_ref] || '').trim();
+        const description = String(row[headerMap.description] || '').trim();
+        const debitParsed = parseBankImportNumber(row[debitIndex]);
+        const creditParsed = parseBankImportNumber(row[creditIndex]);
+        const balanceParsed = parseBankImportNumber(row[headerMap.balance]);
+        const matchStatus = String(row[headerMap.match_status] || '').trim();
 
         const hasContent = [txnDateRaw, valueDateRaw, bankRef, description, debitParsed.value, creditParsed.value, balanceParsed.value, matchStatus]
           .some(value => String(value || '').trim() !== '');
