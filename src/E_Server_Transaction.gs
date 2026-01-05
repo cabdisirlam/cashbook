@@ -2843,7 +2843,9 @@ function getReceivablePayableSummary(type, criteria) {
     if (contactFilter && contactId !== contactFilter) return;
     if (payeeFilter && !payee.toLowerCase().includes(payeeFilter)) return;
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
-    if (accountCode) return;
+    const advanceId = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+    const hasAdvanceBankLine = Boolean(accountCode && advanceId && contactId);
+    if (accountCode && !hasAdvanceBankLine) return;
 
     // Filter by Contact_Type instead of Report_Mapping
     const contactType = contactId ? (contactTypes[contactId] || '') : '';
@@ -2863,7 +2865,7 @@ function getReceivablePayableSummary(type, criteria) {
     // Check transaction nature - only include receivable/payable/advance entries
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
-    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars);
+    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) || hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
     // Customer statement: receivables and advances only
@@ -2883,8 +2885,8 @@ function getReceivablePayableSummary(type, criteria) {
     if (isReceivable) {
       // Customer statement: debit increases balance (invoice), credit decreases (payment/advance)
       if (matchesAdvance) {
-        // Advance from customer: credit is a prepayment (reduces what they owe or creates credit balance)
-        decrease = credit;
+        // Advance from customer: receivable entry uses credit; bank entry uses debit.
+        decrease = hasAdvanceBankLine ? debit : credit;
       } else {
         increase = debit;
         decrease = credit;
@@ -2892,8 +2894,8 @@ function getReceivablePayableSummary(type, criteria) {
     } else {
       // Supplier statement: credit increases balance (invoice), debit decreases (payment)
       if (matchesAdvance) {
-        // Advance to supplier: debit is prepayment (reduces what we owe or creates debit balance)
-        decrease = debit;
+        // Advance to supplier: payable entry uses debit; bank entry uses credit.
+        decrease = hasAdvanceBankLine ? credit : debit;
       } else {
         increase = credit;
         decrease = debit;
@@ -3040,7 +3042,9 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
       return;
     }
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
-    if (accountCode) return;
+    const advanceId = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+    const hasAdvanceBankLine = Boolean(accountCode && advanceId && contactId);
+    if (accountCode && !hasAdvanceBankLine) return;
 
     // Filter by Contact_Type instead of Report_Mapping
     const contactType = contactId ? (contactTypes[contactId] || '') : '';
@@ -3057,7 +3061,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     // Check transaction nature - only include receivable/payable/advance entries
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
-    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars);
+    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) || hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
     // Customer statement: receivables and advances only
@@ -3077,7 +3081,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     if (isReceivable) {
       // Customer statement: debit increases balance (invoice), credit decreases (payment/advance)
       if (matchesAdvance) {
-        decrease = credit;
+        decrease = hasAdvanceBankLine ? debit : credit;
       } else {
         increase = debit;
         decrease = credit;
@@ -3085,7 +3089,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     } else {
       // Supplier statement: credit increases balance (invoice), debit decreases (payment)
       if (matchesAdvance) {
-        decrease = debit;
+        decrease = hasAdvanceBankLine ? credit : debit;
       } else {
         increase = credit;
         decrease = debit;
@@ -3119,7 +3123,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
       credit: credit,
       increase: increase,
       decrease: decrease,
-      advanceId: cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : ''
+      advanceId: advanceId
     });
   });
 
