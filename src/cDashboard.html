@@ -11307,23 +11307,31 @@
     // ============================================================
     function openPaymentTypeModal() {
       const modalHtml = `
-        <div class="modal open" id="paymentTypeModal">
-          <div class="modal-card" style="max-width:400px;">
-            <div class="modal-header">
-              <span>New Payment</span>
-              <button class="btn btn-secondary" onclick="document.getElementById('paymentTypeModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+        <div class="modal open" id="paymentTypeModal" style="backdrop-filter:blur(4px);">
+          <div class="modal-card" style="max-width:480px;border-radius:16px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div class="modal-header" style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);padding:24px 28px;">
+              <div>
+                <span style="font-size:20px;font-weight:600;">New Payment</span>
+                <p style="font-size:13px;opacity:0.85;margin-top:4px;font-weight:400;">Select payment type to continue</p>
+              </div>
+              <button onclick="document.getElementById('paymentTypeModal').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background 0.2s;">×</button>
             </div>
-            <div class="modal-body" style="padding:24px;">
-              <p style="font-size:14px;color:#6b7280;margin-bottom:20px;text-align:center;">What type of payment do you want to record?</p>
-              <div style="display:flex;flex-direction:column;gap:12px;">
-                <button class="btn btn-primary" onclick="document.getElementById('paymentTypeModal').remove(); openInvoicePaymentSelector();" style="padding:16px;font-size:15px;">
-                  Invoice Payment
-                  <span style="display:block;font-size:12px;font-weight:normal;opacity:0.8;margin-top:4px;">Pay against a supplier invoice</span>
-                </button>
-                <button class="btn btn-secondary" onclick="document.getElementById('paymentTypeModal').remove(); openTxnPaymentModal();" style="padding:16px;font-size:15px;">
-                  Other Payment
-                  <span style="display:block;font-size:12px;font-weight:normal;opacity:0.8;margin-top:4px;">General payment transaction</span>
-                </button>
+            <div class="modal-body" style="padding:28px;background:#f9fafb;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div onclick="document.getElementById('paymentTypeModal').remove(); openInvoicePaymentSelector();" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:24px 20px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='#dc2626';this.style.boxShadow='0 4px 12px rgba(220,38,38,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';this.style.transform='translateY(0)';">
+                  <div style="width:56px;height:56px;background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                  </div>
+                  <h3 style="font-size:15px;font-weight:600;color:#111827;margin-bottom:6px;">Invoice Payment</h3>
+                  <p style="font-size:12px;color:#6b7280;line-height:1.4;">Pay against a supplier invoice</p>
+                </div>
+                <div onclick="document.getElementById('paymentTypeModal').remove(); openTxnPaymentModal();" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:24px 20px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='#6b7280';this.style.boxShadow='0 4px 12px rgba(107,114,128,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';this.style.transform='translateY(0)';">
+                  <div style="width:56px;height:56px;background:linear-gradient(135deg,#f9fafb 0%,#f3f4f6 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                  </div>
+                  <h3 style="font-size:15px;font-weight:600;color:#111827;margin-bottom:6px;">Other Payment</h3>
+                  <p style="font-size:12px;color:#6b7280;line-height:1.4;">General payment transaction</p>
+                </div>
               </div>
             </div>
           </div>
@@ -11476,23 +11484,31 @@
     // ============================================================
     function openReceiptTypeModal() {
       const modalHtml = `
-        <div class="modal open" id="receiptTypeModal">
-          <div class="modal-card" style="max-width:400px;">
-            <div class="modal-header">
-              <span>New Receipt</span>
-              <button class="btn btn-secondary" onclick="document.getElementById('receiptTypeModal').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+        <div class="modal open" id="receiptTypeModal" style="backdrop-filter:blur(4px);">
+          <div class="modal-card" style="max-width:480px;border-radius:16px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div class="modal-header" style="background:linear-gradient(135deg,#059669 0%,#047857 100%);padding:24px 28px;">
+              <div>
+                <span style="font-size:20px;font-weight:600;">New Receipt</span>
+                <p style="font-size:13px;opacity:0.85;margin-top:4px;font-weight:400;">Select receipt type to continue</p>
+              </div>
+              <button onclick="document.getElementById('receiptTypeModal').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background 0.2s;">×</button>
             </div>
-            <div class="modal-body" style="padding:24px;">
-              <p style="font-size:14px;color:#6b7280;margin-bottom:20px;text-align:center;">What type of receipt do you want to record?</p>
-              <div style="display:flex;flex-direction:column;gap:12px;">
-                <button class="btn btn-primary" onclick="document.getElementById('receiptTypeModal').remove(); openInvoiceReceiptSelector();" style="padding:16px;font-size:15px;">
-                  Invoice Receipt
-                  <span style="display:block;font-size:12px;font-weight:normal;opacity:0.8;margin-top:4px;">Receive payment against a customer invoice</span>
-                </button>
-                <button class="btn btn-secondary" onclick="document.getElementById('receiptTypeModal').remove(); openTxnReceiptModal();" style="padding:16px;font-size:15px;">
-                  Other Receipt
-                  <span style="display:block;font-size:12px;font-weight:normal;opacity:0.8;margin-top:4px;">General receipt transaction</span>
-                </button>
+            <div class="modal-body" style="padding:28px;background:#f9fafb;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div onclick="document.getElementById('receiptTypeModal').remove(); openInvoiceReceiptSelector();" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:24px 20px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='#059669';this.style.boxShadow='0 4px 12px rgba(5,150,105,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';this.style.transform='translateY(0)';">
+                  <div style="width:56px;height:56px;background:linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                  </div>
+                  <h3 style="font-size:15px;font-weight:600;color:#111827;margin-bottom:6px;">Invoice Receipt</h3>
+                  <p style="font-size:12px;color:#6b7280;line-height:1.4;">Receive payment for customer invoice</p>
+                </div>
+                <div onclick="document.getElementById('receiptTypeModal').remove(); openTxnReceiptModal();" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:24px 20px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='#6b7280';this.style.boxShadow='0 4px 12px rgba(107,114,128,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';this.style.transform='translateY(0)';">
+                  <div style="width:56px;height:56px;background:linear-gradient(135deg,#f9fafb 0%,#f3f4f6 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                  </div>
+                  <h3 style="font-size:15px;font-weight:600;color:#111827;margin-bottom:6px;">Other Receipt</h3>
+                  <p style="font-size:12px;color:#6b7280;line-height:1.4;">General receipt transaction</p>
+                </div>
               </div>
             </div>
           </div>
