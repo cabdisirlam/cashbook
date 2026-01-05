@@ -2863,6 +2863,9 @@ function getReceivablePayableSummary(type, criteria) {
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
 
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+
     // Check transaction nature - only include receivable/payable/advance entries
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
@@ -2877,9 +2880,6 @@ function getReceivablePayableSummary(type, criteria) {
     } else {
       if (!matchesPayable && !matchesAdvance) return;
     }
-
-    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
-    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
 
     // Calculate increase/decrease based on transaction type
     let increase = 0;
@@ -3061,6 +3061,9 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
 
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+
     // Check transaction nature - only include receivable/payable/advance entries
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
@@ -3075,9 +3078,6 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     } else {
       if (!matchesPayable && !matchesAdvance) return;
     }
-
-    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
-    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
 
     // Calculate increase/decrease based on transaction type
     let increase = 0;
