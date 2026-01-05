@@ -2359,6 +2359,111 @@ function getCustomerAdvances(customerRef) {
   return results;
 }
 
+function getSupplierAdvances(supplierRef) {
+  let payee = '';
+  let contactId = '';
+  if (supplierRef && typeof supplierRef === 'object') {
+    payee = String(supplierRef.supplierName || '').trim();
+    contactId = String(supplierRef.contactId || '').trim();
+  } else {
+    payee = String(supplierRef || '').trim();
+  }
+  if (!payee && !contactId) return [];
+  const payeeKey = payee.toLowerCase();
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return [];
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const advancesByBatch = {};
+
+  data.forEach(function(row) {
+    const rowPayee = cols.payee ? String(row[cols.payee - 1] || '').trim() : '';
+    const rowContactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
+    if (contactId) {
+      if (rowContactId) {
+        if (rowContactId !== contactId) return;
+      } else {
+        if (!payee || !rowPayee || rowPayee.toLowerCase() !== payeeKey) return;
+      }
+    } else {
+      if (!rowPayee || rowPayee.toLowerCase() !== payeeKey) return;
+    }
+
+    const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
+    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+    const advanceIdCol = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+    const hasAdvanceBankLine = Boolean(accountCode && advanceIdCol && rowContactId);
+    const advanceKey = advanceIdCol || batchId;
+    if (!advanceKey) return;
+
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+    const amount = hasAdvanceBankLine ? credit : debit;
+    if (amount <= 0) return;
+
+    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+    const subCategory = cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '';
+    const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
+    const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+    const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
+    if (!_isAdvanceCandidate_(category, particulars, accountType, reportMapping) && !hasAdvanceBankLine) return;
+
+    // Skip entries that already have an Advance_ID set (these are applications, not original advances)
+    if (advanceIdCol && !accountCode) return;
+
+    const dateValue = cols.date ? row[cols.date - 1] : '';
+    const refNo = cols.refNo ? String(row[cols.refNo - 1] || '').trim() : '';
+    const existing = advancesByBatch[advanceKey];
+    if (!existing) {
+      advancesByBatch[advanceKey] = {
+        advanceId: advanceKey,
+        date: dateValue ? _formatDate_(dateValue) : '',
+        refNo: refNo,
+        particulars: particulars,
+        subCategory: subCategory,
+        category: category,
+        amount: amount
+      };
+    } else {
+      existing.amount += amount;
+    }
+  });
+
+  const batchIds = Object.keys(advancesByBatch);
+  if (!batchIds.length) return [];
+  const appliedTotals = getAdvanceSurrenderTotals(batchIds);
+
+  const results = [];
+  batchIds.forEach(function(batchId) {
+    const advance = advancesByBatch[batchId];
+    const used = Number(appliedTotals && appliedTotals[batchId] || 0);
+    const remaining = Math.max(0, Number(advance.amount || 0) - used);
+    if (remaining <= 0) return;
+    results.push({
+      advanceId: advance.advanceId,
+      date: advance.date,
+      refNo: advance.refNo,
+      particulars: advance.particulars,
+      subCategory: advance.subCategory,
+      category: advance.category,
+      amount: Number(advance.amount || 0),
+      used: used,
+      remaining: remaining
+    });
+  });
+
+  results.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+  return results;
+}
+
 function applyReceivableAdvance(receivableId, payload) {
   const invoiceId = String(receivableId || '').trim();
   if (!invoiceId) return { success: false, message: 'Missing receivable ID.' };
@@ -2506,6 +2611,180 @@ function applyReceivableAdvance(receivableId, payload) {
       amount,
       receivableMeta.accountType || '',
       receivableMeta.reportMapping || '',
+      '',
+      '',
+      advanceId
+    ]
+  ];
+
+  const startRow = journal.getLastRow() + 1;
+  journal.getRange(startRow, 1, entries.length, entries[0].length).setValues(entries);
+
+  const currentPaid = parseFloat(invoice.Paid_Amount) || 0;
+  const totalAmount = parseFloat(invoice.Amount) || 0;
+  const newPaidAmount = currentPaid + amount;
+  const newBalance = totalAmount - newPaidAmount;
+  const newStatus = newBalance <= 0 ? 'Paid' : 'Partial';
+
+  const paidAmountCol = INVOICE_HEADERS.indexOf('Paid_Amount') + 1;
+  const balanceCol = INVOICE_HEADERS.indexOf('Balance') + 1;
+  const statusCol = INVOICE_HEADERS.indexOf('Status') + 1;
+  sheet.getRange(rowIndex, paidAmountCol).setValue(newPaidAmount);
+  sheet.getRange(rowIndex, balanceCol).setValue(Math.max(0, newBalance));
+  sheet.getRange(rowIndex, statusCol).setValue(newStatus);
+
+  logSystemEvent(getCurrentUser().email, 'APPLY_ADVANCE', invoiceId, 'Advance: ' + advanceId + ', Amount: ' + amount);
+  return { success: true, newBalance: Math.max(0, newBalance), newStatus: newStatus };
+}
+
+function applyPayableAdvance(payableId, payload) {
+  const invoiceId = String(payableId || '').trim();
+  if (!invoiceId) return { success: false, message: 'Missing payable ID.' };
+  const advanceId = String(payload && payload.advanceId || '').trim();
+  const amount = parseFloat(payload && payload.amount || 0);
+  if (!advanceId) return { success: false, message: 'Advance ID is required.' };
+  if (!amount || amount <= 0) return { success: false, message: 'Amount must be greater than zero.' };
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.INVOICES);
+  if (!sheet) return { success: false, message: 'Invoices sheet not found' };
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: false, message: 'Invoice not found' };
+  const data = sheet.getRange(2, 1, lastRow - 1, INVOICE_HEADERS.length).getValues();
+  let rowIndex = -1;
+  let invoice = null;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === invoiceId) {
+      rowIndex = i + 2;
+      invoice = {};
+      INVOICE_HEADERS.forEach((h, j) => invoice[h] = data[i][j]);
+      break;
+    }
+  }
+  if (!invoice) return { success: false, message: 'Invoice not found' };
+
+  const balance = parseFloat(invoice.Balance) || 0;
+  if (amount > balance) return { success: false, message: 'Amount exceeds invoice balance.' };
+
+  const meta = _loadMasterMeta_();
+  const payablesParticulars = _pickPayablesParticular_(meta.particularMeta);
+  const payablesMeta = payablesParticulars ? meta.particularMeta[payablesParticulars] : null;
+  if (!payablesMeta || !payablesMeta.subCategory || !payablesMeta.category) {
+    return { success: false, message: 'Particulars not found: ' + (payablesParticulars || 'Accounts Payable') + '.' };
+  }
+
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) return { success: false, message: 'DB_JOURNAL not found.' };
+  _ensureJournalContactColumn_(journal);
+  const journalLastRow = journal.getLastRow();
+  const journalLastCol = journal.getLastColumn();
+  if (journalLastRow < 2) return { success: false, message: 'Advance not found.' };
+  const journalHeaders = journal.getRange(1, 1, 1, journalLastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(journalHeaders);
+  const journalData = journal.getRange(2, 1, journalLastRow - 1, journalLastCol).getValues();
+
+  let advanceParticulars = '';
+  let advanceMeta = null;
+  let advanceTotal = 0;
+  let advancePayee = '';
+  let advanceContactId = '';
+  journalData.forEach(function(row) {
+    const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
+    const advanceIdCol = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+    if (batchId !== advanceId && advanceIdCol !== advanceId) return;
+
+    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+    const hasAdvanceBankLine = Boolean(accountCode && advanceIdCol === advanceId);
+    const amountFromRow = hasAdvanceBankLine ? credit : debit;
+    if (amountFromRow <= 0) return;
+
+    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+    const subCategory = cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '';
+    const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
+    const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+    const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
+    if (!_isAdvanceCandidate_(category, particulars, accountType, reportMapping) && !hasAdvanceBankLine) return;
+
+    // Skip entries that already have an Advance_ID set (these are applications, not original advances)
+    if (advanceIdCol && !accountCode) return;
+
+    const rowPayee = cols.payee ? String(row[cols.payee - 1] || '').trim() : '';
+    const rowContactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
+    if (rowPayee) advancePayee = rowPayee;
+    if (rowContactId) advanceContactId = rowContactId;
+    advanceTotal += amountFromRow;
+    if (!advanceParticulars) {
+      advanceParticulars = particulars;
+      advanceMeta = meta.particularMeta[particulars] || null;
+    }
+  });
+
+  if (!advanceParticulars || !advanceMeta || !advanceMeta.subCategory || !advanceMeta.category) {
+    return { success: false, message: 'Advance particulars not found for selected advance.' };
+  }
+
+  if (advanceContactId && invoice.Contact_ID && advanceContactId !== invoice.Contact_ID) {
+    return { success: false, message: 'Advance contact does not match invoice supplier.' };
+  }
+  if (!advanceContactId && advancePayee && invoice.Contact_Name && advancePayee !== invoice.Contact_Name) {
+    return { success: false, message: 'Advance payee does not match invoice supplier.' };
+  }
+
+  const appliedTotals = getAdvanceSurrenderTotals([advanceId]);
+  const used = Number(appliedTotals && appliedTotals[advanceId] || 0);
+  const remaining = Math.max(0, advanceTotal - used);
+  if (amount > remaining) return { success: false, message: 'Amount exceeds available advance balance.' };
+
+  const paymentDate = payload && payload.date ? new Date(payload.date) : new Date();
+  if (Number.isNaN(paymentDate.getTime())) return { success: false, message: 'Invalid date.' };
+
+  const refNo = String(payload && payload.refNo || invoice.Invoice_Number || '').trim();
+  const description = 'Apply advance ' + advanceId + ' to ' + (invoice.Invoice_Number || '');
+  const batchId = 'JRN-' + new Date().getTime();
+  const entries = [
+    [
+      Utilities.getUuid(),
+      batchId,
+      paymentDate,
+      invoice.Financial_Year || '',
+      '',
+      invoice.Contact_ID || '',
+      invoice.Contact_Name || '',
+      refNo,
+      '',
+      advanceParticulars,
+      advanceMeta.subCategory || '',
+      advanceMeta.category || '',
+      description,
+      0,
+      amount,
+      advanceMeta.accountType || '',
+      advanceMeta.reportMapping || '',
+      '',
+      '',
+      advanceId
+    ],
+    [
+      Utilities.getUuid(),
+      batchId,
+      paymentDate,
+      invoice.Financial_Year || '',
+      '',
+      invoice.Contact_ID || '',
+      invoice.Contact_Name || '',
+      refNo,
+      '',
+      payablesParticulars,
+      payablesMeta.subCategory || '',
+      payablesMeta.category || '',
+      description,
+      amount,
+      0,
+      payablesMeta.accountType || '',
+      payablesMeta.reportMapping || '',
       '',
       '',
       advanceId

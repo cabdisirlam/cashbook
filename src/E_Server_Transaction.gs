@@ -3065,6 +3065,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
     const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
     const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
+    const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
 
@@ -3129,8 +3130,17 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
       return;
     }
 
-    const displayDebit = isReceivable && hasAdvanceBankLine && matchesAdvance ? 0 : debit;
-    const displayCredit = isReceivable && hasAdvanceBankLine && matchesAdvance ? debit : credit;
+    let displayDebit = debit;
+    let displayCredit = credit;
+    if (hasAdvanceBankLine && matchesAdvance) {
+      if (isReceivable) {
+        displayDebit = 0;
+        displayCredit = debit;
+      } else {
+        displayDebit = credit;
+        displayCredit = 0;
+      }
+    }
 
     rows.push({
       index: index,
