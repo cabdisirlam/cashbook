@@ -1965,7 +1965,9 @@
 
   function openJournalModal() {
     transactionMode = 'Journal';
-    document.getElementById('journalModal').style.display = 'flex';
+    const modal = document.getElementById('journalModal');
+    modal.style.zIndex = '3005';
+    modal.style.display = 'flex';
     setJournalDefaultDate();
     setJournalAdvanceField('');
     loadDropdowns();
