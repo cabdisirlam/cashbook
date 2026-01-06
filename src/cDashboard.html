@@ -11813,6 +11813,21 @@
       container.innerHTML = html;
     }
 
+    function bringModalToFront(modalId) {
+      const modal = document.getElementById(modalId);
+      if (!modal) return;
+      let maxZ = 0;
+      document.querySelectorAll('.modal.open').forEach(function(node) {
+        const zValue = window.getComputedStyle(node).zIndex;
+        const zIndex = Number(zValue);
+        if (Number.isFinite(zIndex)) {
+          maxZ = Math.max(maxZ, zIndex);
+        }
+      });
+      if (!maxZ) maxZ = 2000;
+      modal.style.zIndex = String(maxZ + 5);
+    }
+
     function openReceiptAdvanceOptionsModal() {
       const modalHtml = `
         <div class="modal open" id="receiptAdvanceOptionsModal" style="backdrop-filter:blur(4px);justify-content:flex-start;align-items:flex-start;padding:24px;" onclick="if(event.target===this){this.remove();}">
