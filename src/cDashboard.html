@@ -11959,7 +11959,7 @@
       `;
       document.body.insertAdjacentHTML('beforeend', modalHtml);
       bringModalToFront('staffSurrenderSelector');
-      loadStaffAdvanceRows('staffSurrenderSelectorBody', true, 200);
+      loadStaffAdvanceRows('staffSurrenderSelectorBody', true, 1000);
     }
 
     function filterReceiptInvoices(query) {
@@ -12540,34 +12540,25 @@
       }
 
       google.script.run
-        .withSuccessHandler(function(staffList) {
-          const staffNames = new Set((staffList || []).map(item => String(item.Staff_Name || '').trim()).filter(Boolean));
+        .withSuccessHandler(function(rows) {
+          const batchIds = (rows || []).map(row => row.batchId).filter(Boolean);
+          if (!batchIds.length) {
+            renderStaffAdvanceTable(containerId, rows, includeAction, {});
+            return;
+          }
           google.script.run
-            .withSuccessHandler(function(rows) {
-              const filtered = (rows || []).filter(row => staffNames.has(String(row.payee || '').trim()));
-              const batchIds = filtered.map(row => row.batchId).filter(Boolean);
-              if (!batchIds.length) {
-                renderStaffAdvanceTable(containerId, filtered, includeAction, {});
-                return;
-              }
-              google.script.run
-                .withSuccessHandler(function(totals) {
-                  renderStaffAdvanceTable(containerId, filtered, includeAction, totals || {});
-                })
-                .withFailureHandler(function(error) {
-                  container.innerHTML = '<p style="color:#dc2626;">Failed to load surrender totals: ' + (error.message || 'Error') + '</p>';
-                })
-                .getAdvanceSurrenderTotals(batchIds);
+            .withSuccessHandler(function(totals) {
+              renderStaffAdvanceTable(containerId, rows, includeAction, totals || {});
             })
             .withFailureHandler(function(error) {
-              container.innerHTML = '<p style="color:#dc2626;">Failed to load staff advances: ' + (error.message || 'Error') + '</p>';
+              container.innerHTML = '<p style="color:#dc2626;">Failed to load surrender totals: ' + (error.message || 'Error') + '</p>';
             })
-            .getRecentTransactionsByType('Payment', maxRows);
+            .getAdvanceSurrenderTotals(batchIds);
         })
         .withFailureHandler(function(error) {
-          container.innerHTML = '<p style="color:#dc2626;">Failed to load staff list: ' + (error.message || 'Error') + '</p>';
+          container.innerHTML = '<p style="color:#dc2626;">Failed to load staff advances: ' + (error.message || 'Error') + '</p>';
         })
-        .getStaff();
+        .getStaffAdvanceTransactions(maxRows);
     }
 
     function renderStaffAdvanceTable(containerId, rows, includeAction, totals) {

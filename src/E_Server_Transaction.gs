@@ -596,6 +596,115 @@ function getRecentTransactionsByType(type, limit) {
   return results;
 }
 
+function getStaffAdvanceTransactions(limit) {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return [];
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  const contactTypes = {};
+  const contactSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
+  if (contactSheet) {
+    const contactLastRow = contactSheet.getLastRow();
+    if (contactLastRow >= 2) {
+      const contactData = contactSheet.getRange(2, 1, contactLastRow - 1, 3).getValues();
+      contactData.forEach(function(row) {
+        const cid = String(row[0] || '').trim();
+        const ctype = String(row[1] || '').trim();
+        if (cid) contactTypes[cid] = ctype;
+      });
+    }
+  }
+
+  const maxRows = Math.max(1, Number(limit) || 50);
+  const results = [];
+  const added = {};
+  const batchInfo = {};
+
+  for (let i = data.length - 1; i >= 0 && results.length < maxRows; i--) {
+    const row = data[i];
+    const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
+    if (!batchId.startsWith('TXN-')) continue;
+
+    const info = batchInfo[batchId] || {
+      batchId: batchId,
+      date: '',
+      financialYear: '',
+      payee: '',
+      refNo: '',
+      particulars: '',
+      subCategory: '',
+      category: '',
+      bankDebit: 0,
+      bankCredit: 0,
+      hasBank: false,
+      isStaff: false
+    };
+
+    const contactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
+    if (contactId) {
+      const contactType = String(contactTypes[contactId] || '').toLowerCase().trim();
+      if (contactType === 'staff') {
+        info.isStaff = true;
+        if (!info.payee) info.payee = cols.payee ? row[cols.payee - 1] : info.payee;
+      }
+    }
+
+    const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+    if (accountCode) {
+      const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+      const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+      if (!info.hasBank) {
+        const dateValue = cols.date ? row[cols.date - 1] : '';
+        info.date = dateValue ? _formatDate_(dateValue) : '';
+        info.payee = cols.payee ? row[cols.payee - 1] : info.payee;
+        info.refNo = cols.refNo ? row[cols.refNo - 1] : '';
+        info.bankDebit = debit;
+        info.bankCredit = credit;
+        info.hasBank = true;
+      }
+    } else if (particulars && !info.particulars) {
+      info.particulars = particulars;
+      info.subCategory = cols.subCategory ? row[cols.subCategory - 1] : '';
+      info.category = cols.category ? row[cols.category - 1] : '';
+      if (!info.payee) info.payee = cols.payee ? row[cols.payee - 1] : '';
+    }
+
+    if (!info.financialYear && cols.financialYear) {
+      info.financialYear = row[cols.financialYear - 1] || '';
+    }
+
+    batchInfo[batchId] = info;
+
+    if (!info.isStaff || !info.hasBank || !info.particulars || added[batchId]) continue;
+    const direction = info.bankDebit > 0 ? 'receipt' : (info.bankCredit > 0 ? 'payment' : '');
+    if (direction !== 'payment') continue;
+
+    results.push({
+      batchId: info.batchId,
+      date: info.date,
+      financialYear: info.financialYear,
+      payee: info.payee,
+      refNo: info.refNo,
+      particulars: info.particulars,
+      subCategory: info.subCategory,
+      category: info.category,
+      amount: info.bankCredit
+    });
+    added[batchId] = true;
+  }
+
+  return results;
+}
+
 function getRecentJournalEntries(limit) {
   const ss = _getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
