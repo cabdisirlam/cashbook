@@ -2879,6 +2879,32 @@ function getReceivablePayableSummary(type, criteria) {
     }
   }
 
+  const originalAdvanceMetaById = {};
+  if (isStaff) {
+    data.forEach(function(row) {
+      const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
+      const advanceId = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+      if (!batchId || !advanceId || batchId !== advanceId) return;
+      const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+      if (accountCode) return;
+      const contactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
+      if (!contactId) return;
+      const contactType = String(contactTypes[contactId] || '').toLowerCase().trim();
+      if (contactType !== 'staff') return;
+      const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+      if (!particulars) return;
+      if (!originalAdvanceMetaById[advanceId]) {
+        originalAdvanceMetaById[advanceId] = {
+          particulars: particulars,
+          subCategory: cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '',
+          category: cols.category ? String(row[cols.category - 1] || '').trim() : '',
+          accountType: cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '',
+          reportMapping: cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : ''
+        };
+      }
+    });
+  }
+
   const isAdvanceLike = function(category, reportMapping, accountType, particulars) {
     const categoryLower = String(category || '').toLowerCase();
     const mappingLower = String(reportMapping || '').toLowerCase();
@@ -2936,8 +2962,14 @@ function getReceivablePayableSummary(type, criteria) {
     // Check transaction nature - only include receivable/payable/advance entries
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
-    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
+    let matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
       hasAdvanceBankLine || (isAdvanceApplication && debit > 0 && credit === 0);
+    if (isStaff && !matchesAdvance && advanceId && !accountCode) {
+      const originalMeta = originalAdvanceMetaById[advanceId];
+      if (originalMeta && originalMeta.particulars && particulars === originalMeta.particulars) {
+        matchesAdvance = true;
+      }
+    }
     const isAdvanceApplicationLine = Boolean(
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
@@ -3109,6 +3141,32 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     }
   }
 
+  const originalAdvanceMetaById = {};
+  if (isStaff) {
+    data.forEach(function(row) {
+      const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
+      const advanceId = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
+      if (!batchId || !advanceId || batchId !== advanceId) return;
+      const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
+      if (accountCode) return;
+      const contactId = cols.contactId ? String(row[cols.contactId - 1] || '').trim() : '';
+      if (!contactId) return;
+      const contactType = String(contactTypes[contactId] || '').toLowerCase().trim();
+      if (contactType !== 'staff') return;
+      const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+      if (!particulars) return;
+      if (!originalAdvanceMetaById[advanceId]) {
+        originalAdvanceMetaById[advanceId] = {
+          particulars: particulars,
+          subCategory: cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '',
+          category: cols.category ? String(row[cols.category - 1] || '').trim() : '',
+          accountType: cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '',
+          reportMapping: cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : ''
+        };
+      }
+    });
+  }
+
   const isAdvanceLike = function(category, reportMapping, accountType, particulars) {
     const categoryLower = String(category || '').toLowerCase();
     const mappingLower = String(reportMapping || '').toLowerCase();
@@ -3168,8 +3226,14 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     // Check transaction nature - only include receivable/payable/advance entries
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
-    const matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
+    let matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
       hasAdvanceBankLine || (isAdvanceApplication && debit > 0 && credit === 0);
+    if (isStaff && !matchesAdvance && advanceId && !accountCode) {
+      const originalMeta = originalAdvanceMetaById[advanceId];
+      if (originalMeta && originalMeta.particulars && particulars === originalMeta.particulars) {
+        matchesAdvance = true;
+      }
+    }
     const isAdvanceApplicationLine = Boolean(
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
