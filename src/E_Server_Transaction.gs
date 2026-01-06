@@ -102,7 +102,7 @@ function getDropdownData() {
   payload.categories = _uniqueSorted_(payload.categories);
   payload.financialYears = _uniqueSorted_(payload.financialYears);
 
-  cache.put(cacheKey, JSON.stringify(payload), 300);
+  cache.put(cacheKey, JSON.stringify(payload), 1800); // 30 minute TTL for stable data
   return payload;
 }
 

@@ -11,8 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- Defer XLSX library loading -->
-  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- XLSX library loaded on-demand for Excel operations -->
   <style>
     /* Critical CSS - inlined for fast first paint */
 
@@ -1506,6 +1505,93 @@
 
     let dashboardInitialized = false;
 
+    // Client-side cache for dropdown data - prevents 18+ redundant API calls
+    var _dropdownCache = {
+      data: null,
+      timestamp: 0,
+      ttl: 60000, // 60 second client-side TTL
+      pending: null // Promise for pending request
+    };
+
+    /**
+     * Cached wrapper for getDropdownData() - deduplicates concurrent calls
+     * and caches results client-side for 60 seconds
+     */
+    function getCachedDropdownData(successHandler, failureHandler) {
+      var now = Date.now();
+
+      // Return cached data if still valid
+      if (_dropdownCache.data && (now - _dropdownCache.timestamp) < _dropdownCache.ttl) {
+        if (successHandler) successHandler(_dropdownCache.data);
+        return;
+      }
+
+      // If a request is already pending, queue this callback
+      if (_dropdownCache.pending) {
+        _dropdownCache.pending.then(function(data) {
+          if (successHandler) successHandler(data);
+        }).catch(function(error) {
+          if (failureHandler) failureHandler(error);
+        });
+        return;
+      }
+
+      // Create a new request promise
+      _dropdownCache.pending = new Promise(function(resolve, reject) {
+        google.script.run
+          .withSuccessHandler(function(data) {
+            _dropdownCache.data = data;
+            _dropdownCache.timestamp = Date.now();
+            _dropdownCache.pending = null;
+            resolve(data);
+          })
+          .withFailureHandler(function(error) {
+            _dropdownCache.pending = null;
+            reject(error);
+          })
+          .getDropdownData();
+      });
+
+      _dropdownCache.pending.then(function(data) {
+        if (successHandler) successHandler(data);
+      }).catch(function(error) {
+        if (failureHandler) failureHandler(error);
+      });
+    }
+
+    // Invalidate cache when data changes (call after saves)
+    function invalidateDropdownCache() {
+      _dropdownCache.data = null;
+      _dropdownCache.timestamp = 0;
+    }
+
+    // Lazy load XLSX library only when needed for Excel operations
+    var _xlsxLoaded = false;
+    var _xlsxLoading = null;
+
+    function loadXLSXLibrary() {
+      if (_xlsxLoaded && typeof XLSX !== 'undefined') {
+        return Promise.resolve();
+      }
+      if (_xlsxLoading) return _xlsxLoading;
+
+      _xlsxLoading = new Promise(function(resolve, reject) {
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        script.onload = function() {
+          _xlsxLoaded = true;
+          _xlsxLoading = null;
+          resolve();
+        };
+        script.onerror = function() {
+          _xlsxLoading = null;
+          reject(new Error('Failed to load XLSX library'));
+        };
+        document.head.appendChild(script);
+      });
+      return _xlsxLoading;
+    }
+
     function initializeDashboard() {
       if (dashboardInitialized) return;
       dashboardInitialized = true;
@@ -2879,18 +2965,15 @@
         return;
       }
       if (status) status.textContent = 'Loading filters...';
-      google.script.run
-        .withSuccessHandler(function(data) {
-          exportAccounts = (data && data.accounts) ? data.accounts : [];
-          exportYears = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptionsWithDefault('exportAccountCode', exportAccounts, 'All banks');
-          fillSelectOptionsWithDefault('exportFinancialYear', exportYears, 'All years');
-          if (status) status.textContent = '';
-        })
-        .withFailureHandler(function(error) {
-          if (status) status.textContent = error.message || 'Failed to load filters.';
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        exportAccounts = (data && data.accounts) ? data.accounts : [];
+        exportYears = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptionsWithDefault('exportAccountCode', exportAccounts, 'All banks');
+        fillSelectOptionsWithDefault('exportFinancialYear', exportYears, 'All years');
+        if (status) status.textContent = '';
+      }, function(error) {
+        if (status) status.textContent = error.message || 'Failed to load filters.';
+      });
     }
 
     function loadBankImportAccounts() {
@@ -2905,19 +2988,16 @@
         return;
       }
       if (status) status.textContent = 'Loading bank accounts...';
-      google.script.run
-        .withSuccessHandler(function(data) {
-          bankImportAccounts = (data && data.accounts) ? data.accounts : [];
-          bankImportYears = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptions('bankImportAccountCode', bankImportAccounts);
-          fillSelectOptions('bankImportFinancialYear', bankImportYears);
-          if (status) status.textContent = '';
-        })
-        .withFailureHandler(function(error) {
-          if (status) status.textContent = '';
-          showBankImportAlert(error.message || 'Failed to load bank accounts.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        bankImportAccounts = (data && data.accounts) ? data.accounts : [];
+        bankImportYears = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptions('bankImportAccountCode', bankImportAccounts);
+        fillSelectOptions('bankImportFinancialYear', bankImportYears);
+        if (status) status.textContent = '';
+      }, function(error) {
+        if (status) status.textContent = '';
+        showBankImportAlert(error.message || 'Failed to load bank accounts.', 'error');
+      });
     }
 
     function loadReconciliationFilters() {
@@ -2933,20 +3013,17 @@
         return;
       }
       if (status) status.textContent = 'Loading filters...';
-      google.script.run
-        .withSuccessHandler(function(data) {
-          reconAccounts = (data && data.accounts) ? data.accounts : [];
-          reconYears = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptions('reconAccountCode', reconAccounts);
-          fillSelectOptions('reconFinancialYear', reconYears);
-          setReconDefaults();
-          if (status) status.textContent = '';
-        })
-        .withFailureHandler(function(error) {
-          if (status) status.textContent = '';
-          showReconAlert(error.message || 'Failed to load filters.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        reconAccounts = (data && data.accounts) ? data.accounts : [];
+        reconYears = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptions('reconAccountCode', reconAccounts);
+        fillSelectOptions('reconFinancialYear', reconYears);
+        setReconDefaults();
+        if (status) status.textContent = '';
+      }, function(error) {
+        if (status) status.textContent = '';
+        showReconAlert(error.message || 'Failed to load filters.', 'error');
+      });
     }
 
     function initReconMonthSelector() {
@@ -3814,19 +3891,16 @@
         showBudgetAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          budgetYears = (data && data.financialYears) ? data.financialYears : [];
-          fillYearSelects();
-          loadBudgetOriginalYears(function() {
-            applyBudgetYearRestrictions();
-            if (callback) callback();
-          });
-        })
-        .withFailureHandler(function(error) {
-          showBudgetAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        budgetYears = (data && data.financialYears) ? data.financialYears : [];
+        fillYearSelects();
+        loadBudgetOriginalYears(function() {
+          applyBudgetYearRestrictions();
+          if (callback) callback();
+        });
+      }, function(error) {
+        showBudgetAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     function fillYearSelects() {
@@ -3986,10 +4060,6 @@
           showBudgetAlert('No categories available for template.', 'error');
           return;
         }
-        if (typeof XLSX === 'undefined') {
-          showBudgetAlert('XLSX library not available. Use CSV download instead.', 'error');
-          return;
-        }
         const financialYear = document.getElementById('bulkFinancialYear').value.trim();
         const budgetDate = document.getElementById('bulkBudgetDate').value;
         if (!financialYear) {
@@ -4001,20 +4071,25 @@
           return;
         }
 
-        const headers = ['Date', 'Financial_Year', 'Category', 'Account_Type', 'Original_Budget'];
-        const rows = budgetCatalog.map(item => ([
-          budgetDate,
-          financialYear,
-          item.category || '',
-          item.accountType || '',
-          ''
-        ]));
+        // Lazy load XLSX library
+        loadXLSXLibrary().then(function() {
+          const headers = ['Date', 'Financial_Year', 'Category', 'Account_Type', 'Original_Budget'];
+          const rows = budgetCatalog.map(item => ([
+            budgetDate,
+            financialYear,
+            item.category || '',
+            item.accountType || '',
+            ''
+          ]));
 
-        const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Budget Template');
-        XLSX.writeFile(workbook, 'budget_template.xlsx');
-        showBudgetAlert('Template downloaded.', 'success');
+          const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, 'Budget Template');
+          XLSX.writeFile(workbook, 'budget_template.xlsx');
+          showBudgetAlert('Template downloaded.', 'success');
+        }).catch(function() {
+          showBudgetAlert('Failed to load Excel library. Use CSV download instead.', 'error');
+        });
       });
     }
 
@@ -4040,50 +4115,53 @@
         return;
       }
 
-      ensureBudgetCatalog(function() {
-        loadBudgetYears(function() {
-          const reader = new FileReader();
-          reader.onload = function(event) {
-            try {
-              if (fileName.endsWith('.xlsx')) {
-                if (typeof XLSX === 'undefined') {
-                  showBudgetAlert('XLSX library not available. Use CSV upload.', 'error');
-                  return;
-                }
-                const data = event.target.result;
-              const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-              const sheetName = workbook.SheetNames[0];
-              const worksheet = workbook.Sheets[sheetName];
-              const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-                if (rows.length <= 1) {
-                  showBudgetAlert('XLSX file is empty.', 'error');
-                  return;
-                }
-                applyBudgetUpload(rows);
-                return;
-              }
+      // Lazy load XLSX if needed for xlsx files
+      var xlsxReady = fileName.endsWith('.xlsx') ? loadXLSXLibrary() : Promise.resolve();
 
-              const csvText = event.target.result || '';
-              const parsed = parseCsvToRows(csvText);
-              if (parsed.rows.length <= 1) {
-                showBudgetAlert('CSV file is empty.', 'error');
-                return;
+      xlsxReady.then(function() {
+        ensureBudgetCatalog(function() {
+          loadBudgetYears(function() {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+              try {
+                if (fileName.endsWith('.xlsx')) {
+                  const data = event.target.result;
+                  const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                  const sheetName = workbook.SheetNames[0];
+                  const worksheet = workbook.Sheets[sheetName];
+                  const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                  if (rows.length <= 1) {
+                    showBudgetAlert('XLSX file is empty.', 'error');
+                    return;
+                  }
+                  applyBudgetUpload(rows);
+                  return;
+                }
+
+                const csvText = event.target.result || '';
+                const parsed = parseCsvToRows(csvText);
+                if (parsed.rows.length <= 1) {
+                  showBudgetAlert('CSV file is empty.', 'error');
+                  return;
+                }
+                applyBudgetUpload(parsed.rows);
+              } catch (error) {
+                showBudgetAlert(error.message || 'Failed to read file.', 'error');
               }
-              applyBudgetUpload(parsed.rows);
-            } catch (error) {
-              showBudgetAlert(error.message || 'Failed to read file.', 'error');
+            };
+            reader.onerror = function() {
+              showBudgetAlert('Failed to read file.', 'error');
+            };
+
+            if (fileName.endsWith('.xlsx')) {
+              reader.readAsArrayBuffer(file);
+            } else {
+              reader.readAsText(file);
             }
-          };
-          reader.onerror = function() {
-            showBudgetAlert('Failed to read file.', 'error');
-          };
-
-          if (fileName.endsWith('.xlsx')) {
-            reader.readAsArrayBuffer(file);
-          } else {
-            reader.readAsText(file);
-          }
+          });
         });
+      }).catch(function() {
+        showBudgetAlert('Failed to load Excel library. Use CSV upload instead.', 'error');
       });
     }
 
@@ -4800,22 +4878,19 @@
         showPerformanceAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptions('performanceCurrentYear', years);
-          fillSelectOptions('performanceComparativeYear', years);
-          if (years.length) {
-            const currentSelect = document.getElementById('performanceCurrentYear');
-            if (currentSelect) currentSelect.value = years[years.length - 1];
-            setComparativeFromCurrent('performanceCurrentYear', 'performanceComparativeYear');
-            bindComparativeSync('performanceCurrentYear', 'performanceComparativeYear');
-          }
-        })
-        .withFailureHandler(function(error) {
-          showPerformanceAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptions('performanceCurrentYear', years);
+        fillSelectOptions('performanceComparativeYear', years);
+        if (years.length) {
+          const currentSelect = document.getElementById('performanceCurrentYear');
+          if (currentSelect) currentSelect.value = years[years.length - 1];
+          setComparativeFromCurrent('performanceCurrentYear', 'performanceComparativeYear');
+          bindComparativeSync('performanceCurrentYear', 'performanceComparativeYear');
+        }
+      }, function(error) {
+        showPerformanceAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     function loadCashFlowYears() {
@@ -4823,22 +4898,19 @@
         showCashFlowAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptions('cashFlowCurrentYear', years);
-          fillSelectOptions('cashFlowComparativeYear', years);
-          if (years.length) {
-            const currentSelect = document.getElementById('cashFlowCurrentYear');
-            if (currentSelect) currentSelect.value = years[years.length - 1];
-            setComparativeFromCurrent('cashFlowCurrentYear', 'cashFlowComparativeYear');
-            bindComparativeSync('cashFlowCurrentYear', 'cashFlowComparativeYear');
-          }
-        })
-        .withFailureHandler(function(error) {
-          showCashFlowAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptions('cashFlowCurrentYear', years);
+        fillSelectOptions('cashFlowComparativeYear', years);
+        if (years.length) {
+          const currentSelect = document.getElementById('cashFlowCurrentYear');
+          if (currentSelect) currentSelect.value = years[years.length - 1];
+          setComparativeFromCurrent('cashFlowCurrentYear', 'cashFlowComparativeYear');
+          bindComparativeSync('cashFlowCurrentYear', 'cashFlowComparativeYear');
+        }
+      }, function(error) {
+        showCashFlowAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     function loadPositionYears() {
@@ -4846,22 +4918,19 @@
         showPositionAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptions('positionCurrentYear', years);
-          fillSelectOptions('positionComparativeYear', years);
-          if (years.length) {
-            const currentSelect = document.getElementById('positionCurrentYear');
-            if (currentSelect) currentSelect.value = years[years.length - 1];
-            setComparativeFromCurrent('positionCurrentYear', 'positionComparativeYear');
-            bindComparativeSync('positionCurrentYear', 'positionComparativeYear');
-          }
-        })
-        .withFailureHandler(function(error) {
-          showPositionAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptions('positionCurrentYear', years);
+        fillSelectOptions('positionComparativeYear', years);
+        if (years.length) {
+          const currentSelect = document.getElementById('positionCurrentYear');
+          if (currentSelect) currentSelect.value = years[years.length - 1];
+          setComparativeFromCurrent('positionCurrentYear', 'positionComparativeYear');
+          bindComparativeSync('positionCurrentYear', 'positionComparativeYear');
+        }
+      }, function(error) {
+        showPositionAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     function loadNetAssetsYears() {
@@ -4869,22 +4938,19 @@
         showNetAssetsAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptions('netAssetsCurrentYear', years);
-          fillSelectOptions('netAssetsComparativeYear', years);
-          if (years.length) {
-            const currentSelect = document.getElementById('netAssetsCurrentYear');
-            if (currentSelect) currentSelect.value = years[years.length - 1];
-            setComparativeFromCurrent('netAssetsCurrentYear', 'netAssetsComparativeYear');
-            bindComparativeSync('netAssetsCurrentYear', 'netAssetsComparativeYear');
-          }
-        })
-        .withFailureHandler(function(error) {
-          showNetAssetsAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptions('netAssetsCurrentYear', years);
+        fillSelectOptions('netAssetsComparativeYear', years);
+        if (years.length) {
+          const currentSelect = document.getElementById('netAssetsCurrentYear');
+          if (currentSelect) currentSelect.value = years[years.length - 1];
+          setComparativeFromCurrent('netAssetsCurrentYear', 'netAssetsComparativeYear');
+          bindComparativeSync('netAssetsCurrentYear', 'netAssetsComparativeYear');
+        }
+      }, function(error) {
+        showNetAssetsAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     function loadReceivablesYears() {
@@ -4892,19 +4958,16 @@
         showReceivablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptionsWithDefault('receivablesFinancialYear', years, 'All years');
-          if (years.length) {
-            const currentSelect = document.getElementById('receivablesFinancialYear');
-            if (currentSelect) currentSelect.value = years[years.length - 1];
-          }
-        })
-        .withFailureHandler(function(error) {
-          showReceivablesAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptionsWithDefault('receivablesFinancialYear', years, 'All years');
+        if (years.length) {
+          const currentSelect = document.getElementById('receivablesFinancialYear');
+          if (currentSelect) currentSelect.value = years[years.length - 1];
+        }
+      }, function(error) {
+        showReceivablesAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     function loadPayablesYears() {
@@ -4912,19 +4975,16 @@
         showPayablesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptionsWithDefault('payablesFinancialYear', years, 'All years');
-          if (years.length) {
-            const currentSelect = document.getElementById('payablesFinancialYear');
-            if (currentSelect) currentSelect.value = years[years.length - 1];
-          }
-        })
-        .withFailureHandler(function(error) {
-          showPayablesAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptionsWithDefault('payablesFinancialYear', years, 'All years');
+        if (years.length) {
+          const currentSelect = document.getElementById('payablesFinancialYear');
+          if (currentSelect) currentSelect.value = years[years.length - 1];
+        }
+      }, function(error) {
+        showPayablesAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     var receivablesContactsCache = [];
@@ -5131,19 +5191,16 @@
         showStaffStatementsAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptionsWithDefault('staffStatementsFinancialYear', years, 'All years');
-          if (years.length) {
-            const currentSelect = document.getElementById('staffStatementsFinancialYear');
-            if (currentSelect) currentSelect.value = years[years.length - 1];
-          }
-        })
-        .withFailureHandler(function(error) {
-          showStaffStatementsAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptionsWithDefault('staffStatementsFinancialYear', years, 'All years');
+        if (years.length) {
+          const currentSelect = document.getElementById('staffStatementsFinancialYear');
+          if (currentSelect) currentSelect.value = years[years.length - 1];
+        }
+      }, function(error) {
+        showStaffStatementsAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     function loadAssetPurchasesYears() {
@@ -5151,19 +5208,16 @@
         showAssetPurchasesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptionsWithDefault('assetPurchasesFinancialYear', years, 'All years');
-          if (years.length) {
-            const currentSelect = document.getElementById('assetPurchasesFinancialYear');
-            if (currentSelect) currentSelect.value = years[years.length - 1];
-          }
-        })
-        .withFailureHandler(function(error) {
-          showAssetPurchasesAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptionsWithDefault('assetPurchasesFinancialYear', years, 'All years');
+        if (years.length) {
+          const currentSelect = document.getElementById('assetPurchasesFinancialYear');
+          if (currentSelect) currentSelect.value = years[years.length - 1];
+        }
+      }, function(error) {
+        showAssetPurchasesAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     function refreshPerformanceReport() {
@@ -6611,14 +6665,30 @@
     }
 
     function downloadRowsAsXlsx(rows, filename, sheetName) {
-      if (typeof XLSX === 'undefined') {
-        return false;
+      // Try to use XLSX if already loaded
+      if (typeof XLSX !== 'undefined') {
+        const worksheet = XLSX.utils.aoa_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName || 'Report');
+        XLSX.writeFile(workbook, filename || 'report.xlsx');
+        return true;
       }
-      const worksheet = XLSX.utils.aoa_to_sheet(rows);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName || 'Report');
-      XLSX.writeFile(workbook, filename || 'report.xlsx');
-      return true;
+      return false;
+    }
+
+    // Async version that lazy loads XLSX first
+    function downloadRowsAsXlsxAsync(rows, filename, sheetName, fallbackToCsv) {
+      loadXLSXLibrary().then(function() {
+        const worksheet = XLSX.utils.aoa_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName || 'Report');
+        XLSX.writeFile(workbook, filename || 'report.xlsx');
+      }).catch(function() {
+        if (fallbackToCsv) {
+          var csvFilename = (filename || 'report.xlsx').replace(/\.xlsx$/i, '.csv');
+          downloadRowsAsCsv(rows, csvFilename);
+        }
+      });
     }
 
     function buildNotesDownloadRows(result) {
@@ -7423,22 +7493,19 @@
         showNotesAlert('App runtime missing. Open the web app via the deployed URL.', 'error');
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          fillSelectOptions('notesCurrentYear', years);
-          fillSelectOptions('notesComparativeYear', years);
-          if (years.length) {
-            const currentSelect = document.getElementById('notesCurrentYear');
-            if (currentSelect) currentSelect.value = years[years.length - 1];
-            setComparativeFromCurrent('notesCurrentYear', 'notesComparativeYear');
-            bindComparativeSync('notesCurrentYear', 'notesComparativeYear');
-          }
-        })
-        .withFailureHandler(function(error) {
-          showNotesAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptions('notesCurrentYear', years);
+        fillSelectOptions('notesComparativeYear', years);
+        if (years.length) {
+          const currentSelect = document.getElementById('notesCurrentYear');
+          if (currentSelect) currentSelect.value = years[years.length - 1];
+          setComparativeFromCurrent('notesCurrentYear', 'notesComparativeYear');
+          bindComparativeSync('notesCurrentYear', 'notesComparativeYear');
+        }
+      }, function(error) {
+        showNotesAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     function refreshNotesReport() {
@@ -7704,16 +7771,13 @@
         callback(masterDataCache);
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          masterDataCache = data || {};
-          callback(masterDataCache);
-        })
-        .withFailureHandler(function(error) {
-          console.error('Failed to load master data:', error);
-          callback({});
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        masterDataCache = data || {};
+        callback(masterDataCache);
+      }, function(error) {
+        console.error('Failed to load master data:', error);
+        callback({});
+      });
     }
 
     function normalizeCategoryKey(value) {
@@ -8064,91 +8128,88 @@
 
     // Load dropdowns for contact forms (Supplier, Customer, Staff)
     function loadContactFormDropdowns(formType) {
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const financialYears = (data && data.financialYears) || [];
+      getCachedDropdownData(function(data) {
+        const financialYears = (data && data.financialYears) || [];
 
-          // Define dropdown configs based on form type
-          const configs = {
-            supplier: {
-              fySelect: 'supplierFinancialYear',
-              termsSelect: 'paymentTerms',
-              termsOptions: ['Immediate', 'Net 7', 'Net 14', 'Net 30', 'Net 60']
-            },
-            editSupplier: {
-              fySelect: 'editSupplierFinancialYear',
-              termsSelect: 'editPaymentTerms',
-              currentFY: 'editSupplierCurrentFY',
-              currentTerms: 'editSupplierCurrentTerms',
-              termsOptions: ['Immediate', 'Net 7', 'Net 14', 'Net 30', 'Net 60']
-            },
-            customer: {
-              fySelect: 'customerFinancialYear',
-              termsSelect: 'customerPaymentTerms',
-              termsOptions: ['Net 30', 'Net 15', 'Net 60', 'Due on Receipt']
-            },
-            editCustomer: {
-              fySelect: 'editCustomerFinancialYear',
-              termsSelect: 'editCustomerPaymentTerms',
-              currentFY: 'editCustomerCurrentFY',
-              currentTerms: 'editCustomerCurrentTerms',
-              termsOptions: ['Net 30', 'Net 15', 'Net 60', 'Due on Receipt']
-            },
-            staff: {
-              fySelect: 'staffFinancialYear'
-            },
-            editStaff: {
-              fySelect: 'editStaffFinancialYear',
-              currentFY: 'editStaffCurrentFY'
-            }
-          };
+        // Define dropdown configs based on form type
+        const configs = {
+          supplier: {
+            fySelect: 'supplierFinancialYear',
+            termsSelect: 'paymentTerms',
+            termsOptions: ['Immediate', 'Net 7', 'Net 14', 'Net 30', 'Net 60']
+          },
+          editSupplier: {
+            fySelect: 'editSupplierFinancialYear',
+            termsSelect: 'editPaymentTerms',
+            currentFY: 'editSupplierCurrentFY',
+            currentTerms: 'editSupplierCurrentTerms',
+            termsOptions: ['Immediate', 'Net 7', 'Net 14', 'Net 30', 'Net 60']
+          },
+          customer: {
+            fySelect: 'customerFinancialYear',
+            termsSelect: 'customerPaymentTerms',
+            termsOptions: ['Net 30', 'Net 15', 'Net 60', 'Due on Receipt']
+          },
+          editCustomer: {
+            fySelect: 'editCustomerFinancialYear',
+            termsSelect: 'editCustomerPaymentTerms',
+            currentFY: 'editCustomerCurrentFY',
+            currentTerms: 'editCustomerCurrentTerms',
+            termsOptions: ['Net 30', 'Net 15', 'Net 60', 'Due on Receipt']
+          },
+          staff: {
+            fySelect: 'staffFinancialYear'
+          },
+          editStaff: {
+            fySelect: 'editStaffFinancialYear',
+            currentFY: 'editStaffCurrentFY'
+          }
+        };
 
-          const config = configs[formType];
-          if (!config) return;
+        const config = configs[formType];
+        if (!config) return;
 
-          // Populate Financial Year dropdown
-          const fySelect = document.getElementById(config.fySelect);
-          if (fySelect) {
-            fySelect.innerHTML = '<option value="">Select Year</option>';
-            financialYears.forEach(fy => {
+        // Populate Financial Year dropdown
+        const fySelect = document.getElementById(config.fySelect);
+        if (fySelect) {
+          fySelect.innerHTML = '<option value="">Select Year</option>';
+          financialYears.forEach(fy => {
+            const opt = document.createElement('option');
+            opt.value = fy;
+            opt.textContent = fy;
+            fySelect.appendChild(opt);
+          });
+          // Set current value for edit forms
+          if (config.currentFY) {
+            const currentVal = document.getElementById(config.currentFY)?.value;
+            if (currentVal) fySelect.value = currentVal;
+          }
+        }
+
+        // Populate Payment Terms dropdown
+        if (config.termsSelect && config.termsOptions) {
+          const termsSelect = document.getElementById(config.termsSelect);
+          if (termsSelect) {
+            termsSelect.innerHTML = '<option value="">Select...</option>';
+            config.termsOptions.forEach(term => {
               const opt = document.createElement('option');
-              opt.value = fy;
-              opt.textContent = fy;
-              fySelect.appendChild(opt);
+              opt.value = term;
+              opt.textContent = term;
+              termsSelect.appendChild(opt);
             });
             // Set current value for edit forms
-            if (config.currentFY) {
-              const currentVal = document.getElementById(config.currentFY)?.value;
-              if (currentVal) fySelect.value = currentVal;
+            if (config.currentTerms) {
+              const currentVal = document.getElementById(config.currentTerms)?.value;
+              if (currentVal) termsSelect.value = currentVal;
+            } else {
+              // Default to Net 30 for new entries
+              termsSelect.value = 'Net 30';
             }
           }
-
-          // Populate Payment Terms dropdown
-          if (config.termsSelect && config.termsOptions) {
-            const termsSelect = document.getElementById(config.termsSelect);
-            if (termsSelect) {
-              termsSelect.innerHTML = '<option value="">Select...</option>';
-              config.termsOptions.forEach(term => {
-                const opt = document.createElement('option');
-                opt.value = term;
-                opt.textContent = term;
-                termsSelect.appendChild(opt);
-              });
-              // Set current value for edit forms
-              if (config.currentTerms) {
-                const currentVal = document.getElementById(config.currentTerms)?.value;
-                if (currentVal) termsSelect.value = currentVal;
-              } else {
-                // Default to Net 30 for new entries
-                termsSelect.value = 'Net 30';
-              }
-            }
-          }
-        })
-        .withFailureHandler(function(error) {
-          console.error('Failed to load contact form dropdowns:', error);
-        })
-        .getDropdownData();
+        }
+      }, function(error) {
+        console.error('Failed to load contact form dropdowns:', error);
+      });
     }
 
     function saveBudgetAdjustment() {
@@ -8390,19 +8451,17 @@
         return;
       }
 
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const categories = (data && data.categories) ? data.categories : [];
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          const particulars = (data && data.particulars) ? data.particulars : [];
-          const particularMeta = (data && data.particularMeta) ? data.particularMeta : {};
-          searchMeta.categories = categories;
-          searchMeta.particulars = particulars;
-          searchMeta.particularMeta = particularMeta;
-          fillDatalist('editFinancialYearList', years);
-          fillDatalist('editParticularList', particulars);
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const categories = (data && data.categories) ? data.categories : [];
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        const particulars = (data && data.particulars) ? data.particulars : [];
+        const particularMeta = (data && data.particularMeta) ? data.particularMeta : {};
+        searchMeta.categories = categories;
+        searchMeta.particulars = particulars;
+        searchMeta.particularMeta = particularMeta;
+        fillDatalist('editFinancialYearList', years);
+        fillDatalist('editParticularList', particulars);
+      });
     }
 
     function fillDatalist(id, items) {
@@ -8424,29 +8483,26 @@
         return;
       }
 
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const years = (data && data.financialYears) ? data.financialYears : [];
-          const select = document.getElementById('budgetReportYear');
-          if (!select) return;
-          select.innerHTML = '<option value="">Select...</option>';
-          years.forEach(year => {
-            const option = document.createElement('option');
-            option.value = year;
-            option.textContent = year;
-            select.appendChild(option);
-          });
-          if (years.length && !select.value) {
-            select.value = years[0];
-            refreshBudgetVsActual();
-          } else if (status) {
-            status.textContent = '';
-          }
-        })
-        .withFailureHandler(function(error) {
-          showBudgetVsActualAlert(error.message || 'Failed to load financial years.', 'error');
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const years = (data && data.financialYears) ? data.financialYears : [];
+        const select = document.getElementById('budgetReportYear');
+        if (!select) return;
+        select.innerHTML = '<option value="">Select...</option>';
+        years.forEach(year => {
+          const option = document.createElement('option');
+          option.value = year;
+          option.textContent = year;
+          select.appendChild(option);
+        });
+        if (years.length && !select.value) {
+          select.value = years[0];
+          refreshBudgetVsActual();
+        } else if (status) {
+          status.textContent = '';
+        }
+      }, function(error) {
+        showBudgetVsActualAlert(error.message || 'Failed to load financial years.', 'error');
+      });
     }
 
     function refreshBudgetVsActual() {
@@ -13755,16 +13811,13 @@
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         return;
       }
-      google.script.run
-        .withSuccessHandler(function(data) {
-          const accounts = data && data.accounts ? data.accounts : [];
-          fillSelectOptions(selectId, accounts);
-          if (selectedValue) select.value = selectedValue;
-        })
-        .withFailureHandler(function() {
-          // Keep the fallback placeholder if accounts fail to load.
-        })
-        .getDropdownData();
+      getCachedDropdownData(function(data) {
+        const accounts = data && data.accounts ? data.accounts : [];
+        fillSelectOptions(selectId, accounts);
+        if (selectedValue) select.value = selectedValue;
+      }, function() {
+        // Keep the fallback placeholder if accounts fail to load.
+      });
     }
 
     function processInvoiceReceipt() {
