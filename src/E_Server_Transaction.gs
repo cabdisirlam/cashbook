@@ -2974,6 +2974,7 @@ function getReceivablePayableSummary(type, criteria) {
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
     if (isAdvanceApplicationLine) return;
+    if (!isStaff && matchesAdvance && hasAdvanceBankLine) return;
     const staffRelevant = (matchesAdvance || matchesReceivable) && !hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
