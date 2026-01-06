@@ -2941,8 +2941,7 @@ function getReceivablePayableSummary(type, criteria) {
     const isAdvanceApplicationLine = Boolean(
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
-    const skipAdvanceApplication = isAdvanceApplicationLine && matchesAdvance && !matchesReceivable && !matchesPayable;
-    if (skipAdvanceApplication) return;
+    if (isAdvanceApplicationLine) return;
     const staffRelevant = (matchesAdvance || matchesReceivable) && !hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
@@ -2960,10 +2959,7 @@ function getReceivablePayableSummary(type, criteria) {
     // Calculate increase/decrease based on transaction type
     let increase = 0;
     let decrease = 0;
-    if (isAdvanceApplicationLine) {
-      increase = 0;
-      decrease = 0;
-    } else if (isStaff) {
+    if (isStaff) {
       // Staff statement: debit increases balance (advance given), credit decreases (surrender/clearance)
       if (matchesAdvance) {
         // Advance to staff: bank line uses credit (payment out)
@@ -3177,8 +3173,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const isAdvanceApplicationLine = Boolean(
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
-    const skipAdvanceApplication = isAdvanceApplicationLine && matchesAdvance && !matchesReceivable && !matchesPayable;
-    if (skipAdvanceApplication) return;
+    if (isAdvanceApplicationLine) return;
     const staffRelevant = (matchesAdvance || matchesReceivable) && !hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
@@ -3196,10 +3191,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     // Calculate increase/decrease based on transaction type
     let increase = 0;
     let decrease = 0;
-    if (isAdvanceApplicationLine) {
-      increase = 0;
-      decrease = 0;
-    } else if (isStaff) {
+    if (isStaff) {
       // Staff statement: debit increases balance (advance given), credit decreases (surrender/clearance)
       if (matchesAdvance) {
         // Advance to staff: bank line uses credit (payment out)
