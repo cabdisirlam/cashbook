@@ -2927,7 +2927,6 @@ function getReceivablePayableSummary(type, criteria) {
     if (payeeFilter && !payee.toLowerCase().includes(payeeFilter)) return;
     const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
     const advanceId = cols.advanceId ? String(row[cols.advanceId - 1] || '').trim() : '';
-    const batchId = cols.batchId ? String(row[cols.batchId - 1] || '').trim() : '';
     const hasAdvanceBankLine = Boolean(accountCode && advanceId && contactId);
     const isAdvanceApplication = Boolean(advanceId && !accountCode);
     if (accountCode && !hasAdvanceBankLine) return;
@@ -2976,7 +2975,6 @@ function getReceivablePayableSummary(type, criteria) {
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
     if (isAdvanceApplicationLine) return;
-    if (advanceId && batchId && batchId !== advanceId && !accountCode) return;
     const isAdvanceDescriptor = (function() {
       return categoryLower.includes('advance') || particularsLower.includes('advance') ||
         categoryLower.includes('deposit') || particularsLower.includes('deposit') ||
