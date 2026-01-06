@@ -2974,6 +2974,7 @@ function getReceivablePayableSummary(type, criteria) {
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
     if (isAdvanceApplicationLine) return;
+    if (!isStaff && hasAdvanceBankLine) return;
     const isAdvanceDescriptor = (function() {
       return categoryLower.includes('advance') || particularsLower.includes('advance') ||
         categoryLower.includes('deposit') || particularsLower.includes('deposit') ||
