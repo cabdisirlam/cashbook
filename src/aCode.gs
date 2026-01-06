@@ -65,12 +65,21 @@ const SHEET_HEADERS = {
 const LEGACY_SHEETS = ['HOME', 'VIEW_LEDGER', 'VIEW_REPORTS', 'VIEW_RECON', 'PO_LINES', 'GRN_LINES',
                        'SUPPLIERS', 'CUSTOMERS', 'PAYABLES', 'RECEIVABLES'];
 
+function _getSessionKey_() {
+  const tempKey = Session.getTemporaryActiveUserKey ? Session.getTemporaryActiveUserKey() : '';
+  if (tempKey) return 'session:' + tempKey;
+  const email = Session.getActiveUser ? Session.getActiveUser().getEmail() : '';
+  if (email) return 'session:' + String(email).toLowerCase();
+  return '';
+}
+
 /**
  * Main entry point - serves the web app
  */
 function doGet(e) {
-  const userProperties = PropertiesService.getUserProperties();
-  const sessionData = userProperties.getProperty('sessionData');
+  const sessionKey = _getSessionKey_();
+  const sessionStore = PropertiesService.getScriptProperties();
+  const sessionData = sessionKey ? sessionStore.getProperty(sessionKey) : null;
 
   if (sessionData) {
     const session = JSON.parse(sessionData);
@@ -80,7 +89,7 @@ function doGet(e) {
     if (now - session.lastActivity < CONFIG.SESSION_TIMEOUT) {
       // Update last activity
       session.lastActivity = now;
-      userProperties.setProperty('sessionData', JSON.stringify(session));
+      sessionStore.setProperty(sessionKey, JSON.stringify(session));
 
       // Return dashboard
       return HtmlService.createTemplateFromFile('cDashboard')
@@ -90,7 +99,7 @@ function doGet(e) {
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     } else {
       // Session expired
-      userProperties.deleteProperty('sessionData');
+      if (sessionKey) sessionStore.deleteProperty(sessionKey);
     }
   }
 
@@ -333,8 +342,15 @@ function authenticateUser(email, pin) {
           lastActivity: new Date().getTime()
         };
 
-        PropertiesService.getUserProperties()
-          .setProperty('sessionData', JSON.stringify(sessionData));
+        const sessionKey = _getSessionKey_();
+        if (!sessionKey) {
+          return {
+            success: false,
+            message: 'Unable to start a session. Please reload and try again.'
+          };
+        }
+        PropertiesService.getScriptProperties()
+          .setProperty(sessionKey, JSON.stringify(sessionData));
 
         // Log successful login
         logSystemEvent(userEmail, 'LOGIN_SUCCESS', '', 'User logged in successfully');
@@ -373,8 +389,8 @@ function authenticateUser(email, pin) {
  * Get current user session
  */
 function getCurrentUser() {
-  const userProperties = PropertiesService.getUserProperties();
-  const sessionData = userProperties.getProperty('sessionData');
+  const sessionKey = _getSessionKey_();
+  const sessionData = sessionKey ? PropertiesService.getScriptProperties().getProperty(sessionKey) : null;
 
   if (!sessionData) {
     return { authenticated: false };
@@ -387,7 +403,7 @@ function getCurrentUser() {
   if (now - session.lastActivity < CONFIG.SESSION_TIMEOUT) {
     // Update last activity
     session.lastActivity = now;
-    userProperties.setProperty('sessionData', JSON.stringify(session));
+    PropertiesService.getScriptProperties().setProperty(sessionKey, JSON.stringify(session));
 
     return {
       authenticated: true,
@@ -398,7 +414,7 @@ function getCurrentUser() {
   } else {
     // Session expired
     logSystemEvent(session.email, 'SESSION_EXPIRED', '', 'Session timed out after 30 minutes of inactivity');
-    userProperties.deleteProperty('sessionData');
+    PropertiesService.getScriptProperties().deleteProperty(sessionKey);
     return {
       authenticated: false,
       expired: true
@@ -411,8 +427,8 @@ function getCurrentUser() {
  */
 function logout() {
   try {
-    const userProperties = PropertiesService.getUserProperties();
-    const sessionData = userProperties.getProperty('sessionData');
+    const sessionKey = _getSessionKey_();
+    const sessionData = sessionKey ? PropertiesService.getScriptProperties().getProperty(sessionKey) : null;
 
     if (sessionData) {
       const session = JSON.parse(sessionData);
@@ -420,7 +436,7 @@ function logout() {
       logSystemEvent(session.email, 'LOGOUT', '', 'User logged out');
     }
 
-    userProperties.deleteProperty('sessionData');
+    if (sessionKey) PropertiesService.getScriptProperties().deleteProperty(sessionKey);
     return { success: true };
   } catch (error) {
     Logger.log('Logout error: ' + error.toString());
