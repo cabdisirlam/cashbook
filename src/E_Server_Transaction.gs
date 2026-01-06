@@ -2963,7 +2963,8 @@ function getReceivablePayableSummary(type, criteria) {
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
     let matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
-      hasAdvanceBankLine || (!isReceivable && isAdvanceApplication && debit > 0 && credit === 0);
+      hasAdvanceBankLine ||
+      (isAdvanceApplication && ((isReceivable && credit > 0 && debit === 0) || (!isReceivable && debit > 0 && credit === 0)));
     if (isStaff && !matchesAdvance && advanceId && !accountCode) {
       const originalMeta = originalAdvanceMetaById[advanceId];
       if (originalMeta && originalMeta.particulars && particulars === originalMeta.particulars) {
@@ -3059,8 +3060,7 @@ function getReceivablePayableSummary(type, criteria) {
   const rows = Object.values(summaries).map(function(item) {
     item.closing = item.opening + item.additions - item.payments;
     return item;
-  }).filter(item => Math.abs(item.closing) > 0.01)
-    .sort((a, b) => String(a.payee || '').localeCompare(String(b.payee || '')));
+  }).sort((a, b) => String(a.payee || '').localeCompare(String(b.payee || '')));
 
   return { rows: rows };
 }
@@ -3096,8 +3096,7 @@ function getNettingSummary(criteria) {
   const rows = Object.values(summary).map(function(item) {
     item.net = (Number(item.receivable || 0) - Number(item.payable || 0));
     return item;
-  }).filter(item => Math.abs(item.net) > 0.01 || Math.abs(item.receivable) > 0.01 || Math.abs(item.payable) > 0.01)
-    .sort((a, b) => String(a.payee || '').localeCompare(String(b.payee || '')));
+  }).sort((a, b) => String(a.payee || '').localeCompare(String(b.payee || '')));
 
   return { rows: rows };
 }
@@ -3228,7 +3227,8 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
     let matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
-      hasAdvanceBankLine || (!isReceivable && isAdvanceApplication && debit > 0 && credit === 0);
+      hasAdvanceBankLine ||
+      (isAdvanceApplication && ((isReceivable && credit > 0 && debit === 0) || (!isReceivable && debit > 0 && credit === 0)));
     if (isStaff && !matchesAdvance && advanceId && !accountCode) {
       const originalMeta = originalAdvanceMetaById[advanceId];
       if (originalMeta && originalMeta.particulars && particulars === originalMeta.particulars) {
