@@ -2963,7 +2963,7 @@ function getReceivablePayableSummary(type, criteria) {
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
     let matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
-      hasAdvanceBankLine || (isAdvanceApplication && debit > 0 && credit === 0);
+      hasAdvanceBankLine || (!isStaff && isAdvanceApplication && debit > 0 && credit === 0);
     if (isStaff && !matchesAdvance && advanceId && !accountCode) {
       const originalMeta = originalAdvanceMetaById[advanceId];
       if (originalMeta && originalMeta.particulars && particulars === originalMeta.particulars) {
@@ -3227,7 +3227,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const matchesReceivable = mappingLower.includes('receivable') || categoryLower.includes('receivable');
     const matchesPayable = mappingLower.includes('payable') || categoryLower.includes('payable');
     let matchesAdvance = isAdvanceLike(category, reportMapping, accountType, particulars) ||
-      hasAdvanceBankLine || (isAdvanceApplication && debit > 0 && credit === 0);
+      hasAdvanceBankLine || (!isStaff && isAdvanceApplication && debit > 0 && credit === 0);
     if (isStaff && !matchesAdvance && advanceId && !accountCode) {
       const originalMeta = originalAdvanceMetaById[advanceId];
       if (originalMeta && originalMeta.particulars && particulars === originalMeta.particulars) {
