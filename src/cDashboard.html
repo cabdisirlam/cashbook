@@ -9329,7 +9329,8 @@
               <button class="btn btn-secondary" onclick="renderReceiptLauncher()">Refresh</button>
               <button class="btn btn-primary" onclick="openInvoiceReceiptSelector()">Invoice Receipt</button>
               <button class="btn btn-secondary" onclick="openTxnReceiptModal()">Other Receipt</button>
-              <button class="btn btn-secondary" onclick="openReceiptAdvanceOptionsModal()">Apply Advance</button>
+              <button class="btn btn-secondary" onclick="openCustomerAdvanceApplySelector()">Apply Advance</button>
+              <button class="btn btn-secondary" onclick="openStaffSurrenderSelector()">Staff Surrender</button>
             </div>
           </div>
 
@@ -11670,10 +11671,6 @@
                 <span class="side-option-title">Other Receipt</span>
                 <span class="side-option-desc">General receipt transaction</span>
               </button>
-              <button class="side-option" type="button" onclick="document.getElementById('receiptTypeModal').remove(); openReceiptAdvanceOptionsModal();">
-                <span class="side-option-title">Apply Advance</span>
-                <span class="side-option-desc">Advance options for receipts</span>
-              </button>
             </div>
           </div>
         </div>
@@ -11906,7 +11903,7 @@
       `;
       document.body.insertAdjacentHTML('beforeend', modalHtml);
       bringModalToFront('staffSurrenderSelector');
-      loadStaffAdvanceRows('staffSurrenderSelectorBody', true);
+      loadStaffAdvanceRows('staffSurrenderSelectorBody', true, 200);
     }
 
     function filterReceiptInvoices(query) {
@@ -12475,10 +12472,11 @@
       loadStaffAdvanceRows('staffSurrenderTable', true);
     }
 
-    function loadStaffAdvanceRows(containerId, includeAction) {
+    function loadStaffAdvanceRows(containerId, includeAction, limit) {
       const container = document.getElementById(containerId);
       if (!container) return;
       container.innerHTML = '<p style="color:#6b7280;">Loading staff advances...</p>';
+      const maxRows = Math.max(50, Number(limit) || 50);
 
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         container.innerHTML = '<p style="color:#6b7280;">App runtime missing.</p>';
@@ -12508,7 +12506,7 @@
             .withFailureHandler(function(error) {
               container.innerHTML = '<p style="color:#dc2626;">Failed to load staff advances: ' + (error.message || 'Error') + '</p>';
             })
-            .getRecentTransactionsByType('Payment', 50);
+            .getRecentTransactionsByType('Payment', maxRows);
         })
         .withFailureHandler(function(error) {
           container.innerHTML = '<p style="color:#dc2626;">Failed to load staff list: ' + (error.message || 'Error') + '</p>';
