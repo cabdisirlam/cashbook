@@ -11337,6 +11337,13 @@
                   <h3 style="font-size:15px;font-weight:600;color:#111827;margin-bottom:6px;">Other Payment</h3>
                   <p style="font-size:12px;color:#6b7280;line-height:1.4;">General payment transaction</p>
                 </div>
+                <div onclick="document.getElementById('paymentTypeModal').remove(); openSupplierAdvanceApplySelector();" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:24px 20px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='#b45309';this.style.boxShadow='0 4px 12px rgba(180,83,9,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';this.style.transform='translateY(0)';">
+                  <div style="width:56px;height:56px;background:linear-gradient(135deg,#fff7ed 0%,#ffedd5 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path><circle cx="12" cy="12" r="9"></circle></svg>
+                  </div>
+                  <h3 style="font-size:15px;font-weight:600;color:#111827;margin-bottom:6px;">Apply Advance</h3>
+                  <p style="font-size:12px;color:#6b7280;line-height:1.4;">Use supplier advance on an invoice</p>
+                </div>
               </div>
             </div>
           </div>
@@ -11484,6 +11491,102 @@
       openInvoicePaymentModal(payableId, supplierName, invoiceNumber, balance);
     }
 
+    function openSupplierAdvanceApplySelector() {
+      const modalHtml = `
+        <div class="modal open" id="supplierAdvanceApplySelector">
+          <div class="modal-card" style="max-width:800px;">
+            <div class="modal-header">
+              <span>Select Invoice to Apply Advance</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('supplierAdvanceApplySelector').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-group" style="margin-bottom:16px;">
+                <input type="text" id="supplierAdvanceApplySearch" placeholder="Search by supplier or invoice number..." style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+              <div id="supplierAdvanceApplyList" style="max-height:400px;overflow-y:auto;">
+                <p style="color:#6b7280;text-align:center;padding:40px;">Loading outstanding invoices...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadOutstandingPayablesForAdvance();
+
+      document.getElementById('supplierAdvanceApplySearch').addEventListener('input', function() {
+        filterSupplierAdvanceApplyInvoices(this.value);
+      });
+    }
+
+    function loadOutstandingPayablesForAdvance() {
+      const container = document.getElementById('supplierAdvanceApplyList');
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const invoices = (data || []).filter(function(inv) {
+            return inv.Status !== 'Paid' && inv.Status !== 'Reversed' && parseFloat(inv.Balance || 0) > 0;
+          });
+          _outstandingPayables = invoices;
+          renderSupplierAdvanceApplyList(invoices);
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px;">Failed to load invoices: ' + error.message + '</p>';
+        })
+        .getPayables();
+    }
+
+    function renderSupplierAdvanceApplyList(invoices) {
+      const container = document.getElementById('supplierAdvanceApplyList');
+      if (!invoices || invoices.length === 0) {
+        container.innerHTML = '<p style="color:#6b7280;text-align:center;padding:40px;">No outstanding supplier invoices found.</p>';
+        return;
+      }
+
+      let html = '<table class="data-table" style="width:100%;"><thead><tr>' +
+        '<th>Invoice #</th><th>Supplier ID</th><th>Supplier</th><th>Date</th><th style="text-align:right;">Amount</th><th style="text-align:right;">Balance</th><th></th>' +
+        '</tr></thead><tbody>';
+
+      invoices.forEach(function(inv) {
+        const balance = parseFloat(inv.Balance || 0);
+        const amount = parseFloat(inv.Amount || 0);
+        html += '<tr>' +
+          '<td>' + (inv.Invoice_Number || '-') + '</td>' +
+          '<td>' + (inv.Supplier_ID || '-') + '</td>' +
+          '<td>' + (inv.Supplier_Name || '-') + '</td>' +
+          '<td>' + (inv.Invoice_Date || '-') + '</td>' +
+          '<td style="text-align:right;">' + amount.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</td>' +
+          '<td style="text-align:right;color:#dc2626;font-weight:600;">' + balance.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</td>' +
+          '<td><button class="btn btn-primary" style="padding:6px 12px;font-size:12px;background:#b45309;border-color:#b45309;" onclick="selectInvoiceForSupplierAdvance(\'' +
+            (inv.Payable_ID || '') + '\', \'' +
+            (inv.Supplier_ID || '') + '\', \'' +
+            (inv.Supplier_Name || '').replace(/'/g, "\\'") + '\', \'' +
+            (inv.Invoice_Number || '').replace(/'/g, "\\'") + '\', ' +
+            balance + ')">Apply Advance</button></td>' +
+          '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function filterSupplierAdvanceApplyInvoices(query) {
+      const q = (query || '').toLowerCase().trim();
+      if (!q) {
+        renderSupplierAdvanceApplyList(_outstandingPayables);
+        return;
+      }
+      const filtered = _outstandingPayables.filter(function(inv) {
+        const supplier = (inv.SupplierName || inv.Supplier_Name || '').toLowerCase();
+        const invoiceNum = (inv.InvoiceNumber || inv.Invoice_Number || '').toLowerCase();
+        return supplier.indexOf(q) !== -1 || invoiceNum.indexOf(q) !== -1;
+      });
+      renderSupplierAdvanceApplyList(filtered);
+    }
+
+    function selectInvoiceForSupplierAdvance(payableId, supplierId, supplierName, invoiceNumber, balance) {
+      document.getElementById('supplierAdvanceApplySelector').remove();
+      openSupplierAdvanceApplyModal(payableId, supplierId, supplierName, invoiceNumber, balance);
+    }
+
     // ============================================================
     // RECEIPT TYPE CHOICE MODAL - Invoice vs Others
     // ============================================================
@@ -11513,6 +11616,13 @@
                   </div>
                   <h3 style="font-size:15px;font-weight:600;color:#111827;margin-bottom:6px;">Other Receipt</h3>
                   <p style="font-size:12px;color:#6b7280;line-height:1.4;">General receipt transaction</p>
+                </div>
+                <div onclick="document.getElementById('receiptTypeModal').remove(); openReceiptAdvanceOptionsModal();" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:24px 20px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='#0f172a';this.style.boxShadow='0 4px 12px rgba(15,23,42,0.12)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';this.style.transform='translateY(0)';">
+                  <div style="width:56px;height:56px;background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path><circle cx="12" cy="12" r="9"></circle></svg>
+                  </div>
+                  <h3 style="font-size:15px;font-weight:600;color:#111827;margin-bottom:6px;">Apply Advance</h3>
+                  <p style="font-size:12px;color:#6b7280;line-height:1.4;">Advance options for receipts</p>
                 </div>
               </div>
             </div>
@@ -11599,6 +11709,155 @@
 
       html += '</tbody></table>';
       container.innerHTML = html;
+    }
+
+    function openReceiptAdvanceOptionsModal() {
+      const modalHtml = `
+        <div class="modal open" id="receiptAdvanceOptionsModal" style="backdrop-filter:blur(4px);">
+          <div class="modal-card" style="max-width:520px;border-radius:16px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div class="modal-header" style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:24px 28px;">
+              <div>
+                <span style="font-size:20px;font-weight:600;">Advance Options</span>
+                <p style="font-size:13px;opacity:0.85;margin-top:4px;font-weight:400;">Choose how to use advances</p>
+              </div>
+              <button onclick="document.getElementById('receiptAdvanceOptionsModal').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background 0.2s;">×</button>
+            </div>
+            <div class="modal-body" style="padding:28px;background:#f9fafb;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div onclick="document.getElementById('receiptAdvanceOptionsModal').remove(); openCustomerAdvanceApplySelector();" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:22px 18px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='#059669';this.style.boxShadow='0 4px 12px rgba(5,150,105,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';this.style.transform='translateY(0)';">
+                  <div style="width:52px;height:52px;background:linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path><circle cx="12" cy="12" r="9"></circle></svg>
+                  </div>
+                  <h3 style="font-size:14px;font-weight:600;color:#111827;margin-bottom:6px;">Apply Advance</h3>
+                  <p style="font-size:12px;color:#6b7280;line-height:1.4;">Apply customer advance to invoice</p>
+                </div>
+                <div onclick="document.getElementById('receiptAdvanceOptionsModal').remove(); openStaffSurrenderSelector();" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:22px 18px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='#0f172a';this.style.boxShadow='0 4px 12px rgba(15,23,42,0.12)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';this.style.transform='translateY(0)';">
+                  <div style="width:52px;height:52px;background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v18"></path><path d="M18 7v14"></path><path d="M9 7h12"></path><path d="M9 11h8"></path></svg>
+                  </div>
+                  <h3 style="font-size:14px;font-weight:600;color:#111827;margin-bottom:6px;">Staff Surrender</h3>
+                  <p style="font-size:12px;color:#6b7280;line-height:1.4;">Clear staff advance balance</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function openCustomerAdvanceApplySelector() {
+      const modalHtml = `
+        <div class="modal open" id="customerAdvanceApplySelector">
+          <div class="modal-card" style="max-width:800px;">
+            <div class="modal-header">
+              <span>Select Invoice to Apply Advance</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('customerAdvanceApplySelector').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div class="form-group" style="margin-bottom:16px;">
+                <input type="text" id="customerAdvanceApplySearch" placeholder="Search by customer or invoice number..." style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+              <div id="customerAdvanceApplyList" style="max-height:400px;overflow-y:auto;">
+                <p style="color:#6b7280;text-align:center;padding:40px;">Loading outstanding invoices...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadOutstandingReceivablesForAdvance();
+
+      document.getElementById('customerAdvanceApplySearch').addEventListener('input', function() {
+        filterCustomerAdvanceApplyInvoices(this.value);
+      });
+    }
+
+    function loadOutstandingReceivablesForAdvance() {
+      const container = document.getElementById('customerAdvanceApplyList');
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const invoices = (data || []).filter(function(inv) {
+            return inv.Status !== 'Paid' && inv.Status !== 'Reversed' && parseFloat(inv.Balance || 0) > 0;
+          });
+          _outstandingReceivables = invoices;
+          renderCustomerAdvanceApplyList(invoices);
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px;">Failed to load invoices: ' + error.message + '</p>';
+        })
+        .getReceivables();
+    }
+
+    function renderCustomerAdvanceApplyList(invoices) {
+      const container = document.getElementById('customerAdvanceApplyList');
+      if (!invoices || invoices.length === 0) {
+        container.innerHTML = '<p style="color:#6b7280;text-align:center;padding:40px;">No outstanding customer invoices found.</p>';
+        return;
+      }
+
+      let html = '<table class="data-table" style="width:100%;"><thead><tr>' +
+        '<th>Invoice #</th><th>Customer ID</th><th>Customer</th><th>Date</th><th style="text-align:right;">Amount</th><th style="text-align:right;">Balance</th><th></th>' +
+        '</tr></thead><tbody>';
+
+      invoices.forEach(function(inv) {
+        const balance = parseFloat(inv.Balance || 0);
+        const amount = parseFloat(inv.Amount || 0);
+        html += '<tr>' +
+          '<td>' + (inv.Invoice_Number || '-') + '</td>' +
+          '<td>' + (inv.Customer_ID || '-') + '</td>' +
+          '<td>' + (inv.Customer_Name || '-') + '</td>' +
+          '<td>' + (inv.Invoice_Date || '-') + '</td>' +
+          '<td style="text-align:right;">' + amount.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</td>' +
+          '<td style="text-align:right;color:#dc2626;font-weight:600;">' + balance.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</td>' +
+          '<td><button class="btn btn-primary" style="padding:6px 12px;font-size:12px;" onclick="selectInvoiceForCustomerAdvance(\'' +
+            (inv.Receivable_ID || '') + '\', \'' +
+            (inv.Customer_ID || '') + '\', \'' +
+            (inv.Customer_Name || '').replace(/'/g, "\\'") + '\', \'' +
+            (inv.Invoice_Number || '').replace(/'/g, "\\'") + '\', ' +
+            balance + ')">Apply Advance</button></td>' +
+          '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function filterCustomerAdvanceApplyInvoices(query) {
+      const q = (query || '').toLowerCase().trim();
+      if (!q) {
+        renderCustomerAdvanceApplyList(_outstandingReceivables);
+        return;
+      }
+      const filtered = _outstandingReceivables.filter(function(inv) {
+        const customer = (inv.CustomerName || inv.Customer_Name || '').toLowerCase();
+        const invoiceNum = (inv.InvoiceNumber || inv.Invoice_Number || '').toLowerCase();
+        return customer.indexOf(q) !== -1 || invoiceNum.indexOf(q) !== -1;
+      });
+      renderCustomerAdvanceApplyList(filtered);
+    }
+
+    function selectInvoiceForCustomerAdvance(receivableId, customerId, customerName, invoiceNumber, balance) {
+      document.getElementById('customerAdvanceApplySelector').remove();
+      openAdvanceApplyModal(receivableId, customerId, customerName, invoiceNumber, balance);
+    }
+
+    function openStaffSurrenderSelector() {
+      const modalHtml = `
+        <div class="modal open" id="staffSurrenderSelector">
+          <div class="modal-card" style="max-width:900px;">
+            <div class="modal-header">
+              <span>Select Staff Advance to Surrender</span>
+              <button class="btn btn-secondary" onclick="document.getElementById('staffSurrenderSelector').remove()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;">Close</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+              <div id="staffSurrenderSelectorBody" style="min-height:120px;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      loadStaffAdvanceRows('staffSurrenderSelectorBody', true);
     }
 
     function filterReceiptInvoices(query) {
