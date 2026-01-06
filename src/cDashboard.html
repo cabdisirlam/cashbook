@@ -777,22 +777,23 @@
       animation: modalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     }
     .side-panel {
-      position: fixed;
-      top: 0;
-      right: 0;
+      position: relative;
       width: 360px;
       max-width: 92vw;
-      height: 100%;
+      max-height: 90vh;
       background: #fff;
-      box-shadow: -16px 0 30px rgba(15, 23, 42, 0.15);
-      transform: translateX(100%);
-      transition: transform 0.25s ease;
+      box-shadow: 0 18px 35px rgba(15, 23, 42, 0.18);
+      border-radius: 16px;
+      transform: translateX(-12px);
+      opacity: 0;
+      transition: transform 0.2s ease, opacity 0.2s ease;
       z-index: 2200;
       display: flex;
       flex-direction: column;
     }
     .modal.open .side-panel {
       transform: translateX(0);
+      opacity: 1;
     }
     .side-panel-header {
       padding: 20px 22px;
@@ -11372,7 +11373,7 @@
     // ============================================================
     function openPaymentTypeModal() {
       const modalHtml = `
-        <div class="modal open" id="paymentTypeModal" style="backdrop-filter:blur(4px);">
+        <div class="modal open" id="paymentTypeModal" style="backdrop-filter:blur(4px);justify-content:flex-start;align-items:flex-start;padding:24px;" onclick="if(event.target===this){this.remove();}">
           <div class="side-panel">
             <div class="side-panel-header" style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);">
               <div>
@@ -11570,6 +11571,11 @@
 
     function loadOutstandingPayablesForAdvance() {
       const container = document.getElementById('supplierAdvanceApplyList');
+      if (!container) return;
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        container.innerHTML = '<p style="color:#6b7280;text-align:center;padding:20px;">App runtime missing.</p>';
+        return;
+      }
       google.script.run
         .withSuccessHandler(function(data) {
           const invoices = (data || []).filter(function(inv) {
@@ -11642,7 +11648,7 @@
     // ============================================================
     function openReceiptTypeModal() {
       const modalHtml = `
-        <div class="modal open" id="receiptTypeModal" style="backdrop-filter:blur(4px);">
+        <div class="modal open" id="receiptTypeModal" style="backdrop-filter:blur(4px);justify-content:flex-start;align-items:flex-start;padding:24px;" onclick="if(event.target===this){this.remove();}">
           <div class="side-panel">
             <div class="side-panel-header" style="background:linear-gradient(135deg,#059669 0%,#047857 100%);">
               <div>
@@ -11752,7 +11758,7 @@
 
     function openReceiptAdvanceOptionsModal() {
       const modalHtml = `
-        <div class="modal open" id="receiptAdvanceOptionsModal" style="backdrop-filter:blur(4px);">
+        <div class="modal open" id="receiptAdvanceOptionsModal" style="backdrop-filter:blur(4px);justify-content:flex-start;align-items:flex-start;padding:24px;" onclick="if(event.target===this){this.remove();}">
           <div class="side-panel">
             <div class="side-panel-header" style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);">
               <div>
@@ -11808,6 +11814,11 @@
 
     function loadOutstandingReceivablesForAdvance() {
       const container = document.getElementById('customerAdvanceApplyList');
+      if (!container) return;
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        container.innerHTML = '<p style="color:#6b7280;text-align:center;padding:20px;">App runtime missing.</p>';
+        return;
+      }
       google.script.run
         .withSuccessHandler(function(data) {
           const invoices = (data || []).filter(function(inv) {
