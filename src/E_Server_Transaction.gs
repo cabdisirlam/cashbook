@@ -2955,6 +2955,7 @@ function getReceivablePayableSummary(type, criteria) {
     const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
+    const particularsLower = particulars.toLowerCase();
 
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
@@ -3226,6 +3227,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     const description = cols.description ? String(row[cols.description - 1] || '').trim() : '';
     const mappingLower = reportMapping.toLowerCase();
     const categoryLower = category.toLowerCase();
+    const particularsLower = particulars.toLowerCase();
 
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
