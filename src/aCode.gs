@@ -2040,7 +2040,42 @@ function getInvoices(invoiceType, filters) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   const data = sheet.getRange(2, 1, lastRow - 1, INVOICE_HEADERS.length).getValues();
-  let results = data.map(row => {
+  const headerIndex = {};
+  INVOICE_HEADERS.forEach((h, i) => { headerIndex[h] = i; });
+  const typeFilter = invoiceType ? String(invoiceType || '').toUpperCase().trim() : '';
+  const statusFilter = filters && filters.status ? String(filters.status) : '';
+  const contactFilter = filters && filters.contactId ? String(filters.contactId || '').trim() : '';
+  const overdueFilter = Boolean(filters && filters.overdue);
+
+  const results = [];
+  data.forEach(row => {
+    const invoiceId = row[headerIndex.Invoice_ID];
+    if (!invoiceId) return;
+
+    if (typeFilter) {
+      const rowType = String(row[headerIndex.Invoice_Type] || '').toUpperCase().trim();
+      if (rowType !== typeFilter) return;
+    }
+
+    const rowStatus = row[headerIndex.Status];
+    if (statusFilter && rowStatus !== statusFilter) return;
+
+    if (contactFilter) {
+      const rowContact = String(row[headerIndex.Contact_ID] || '').trim();
+      if (rowContact !== contactFilter) return;
+    }
+
+    let daysOverdue = 0;
+    if (rowStatus !== 'Paid') {
+      const dueCell = row[headerIndex.Due_Date];
+      const dueDate = dueCell instanceof Date ? dueCell : (dueCell ? new Date(dueCell) : null);
+      if (dueDate && !Number.isNaN(dueDate.getTime())) {
+        const diffDays = Math.floor((new Date() - dueDate) / (1000 * 60 * 60 * 24));
+        daysOverdue = diffDays > 0 ? diffDays : 0;
+      }
+    }
+    if (overdueFilter && daysOverdue <= 0) return;
+
     const obj = {};
     INVOICE_HEADERS.forEach((h, i) => {
       if (h.includes('Date') && row[i] instanceof Date) {
@@ -2049,19 +2084,10 @@ function getInvoices(invoiceType, filters) {
         try { obj[h] = row[i] ? JSON.parse(row[i]) : []; } catch (e) { obj[h] = []; }
       } else { obj[h] = row[i]; }
     });
-    if (obj.Due_Date && obj.Status !== 'Paid') {
-      const dueDate = new Date(obj.Due_Date);
-      const diffDays = Math.floor((new Date() - dueDate) / (1000 * 60 * 60 * 24));
-      obj.Days_Overdue = diffDays > 0 ? diffDays : 0;
-    } else { obj.Days_Overdue = 0; }
-    return obj;
-  }).filter(inv => inv.Invoice_ID);
-  if (invoiceType) results = results.filter(inv => String(inv.Invoice_Type || '').toUpperCase().trim() === invoiceType.toUpperCase().trim());
-  if (filters) {
-    if (filters.status) results = results.filter(inv => inv.Status === filters.status);
-    if (filters.contactId) results = results.filter(inv => String(inv.Contact_ID || '').trim() === String(filters.contactId || '').trim());
-    if (filters.overdue) results = results.filter(inv => inv.Days_Overdue > 0);
-  }
+    obj.Days_Overdue = daysOverdue;
+    results.push(obj);
+  });
+
   return results;
 }
 
