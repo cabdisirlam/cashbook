@@ -2974,14 +2974,7 @@ function getReceivablePayableSummary(type, criteria) {
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
     if (isAdvanceApplicationLine) return;
-    if (!isStaff && hasAdvanceBankLine) return;
-    const isAdvanceDescriptor = (function() {
-      return categoryLower.includes('advance') || particularsLower.includes('advance') ||
-        categoryLower.includes('deposit') || particularsLower.includes('deposit') ||
-        categoryLower.includes('unearned') || particularsLower.includes('unearned') ||
-        categoryLower.includes('deferred') || particularsLower.includes('deferred');
-    })();
-    if (!isStaff && isAdvanceDescriptor && hasAdvanceBankLine) return;
+    if (!isStaff && matchesAdvance && hasAdvanceBankLine) return;
     const staffRelevant = (matchesAdvance || matchesReceivable) && !hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
@@ -3246,13 +3239,7 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
       advanceId && !accountCode && description.toLowerCase().includes('apply advance')
     );
     if (isAdvanceApplicationLine) return;
-    const isAdvanceDescriptor = (function() {
-      return categoryLower.includes('advance') || particularsLower.includes('advance') ||
-        categoryLower.includes('deposit') || particularsLower.includes('deposit') ||
-        categoryLower.includes('unearned') || particularsLower.includes('unearned') ||
-        categoryLower.includes('deferred') || particularsLower.includes('deferred');
-    })();
-    if (!isStaff && isAdvanceDescriptor && hasAdvanceBankLine) return;
+    if (!isStaff && matchesAdvance && hasAdvanceBankLine) return;
     const staffRelevant = (matchesAdvance || matchesReceivable) && !hasAdvanceBankLine;
 
     // Filter: only include relevant transaction types for the statement
