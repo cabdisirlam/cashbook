@@ -2914,7 +2914,6 @@ function getReceivablePayableSummary(type, criteria) {
     if (categoryLower.includes('deposit') || particularsLower.includes('deposit')) return true;
     if (categoryLower.includes('unearned') || particularsLower.includes('unearned')) return true;
     if (categoryLower.includes('deferred') || particularsLower.includes('deferred')) return true;
-    if (mappingLower.includes('liabil') || accountTypeLower.includes('liabil')) return true;
     return false;
   };
 
@@ -3184,7 +3183,6 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
     if (categoryLower.includes('deposit') || particularsLower.includes('deposit')) return true;
     if (categoryLower.includes('unearned') || particularsLower.includes('unearned')) return true;
     if (categoryLower.includes('deferred') || particularsLower.includes('deferred')) return true;
-    if (mappingLower.includes('liabil') || accountTypeLower.includes('liabil')) return true;
     return false;
   };
 
