@@ -2484,6 +2484,12 @@ function getCashFlowReport(currentYear, comparativeYear) {
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!journal) throw new Error('DB_JOURNAL not found.');
+  const notes = getNotesReport(currentYear, comparativeYear, { basis: 'cash' });
+  const performanceNotes = getNotesReport(currentYear, comparativeYear);
+  const cashCategories = Array.isArray(notes.categories) ? notes.categories : [];
+  const performanceCategories = Array.isArray(performanceNotes.categories) ? performanceNotes.categories : [];
+  const noteMaps = _buildNoteMapsForReports_(performanceCategories, cashCategories);
+  const cashFlowNoteNumberByCategory = noteMaps.cashNotesByCategory || {};
 
   const report = {
     currentYear: year,
@@ -2536,7 +2542,9 @@ function getCashFlowReport(currentYear, comparativeYear) {
       const subCategories = Object.keys(subMap).sort((a, b) => a.localeCompare(b)).map(function(subName) {
         const itemsMap = subMap[subName];
         const items = Object.keys(itemsMap).sort((a, b) => a.localeCompare(b)).map(function(itemName) {
-          return itemsMap[itemName];
+          const item = itemsMap[itemName];
+          item.note = cashFlowNoteNumberByCategory[categoryName] || '';
+          return item;
         });
         return { subCategory: subName, items: items };
       });
@@ -2640,6 +2648,10 @@ function getCashFlowReport(currentYear, comparativeYear) {
   report.cashOpeningComparative = cashBalances.comparative ? Number(cashBalances.comparative.opening || 0) : 0;
   report.cashClosingCurrent = cashBalances.current ? Number(cashBalances.current.total || 0) : 0;
   report.cashClosingComparative = cashBalances.comparative ? Number(cashBalances.comparative.total || 0) : 0;
+  report.cashNote = cashFlowNoteNumberByCategory['Cash and Cash Equivalent']
+    || cashFlowNoteNumberByCategory['Cash and cash equivalents']
+    || cashFlowNoteNumberByCategory['Cash & cash equivalents']
+    || '';
 
   return report;
 }

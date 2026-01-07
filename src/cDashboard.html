@@ -5839,7 +5839,8 @@
 
       const appendSections = function(sections) {
         (sections || []).forEach(category => {
-          rows += `
+          let hasCategoryItems = false;
+          let categoryRows = `
             <tr>
               <td style="font-weight:700;">${category.category || ''}</td>
               <td></td>
@@ -5847,8 +5848,10 @@
               <td></td>
             </tr>
           `;
+
           (category.subCategories || []).forEach(sub => {
-            rows += `
+            let hasSubItems = false;
+            let subRows = `
               <tr>
                 <td style="font-weight:600;">${sub.subCategory || ''}</td>
                 <td></td>
@@ -5856,17 +5859,29 @@
                 <td></td>
               </tr>
             `;
+
             (sub.items || []).forEach(item => {
-              rows += `
+              if (!item.currentAmount && !item.comparativeAmount) return;
+              hasSubItems = true;
+              subRows += `
                 <tr>
                   <td>${item.particulars || ''}</td>
-                  <td></td>
+                  <td>${item.note || ''}</td>
                   <td>${formatPerformanceAmount(item.currentAmount)}</td>
                   <td>${formatPerformanceAmount(item.comparativeAmount)}</td>
                 </tr>
               `;
             });
+
+            if (hasSubItems) {
+              hasCategoryItems = true;
+              categoryRows += subRows;
+            }
           });
+
+          if (hasCategoryItems) {
+            rows += categoryRows;
+          }
         });
       };
 
@@ -5958,19 +5973,19 @@
       rows += `
         <tr>
           <td><strong>Net increase/(decrease) in cash & cash equivalents</strong></td>
-          <td></td>
+          <td>${result.cashNote || ''}</td>
           <td><strong>${formatPerformanceAmount(result.netIncreaseCurrent)}</strong></td>
           <td><strong>${formatPerformanceAmount(result.netIncreaseComparative)}</strong></td>
         </tr>
         <tr>
           <td>Cash and cash equivalents at 1 July</td>
-          <td></td>
+          <td>${result.cashNote || ''}</td>
           <td>${formatPerformanceAmount(result.cashOpeningCurrent)}</td>
           <td>${formatPerformanceAmount(result.cashOpeningComparative)}</td>
         </tr>
         <tr>
           <td><strong>Cash and cash equivalents at 30 June</strong></td>
-          <td></td>
+          <td>${result.cashNote || ''}</td>
           <td><strong>${formatPerformanceAmount(result.cashClosingCurrent)}</strong></td>
           <td><strong>${formatPerformanceAmount(result.cashClosingComparative)}</strong></td>
         </tr>
