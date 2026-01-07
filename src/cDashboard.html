@@ -5837,51 +5837,17 @@
 
       let rows = '';
 
-      const appendSections = function(sections) {
-        (sections || []).forEach(category => {
-          let hasCategoryItems = false;
-          let categoryRows = `
+      const appendItems = function(items) {
+        (items || []).forEach(item => {
+          if (!item.currentAmount && !item.comparativeAmount) return;
+          rows += `
             <tr>
-              <td style="font-weight:700;">${category.category || ''}</td>
-              <td></td>
-              <td></td>
-              <td></td>
+              <td>${item.name || ''}</td>
+              <td>${item.note || ''}</td>
+              <td>${formatPerformanceAmount(item.currentAmount)}</td>
+              <td>${formatPerformanceAmount(item.comparativeAmount)}</td>
             </tr>
           `;
-
-          (category.subCategories || []).forEach(sub => {
-            let hasSubItems = false;
-            let subRows = `
-              <tr>
-                <td style="font-weight:600;">${sub.subCategory || ''}</td>
-                <td></td>
-                <td></td>
-                <td></td>
-              </tr>
-            `;
-
-            (sub.items || []).forEach(item => {
-              if (!item.currentAmount && !item.comparativeAmount) return;
-              hasSubItems = true;
-              subRows += `
-                <tr>
-                  <td>${item.particulars || ''}</td>
-                  <td>${item.note || ''}</td>
-                  <td>${formatPerformanceAmount(item.currentAmount)}</td>
-                  <td>${formatPerformanceAmount(item.comparativeAmount)}</td>
-                </tr>
-              `;
-            });
-
-            if (hasSubItems) {
-              hasCategoryItems = true;
-              categoryRows += subRows;
-            }
-          });
-
-          if (hasCategoryItems) {
-            rows += categoryRows;
-          }
         });
       };
 
@@ -5899,7 +5865,7 @@
           <td></td>
         </tr>
       `;
-      appendSections(operatingReceipts);
+      appendItems(operatingReceipts);
       rows += `
         <tr>
           <td><strong>Total receipts</strong></td>
@@ -5914,7 +5880,7 @@
           <td></td>
         </tr>
       `;
-      appendSections(operatingPayments);
+      appendItems(operatingPayments);
       rows += `
         <tr>
           <td><strong>Total payments</strong></td>
@@ -5930,7 +5896,7 @@
         </tr>
       `;
 
-      if (investingRows.length) {
+      if (investingRows.length || result.investing.netCurrent || result.investing.netComparative) {
         rows += `
           <tr>
             <td style="font-weight:700;">Cash flows from investing activities</td>
@@ -5939,7 +5905,7 @@
             <td></td>
           </tr>
         `;
-        appendSections(investingRows);
+        appendItems(investingRows);
         rows += `
           <tr>
             <td><strong>Net cash flows from/(used in) investing activities</strong></td>
@@ -5950,7 +5916,7 @@
         `;
       }
 
-      if (financingRows.length) {
+      if (financingRows.length || result.financing.netCurrent || result.financing.netComparative) {
         rows += `
           <tr>
             <td style="font-weight:700;">Cash flows from financing activities</td>
@@ -5959,7 +5925,7 @@
             <td></td>
           </tr>
         `;
-        appendSections(financingRows);
+        appendItems(financingRows);
         rows += `
           <tr>
             <td><strong>Net cash flows from financing activities</strong></td>

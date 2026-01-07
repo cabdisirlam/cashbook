@@ -2524,32 +2524,21 @@ function getCashFlowReport(currentYear, comparativeYear) {
 
   const data = journal.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
-  const ensureSection = function(map, category, subCategory, particulars) {
-    const catName = category || 'Uncategorized';
-    const subName = subCategory || 'Other';
-    const itemName = particulars || '';
-    if (!map[catName]) map[catName] = {};
-    if (!map[catName][subName]) map[catName][subName] = {};
-    if (!map[catName][subName][itemName]) {
-      map[catName][subName][itemName] = { particulars: itemName, currentAmount: 0, comparativeAmount: 0 };
+  const ensureItem = function(map, name) {
+    if (!map[name]) {
+      map[name] = {
+        name: name,
+        note: cashFlowNoteNumberByCategory[name] || '',
+        currentAmount: 0,
+        comparativeAmount: 0
+      };
     }
-    return map[catName][subName][itemName];
+    return map[name];
   };
 
-  const toSections = function(map) {
-    return Object.keys(map).sort((a, b) => a.localeCompare(b)).map(function(categoryName) {
-      const subMap = map[categoryName];
-      const subCategories = Object.keys(subMap).sort((a, b) => a.localeCompare(b)).map(function(subName) {
-        const itemsMap = subMap[subName];
-        const items = Object.keys(itemsMap).sort((a, b) => a.localeCompare(b)).map(function(itemName) {
-          const item = itemsMap[itemName];
-          item.note = cashFlowNoteNumberByCategory[categoryName] || '';
-          return item;
-        });
-        return { subCategory: subName, items: items };
-      });
-      return { category: categoryName, subCategories: subCategories };
-    });
+  const toItems = function(map) {
+    return Object.keys(map).sort((a, b) => a.localeCompare(b)).map(name => map[name])
+      .filter(item => item.currentAmount || item.comparativeAmount);
   };
 
   const operatingReceiptsMap = {};
@@ -2568,41 +2557,43 @@ function getCashFlowReport(currentYear, comparativeYear) {
     if (!debit && !credit) return;
 
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
-    const subCategory = cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '';
-    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
     const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+    const lineName = category || 'Uncategorized';
 
-    const classification = _classifyCashFlowLine_(reportMapping, accountType, debit, credit);
-    if (!classification) return;
+    const classification = _classifyCashFlowCategory_(lineName, [accountType], [reportMapping]);
+    if (!classification || classification === 'cash') return;
 
     const isCurrent = rowYear === year;
-    if (classification.section === 'operating') {
-      if (classification.direction === 'receipt') {
-        const item = ensureSection(operatingReceiptsMap, category, subCategory, particulars);
-        if (isCurrent) {
-          item.currentAmount += debit;
-          report.operating.totalReceipts += debit;
-        } else {
-          item.comparativeAmount += debit;
-          report.operating.totalReceiptsComparative += debit;
-        }
+    if (classification === 'operating_receipt') {
+      const amount = debit > 0 ? debit : credit;
+      const item = ensureItem(operatingReceiptsMap, lineName);
+      if (isCurrent) {
+        item.currentAmount += amount;
+        report.operating.totalReceipts += amount;
       } else {
-        const item = ensureSection(operatingPaymentsMap, category, subCategory, particulars);
-        if (isCurrent) {
-          item.currentAmount += credit;
-          report.operating.totalPayments += credit;
-        } else {
-          item.comparativeAmount += credit;
-          report.operating.totalPaymentsComparative += credit;
-        }
+        item.comparativeAmount += amount;
+        report.operating.totalReceiptsComparative += amount;
       }
       return;
     }
 
-    const signedAmount = debit > 0 ? debit : -credit;
-    if (classification.section === 'investing') {
-      const item = ensureSection(investingMap, category, subCategory, particulars);
+    if (classification === 'operating_payment') {
+      const amount = credit > 0 ? credit : debit;
+      const item = ensureItem(operatingPaymentsMap, lineName);
+      if (isCurrent) {
+        item.currentAmount += amount;
+        report.operating.totalPayments += amount;
+      } else {
+        item.comparativeAmount += amount;
+        report.operating.totalPaymentsComparative += amount;
+      }
+      return;
+    }
+
+    const signedAmount = credit > 0 ? credit : -debit;
+    if (classification === 'investing') {
+      const item = ensureItem(investingMap, lineName);
       if (isCurrent) {
         item.currentAmount += signedAmount;
         report.investing.netCurrent += signedAmount;
@@ -2613,8 +2604,8 @@ function getCashFlowReport(currentYear, comparativeYear) {
       return;
     }
 
-    if (classification.section === 'financing') {
-      const item = ensureSection(financingMap, category, subCategory, particulars);
+    if (classification === 'financing') {
+      const item = ensureItem(financingMap, lineName);
       if (isCurrent) {
         item.currentAmount += signedAmount;
         report.financing.netCurrent += signedAmount;
@@ -2625,13 +2616,13 @@ function getCashFlowReport(currentYear, comparativeYear) {
     }
   });
 
-  report.operating.receipts = toSections(operatingReceiptsMap);
-  report.operating.payments = toSections(operatingPaymentsMap);
+  report.operating.receipts = toItems(operatingReceiptsMap);
+  report.operating.payments = toItems(operatingPaymentsMap);
   report.operating.netCurrent = report.operating.totalReceipts - report.operating.totalPayments;
   report.operating.netComparative = report.operating.totalReceiptsComparative - report.operating.totalPaymentsComparative;
 
-  report.investing.rows = toSections(investingMap);
-  report.financing.rows = toSections(financingMap);
+  report.investing.rows = toItems(investingMap);
+  report.financing.rows = toItems(financingMap);
 
   report.netIncreaseCurrent = report.operating.netCurrent + report.investing.netCurrent + report.financing.netCurrent;
   report.netIncreaseComparative = report.operating.netComparative + report.investing.netComparative + report.financing.netComparative;
