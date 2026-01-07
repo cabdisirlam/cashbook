@@ -3822,6 +3822,13 @@ function getBankAccountSummaries() {
       const rowDate = cols.date ? _parseDate_(row[cols.date - 1]) : null;
 
       if (rowDate) {
+        if (cols.financialYear) {
+          const rowYear = String(row[cols.financialYear - 1] || '').trim();
+          if (rowYear && financialYear && _compareFinancialYears_(rowYear, financialYear) < 0) {
+            summaries[accountCode].opening += debit - credit;
+            return;
+          }
+        }
         if (rowDate < bounds.startDate || _isOpeningBalanceLine_(row, cols, bounds.startDate)) {
           summaries[accountCode].opening += debit - credit;
           return;
@@ -3907,6 +3914,10 @@ function _getBankBalanceTotals_(options) {
 
     const applyTotals = function(bucket, targetYear, bounds, endDate, rowDate, rowYear, debit, credit, row, cols) {
       if (!targetYear || !bounds) return;
+      if (rowYear && _compareFinancialYears_(rowYear, targetYear) < 0) {
+        bucket.opening += debit - credit;
+        return;
+      }
       if (rowDate) {
         if (rowDate < bounds.startDate || _isOpeningBalanceLine_(row, cols, bounds.startDate)) {
           bucket.opening += debit - credit;
