@@ -2565,33 +2565,30 @@ function getCashFlowReport(currentYear, comparativeYear) {
     if (!classification || classification === 'cash') return;
 
     const isCurrent = rowYear === year;
+    const signedAmount = debit - credit;
     if (classification === 'operating_receipt') {
-      const amount = debit > 0 ? debit : credit;
       const item = ensureItem(operatingReceiptsMap, lineName);
       if (isCurrent) {
-        item.currentAmount += amount;
-        report.operating.totalReceipts += amount;
+        item.currentAmount += signedAmount;
+        report.operating.totalReceipts += signedAmount;
       } else {
-        item.comparativeAmount += amount;
-        report.operating.totalReceiptsComparative += amount;
+        item.comparativeAmount += signedAmount;
+        report.operating.totalReceiptsComparative += signedAmount;
       }
       return;
     }
 
     if (classification === 'operating_payment') {
-      const amount = credit > 0 ? credit : debit;
       const item = ensureItem(operatingPaymentsMap, lineName);
       if (isCurrent) {
-        item.currentAmount += amount;
-        report.operating.totalPayments += amount;
+        item.currentAmount += signedAmount;
+        report.operating.totalPayments += signedAmount;
       } else {
-        item.comparativeAmount += amount;
-        report.operating.totalPaymentsComparative += amount;
+        item.comparativeAmount += signedAmount;
+        report.operating.totalPaymentsComparative += signedAmount;
       }
       return;
     }
-
-    const signedAmount = credit > 0 ? credit : -debit;
     if (classification === 'investing') {
       const item = ensureItem(investingMap, lineName);
       if (isCurrent) {
@@ -2618,8 +2615,8 @@ function getCashFlowReport(currentYear, comparativeYear) {
 
   report.operating.receipts = toItems(operatingReceiptsMap);
   report.operating.payments = toItems(operatingPaymentsMap);
-  report.operating.netCurrent = report.operating.totalReceipts - report.operating.totalPayments;
-  report.operating.netComparative = report.operating.totalReceiptsComparative - report.operating.totalPaymentsComparative;
+  report.operating.netCurrent = report.operating.totalReceipts + report.operating.totalPayments;
+  report.operating.netComparative = report.operating.totalReceiptsComparative + report.operating.totalPaymentsComparative;
 
   report.investing.rows = toItems(investingMap);
   report.financing.rows = toItems(financingMap);
