@@ -1286,6 +1286,10 @@ function exportJournal(criteria) {
   const accountIndex = headerMap.indexOf('account_code');
 
   const filtered = data.filter(function(row) {
+    if (cols.accountCode) {
+      const accountValue = String(row[cols.accountCode - 1] || '').trim();
+      if (!accountValue) return false;
+    }
     if (dateIndex >= 0) {
       const rowDate = row[dateIndex];
       const dateValue = rowDate instanceof Date ? rowDate : _parseDate_(rowDate);
@@ -1361,6 +1365,68 @@ function exportJournal(criteria) {
   return {
     csv: output,
     filename: 'cash_book_export_' + stamp + '.csv'
+  };
+}
+
+function exportLedger(criteria) {
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!sheet) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return { csv: '', filename: '' };
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  const startDate = _parseDate_(criteria && criteria.startDate);
+  const endDate = _parseDate_(criteria && criteria.endDate);
+
+  const headerMap = headers.map(_normalizeHeader_);
+  const dateIndex = headerMap.indexOf('date');
+  const yearIndex = headerMap.indexOf('financial_year');
+  const accountIndex = headerMap.indexOf('account_code');
+
+  const filtered = data.filter(function(row) {
+    if (dateIndex >= 0) {
+      const rowDate = row[dateIndex];
+      const dateValue = rowDate instanceof Date ? rowDate : _parseDate_(rowDate);
+      if (!dateValue) return true;
+      if (startDate && dateValue < startDate) return false;
+      if (endDate && dateValue > endDate) return false;
+    }
+    if (accountIndex >= 0 && criteria && criteria.accountCode) {
+      const accountValue = String(row[accountIndex] || '').trim();
+      if (accountValue !== String(criteria.accountCode || '').trim()) return false;
+    }
+    if (yearIndex >= 0 && criteria && criteria.financialYear) {
+      const yearValue = String(row[yearIndex] || '').trim();
+      if (yearValue !== String(criteria.financialYear || '').trim()) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    logSystemEventSafe('EXPORT_LEDGER', '', 'No data to export.');
+    return { csv: '', filename: '' };
+  }
+
+  const output = [headers].concat(filtered).map(function(row) {
+    return row.map(function(cell) {
+      if (cell instanceof Date) {
+        return _formatDate_(cell);
+      }
+      const value = String(cell == null ? '' : cell);
+      return '"' + value.replace(/"/g, '""') + '"';
+    }).join(',');
+  }).join('\n');
+
+  const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+  logSystemEventSafe('EXPORT_LEDGER', '', 'Rows: ' + filtered.length);
+  return {
+    csv: output,
+    filename: 'ledger_export_' + stamp + '.csv'
   };
 }
 

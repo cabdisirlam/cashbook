@@ -1910,6 +1910,11 @@
         return;
       }
 
+      if (label === 'Ledger') {
+        renderLedgerContent();
+        return;
+      }
+
       if (label === 'Cash Book') {
         renderExportJournalContent();
         return;
@@ -2817,6 +2822,50 @@
       loadExportJournalFilters();
     }
 
+    function renderLedgerContent() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        ${renderSectionHero('Ledger', 'Export the full DB ledger with original headings.')}
+        <div class="card">
+          <div class="panel-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Ledger</h2>
+              <p style="color:#6b7280;font-size:13px;">Download the full DB ledger as CSV.</p>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="ledgerStartDate">Start Date</label>
+              <input type="date" id="ledgerStartDate">
+            </div>
+            <div class="form-group">
+              <label for="ledgerEndDate">End Date</label>
+              <input type="date" id="ledgerEndDate">
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="ledgerAccountCode">Bank</label>
+              <select id="ledgerAccountCode"></select>
+            </div>
+            <div class="form-group">
+              <label for="ledgerFinancialYear">Financial Year</label>
+              <select id="ledgerFinancialYear"></select>
+            </div>
+          </div>
+
+          <div class="form-actions" style="justify-content:flex-start;">
+            <button class="btn btn-primary" onclick="exportLedger()">Export CSV</button>
+          </div>
+
+          <div id="ledgerStatus" style="color:#6b7280;font-size:12px;margin-top:10px;"></div>
+        </div>
+      `;
+      loadLedgerFilters();
+    }
+
     function renderImportStatementContent() {
       const contentArea = document.getElementById('contentArea');
       bankImportAccounts = [];
@@ -2954,6 +3003,46 @@
         .exportJournal(criteria);
     }
 
+    function exportLedger() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return;
+      }
+
+      const criteria = {
+        startDate: document.getElementById('ledgerStartDate').value,
+        endDate: document.getElementById('ledgerEndDate').value,
+        accountCode: document.getElementById('ledgerAccountCode') ? document.getElementById('ledgerAccountCode').value.trim() : '',
+        financialYear: document.getElementById('ledgerFinancialYear') ? document.getElementById('ledgerFinancialYear').value.trim() : ''
+      };
+
+      const status = document.getElementById('ledgerStatus');
+      if (status) status.textContent = 'Preparing export...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || !result.csv) {
+            if (status) status.textContent = 'No data to export.';
+            return;
+          }
+
+          const blob = new Blob([result.csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = result.filename || 'ledger_export.csv';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          if (status) status.textContent = 'Export ready. Download started.';
+          showAlert('Download started.', 'success');
+        })
+        .withFailureHandler(function(error) {
+          if (status) status.textContent = error.message || 'Export failed.';
+        })
+        .exportLedger(criteria);
+    }
+
     function loadExportJournalFilters() {
       const status = document.getElementById('exportStatus');
       if (exportAccounts.length || exportYears.length) {
@@ -2970,6 +3059,29 @@
         exportYears = (data && data.financialYears) ? data.financialYears : [];
         fillSelectOptionsWithDefault('exportAccountCode', exportAccounts, 'All banks');
         fillSelectOptionsWithDefault('exportFinancialYear', exportYears, 'All years');
+        if (status) status.textContent = '';
+      }, function(error) {
+        if (status) status.textContent = error.message || 'Failed to load filters.';
+      });
+    }
+
+    function loadLedgerFilters() {
+      const status = document.getElementById('ledgerStatus');
+      if (exportAccounts.length || exportYears.length) {
+        fillSelectOptionsWithDefault('ledgerAccountCode', exportAccounts, 'All banks');
+        fillSelectOptionsWithDefault('ledgerFinancialYear', exportYears, 'All years');
+        if (status) status.textContent = '';
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return;
+      }
+      if (status) status.textContent = 'Loading filters...';
+      getCachedDropdownData(function(data) {
+        exportAccounts = (data && data.accounts) ? data.accounts : [];
+        exportYears = (data && data.financialYears) ? data.financialYears : [];
+        fillSelectOptionsWithDefault('ledgerAccountCode', exportAccounts, 'All banks');
+        fillSelectOptionsWithDefault('ledgerFinancialYear', exportYears, 'All years');
         if (status) status.textContent = '';
       }, function(error) {
         if (status) status.textContent = error.message || 'Failed to load filters.';
