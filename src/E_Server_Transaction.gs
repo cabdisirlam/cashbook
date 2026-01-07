@@ -2561,6 +2561,8 @@ function getCashFlowReport(currentYear, comparativeYear) {
     const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
     const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
     const lineName = category || 'Uncategorized';
+    const isCurrent = rowYear === year;
+    const signedAmount = debit - credit;
 
     const mappingLower = reportMapping.toLowerCase();
     const typeLower = accountType.toLowerCase();
@@ -2597,9 +2599,6 @@ function getCashFlowReport(currentYear, comparativeYear) {
 
     const classification = _classifyCashFlowCategory_(lineName, [accountType], [reportMapping]);
     if (!classification || classification === 'cash') return;
-
-    const isCurrent = rowYear === year;
-    const signedAmount = debit - credit;
     if (classification === 'operating_receipt') {
       const item = ensureItem(operatingReceiptsMap, lineName);
       if (isCurrent) {
