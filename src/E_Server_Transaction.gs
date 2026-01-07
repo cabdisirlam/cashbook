@@ -2839,6 +2839,8 @@ function getPositionReport(currentYear, comparativeYear) {
   let totalNonCurrentLiabilitiesComparative = 0;
   let totalEquity = 0;
   let totalEquityComparative = 0;
+  const cashLower = 'cash and cash equivalent';
+  let cashRow = null;
 
   const ss = _getOrCreateSpreadsheet();
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -2864,6 +2866,9 @@ function getPositionReport(currentYear, comparativeYear) {
       currentAssets.push(row);
       totalCurrentAssets += row.currentAmount;
       totalCurrentAssetsComparative += row.comparativeAmount;
+      if (String(row.description || '').toLowerCase().includes(cashLower)) {
+        cashRow = row;
+      }
       return;
     }
 
@@ -2894,6 +2899,40 @@ function getPositionReport(currentYear, comparativeYear) {
       totalEquityComparative += row.comparativeAmount;
     }
   });
+
+  const dropdowns = getDropdownData();
+  const years = dropdowns && dropdowns.financialYears ? dropdowns.financialYears : [];
+  const resolvedCurrentYear = _resolveCurrentFinancialYear_(years);
+  const currentBounds = _resolveFinancialYearBoundsFromLabel_(currentYear);
+  const currentEndDate = (currentYear && resolvedCurrentYear && currentYear === resolvedCurrentYear)
+    ? new Date()
+    : currentBounds.endDate;
+  const comparativeBounds = _resolveFinancialYearBoundsFromLabel_(comparativeYear);
+
+  const cashBalances = _getBankBalanceTotals_({
+    currentYear: currentYear,
+    currentEndDate: currentEndDate,
+    comparativeYear: comparativeYear,
+    comparativeEndDate: comparativeBounds.endDate
+  });
+
+  if (cashBalances.hasData) {
+    const currentCash = Number(cashBalances.currentTotal || 0);
+    const comparativeCash = Number(cashBalances.comparativeTotal || 0);
+    if (!cashRow) {
+      cashRow = {
+        description: 'Cash and cash equivalents',
+        note: noteNumberByCategory['Cash and cash equivalents'] || '',
+        currentAmount: 0,
+        comparativeAmount: 0
+      };
+      currentAssets.push(cashRow);
+    }
+    totalCurrentAssets += (currentCash - Number(cashRow.currentAmount || 0));
+    totalCurrentAssetsComparative += (comparativeCash - Number(cashRow.comparativeAmount || 0));
+    cashRow.currentAmount = currentCash;
+    cashRow.comparativeAmount = comparativeCash;
+  }
 
   const totalAssetsCurrent = totalCurrentAssets + totalNonCurrentAssets;
   const totalAssetsComparative = totalCurrentAssetsComparative + totalNonCurrentAssetsComparative;
@@ -3712,7 +3751,8 @@ function getBankAccountSummaries() {
   const dropdowns = getDropdownData();
   const years = dropdowns && dropdowns.financialYears ? dropdowns.financialYears : [];
   const financialYear = _resolveCurrentFinancialYear_(years);
-  const bounds = _resolveFinancialYearBounds_();
+  const bounds = _resolveFinancialYearBoundsFromLabel_(financialYear);
+  bounds.endDate = new Date();
 
   const ss = _getOrCreateSpreadsheet();
   const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
@@ -3795,6 +3835,106 @@ function getBankAccountSummaries() {
   return { financialYear: financialYear, accounts: accounts };
 }
 
+function _getBankBalanceTotals_(options) {
+  const currentYear = String(options && options.currentYear || '').trim();
+  const comparativeYear = String(options && options.comparativeYear || '').trim();
+  const currentEndDate = options && options.currentEndDate instanceof Date ? options.currentEndDate : null;
+  const comparativeEndDate = options && options.comparativeEndDate instanceof Date ? options.comparativeEndDate : null;
+
+  if (!currentYear && !comparativeYear) {
+    return { currentTotal: 0, comparativeTotal: 0, hasData: false };
+  }
+
+  const ss = _getOrCreateSpreadsheet();
+  const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+  if (!master) throw new Error('MASTER_DATA not found.');
+
+  const masterLastRow = master.getLastRow();
+  const masterLastCol = master.getLastColumn();
+  let accountCodes = [];
+  if (masterLastRow >= 2) {
+    const headers = master.getRange(1, 1, 1, masterLastCol).getValues()[0].map(_normalizeHeader_);
+    const cols = _getMasterColumns_(headers);
+    const data = master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues();
+    data.forEach(function(row) {
+      const accountCode = cols.accountCodes ? String(row[cols.accountCodes - 1]).trim() : '';
+      if (accountCode) accountCodes.push(accountCode);
+    });
+  }
+
+  accountCodes = _uniqueSorted_(accountCodes);
+  if (!accountCodes.length) {
+    return { currentTotal: 0, comparativeTotal: 0, hasData: false };
+  }
+
+  const totals = {
+    current: { opening: 0, receipts: 0, payments: 0 },
+    comparative: { opening: 0, receipts: 0, payments: 0 }
+  };
+
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) throw new Error('DB_JOURNAL not found.');
+
+  const lastRow = journal.getLastRow();
+  const lastCol = journal.getLastColumn();
+  if (lastRow > 1) {
+    const headers = journal.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+    const cols = _getJournalColumns_(headers);
+    const data = journal.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    const applyTotals = function(bucket, targetYear, bounds, endDate, rowDate, rowYear, debit, credit) {
+      if (!targetYear || !bounds) return;
+      if (rowDate) {
+        if (rowDate < bounds.startDate) {
+          bucket.opening += debit - credit;
+          return;
+        }
+        if (!endDate || rowDate > endDate) return;
+        bucket.receipts += debit;
+        bucket.payments += credit;
+        return;
+      }
+      if (rowYear) {
+        const comparison = _compareFinancialYears_(rowYear, targetYear);
+        if (comparison < 0) {
+          bucket.opening += debit - credit;
+          return;
+        }
+        if (comparison === 0) {
+          bucket.receipts += debit;
+          bucket.payments += credit;
+        }
+      }
+    };
+
+    const currentBounds = currentYear ? _resolveFinancialYearBoundsFromLabel_(currentYear) : null;
+    const comparativeBounds = comparativeYear ? _resolveFinancialYearBoundsFromLabel_(comparativeYear) : null;
+
+    data.forEach(function(row) {
+      if (!cols.accountCode) return;
+      const accountCode = String(row[cols.accountCode - 1] || '').trim();
+      if (!accountCode || accountCodes.indexOf(accountCode) === -1) return;
+      const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+      const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+      const rowDate = cols.date ? _parseDate_(row[cols.date - 1]) : null;
+      const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
+
+      applyTotals(totals.current, currentYear, currentBounds, currentEndDate, rowDate, rowYear, debit, credit);
+      if (comparativeYear) {
+        applyTotals(totals.comparative, comparativeYear, comparativeBounds, comparativeEndDate, rowDate, rowYear, debit, credit);
+      }
+    });
+  }
+
+  const currentTotal = totals.current.opening + totals.current.receipts - totals.current.payments;
+  const comparativeTotal = totals.comparative.opening + totals.comparative.receipts - totals.comparative.payments;
+  return {
+    currentTotal: currentTotal,
+    comparativeTotal: comparativeTotal,
+    hasData: true
+  };
+}
+
 function _resolveCurrentFinancialYear_(years) {
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -3814,6 +3954,23 @@ function _resolveFinancialYearBounds_(referenceDate) {
   const month = now.getMonth() + 1;
   const startYear = month >= 7 ? currentYear : currentYear - 1;
   const endYear = startYear + 1;
+  return _buildFinancialYearBounds_(startYear, endYear);
+}
+
+function _resolveFinancialYearBoundsFromLabel_(label) {
+  const text = String(label || '').trim();
+  const match = text.match(/(\d{4})\s*[\/-]\s*(\d{2,4})/);
+  if (!match) return _resolveFinancialYearBounds_();
+  const startYear = parseInt(match[1], 10);
+  const endRaw = match[2];
+  const endYear = endRaw.length === 2
+    ? parseInt(String(startYear).slice(0, 2) + endRaw, 10)
+    : parseInt(endRaw, 10);
+  if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) return _resolveFinancialYearBounds_();
+  return _buildFinancialYearBounds_(startYear, endYear);
+}
+
+function _buildFinancialYearBounds_(startYear, endYear) {
   return {
     startYear: startYear,
     endYear: endYear,
