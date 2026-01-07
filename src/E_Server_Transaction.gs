@@ -3223,9 +3223,14 @@ function getReceivablePayableSummary(type, criteria) {
       return;
     }
 
-    if (financialYear && !isYearMatch) {
-      summaries[key].opening += increase - decrease;
-      return;
+    if (financialYear) {
+      if (!rowYear) return;
+      const comparison = _compareFinancialYears_(rowYear, financialYear);
+      if (comparison < 0) {
+        summaries[key].opening += increase - decrease;
+        return;
+      }
+      if (comparison > 0) return;
     }
 
     summaries[key].additions += increase;
@@ -3476,9 +3481,14 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
         return;
       }
       if (endDate && rowDate > endDate) return;
-    } else if (financialYear && rowYear !== financialYear) {
-      opening += increase - decrease;
-      return;
+    } else if (financialYear) {
+      if (!rowYear) return;
+      const comparison = _compareFinancialYears_(rowYear, financialYear);
+      if (comparison < 0) {
+        opening += increase - decrease;
+        return;
+      }
+      if (comparison > 0) return;
     }
 
     let displayDebit = debit;
@@ -3735,7 +3745,13 @@ function getBankAccountSummaries() {
 
       if (cols.financialYear) {
         const rowYear = String(row[cols.financialYear - 1] || '').trim();
-        if (financialYear && rowYear === financialYear) {
+        if (!rowYear || !financialYear) return;
+        const comparison = _compareFinancialYears_(rowYear, financialYear);
+        if (comparison < 0) {
+          summaries[accountCode].opening += debit - credit;
+          return;
+        }
+        if (comparison === 0) {
           summaries[accountCode].receipts += debit;
           summaries[accountCode].payments += credit;
         }
