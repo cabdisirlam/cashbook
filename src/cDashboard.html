@@ -5820,9 +5820,12 @@
       const container = document.getElementById('cashFlowReport');
       if (!container) return;
 
-      const categories = (result && result.categories) ? result.categories : [];
+      const operatingReceipts = (result.operating && result.operating.receipts) ? result.operating.receipts : [];
+      const operatingPayments = (result.operating && result.operating.payments) ? result.operating.payments : [];
+      const investingRows = (result.investing && result.investing.rows) ? result.investing.rows : [];
+      const financingRows = (result.financing && result.financing.rows) ? result.financing.rows : [];
 
-      if (!categories.length) {
+      if (!operatingReceipts.length && !operatingPayments.length && !investingRows.length && !financingRows.length) {
         container.innerHTML = '<div class="card"><p>No cash flow data found for the selected years.</p></div>';
         return;
       }
@@ -5834,49 +5837,144 @@
 
       let rows = '';
 
-      categories.forEach(category => {
-        rows += `
-          <tr>
-            <td style="font-weight:700;">${category.category || ''}</td>
-            <td></td>
-            <td><strong>${formatPerformanceAmount(category.totalCurrent)}</strong></td>
-            <td><strong>${formatPerformanceAmount(category.totalComparative)}</strong></td>
-          </tr>
-        `;
-
-        (category.subCategories || []).forEach(sub => {
+      const appendSections = function(sections) {
+        (sections || []).forEach(category => {
           rows += `
             <tr>
-              <td style="font-weight:600;">${sub.subCategory || ''}</td>
+              <td style="font-weight:700;">${category.category || ''}</td>
               <td></td>
               <td></td>
               <td></td>
             </tr>
           `;
-
-          (sub.items || []).forEach(item => {
+          (category.subCategories || []).forEach(sub => {
             rows += `
               <tr>
-                <td>${item.particulars || ''}</td>
+                <td style="font-weight:600;">${sub.subCategory || ''}</td>
                 <td></td>
-                <td>${formatPerformanceAmount(item.currentAmount)}</td>
-                <td>${formatPerformanceAmount(item.comparativeAmount)}</td>
+                <td></td>
+                <td></td>
               </tr>
             `;
+            (sub.items || []).forEach(item => {
+              rows += `
+                <tr>
+                  <td>${item.particulars || ''}</td>
+                  <td></td>
+                  <td>${formatPerformanceAmount(item.currentAmount)}</td>
+                  <td>${formatPerformanceAmount(item.comparativeAmount)}</td>
+                </tr>
+              `;
+            });
           });
         });
-      });
+      };
 
-      if (result.totals) {
+      rows += `
+        <tr>
+          <td style="font-weight:700;">Cash flows from operating activities</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Receipts</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      `;
+      appendSections(operatingReceipts);
+      rows += `
+        <tr>
+          <td><strong>Total receipts</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.operating.totalReceipts)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.operating.totalReceiptsComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Payments</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      `;
+      appendSections(operatingPayments);
+      rows += `
+        <tr>
+          <td><strong>Total payments</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.operating.totalPayments)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.operating.totalPaymentsComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td><strong>Net cash flows from/(used in) operating activities</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.operating.netCurrent)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.operating.netComparative)}</strong></td>
+        </tr>
+      `;
+
+      if (investingRows.length) {
         rows += `
           <tr>
-            <td><strong>Total</strong></td>
+            <td style="font-weight:700;">Cash flows from investing activities</td>
             <td></td>
-            <td><strong>${formatPerformanceAmount(result.totals.current)}</strong></td>
-            <td><strong>${formatPerformanceAmount(result.totals.comparative)}</strong></td>
+            <td></td>
+            <td></td>
+          </tr>
+        `;
+        appendSections(investingRows);
+        rows += `
+          <tr>
+            <td><strong>Net cash flows from/(used in) investing activities</strong></td>
+            <td></td>
+            <td><strong>${formatPerformanceAmount(result.investing.netCurrent)}</strong></td>
+            <td><strong>${formatPerformanceAmount(result.investing.netComparative)}</strong></td>
           </tr>
         `;
       }
+
+      if (financingRows.length) {
+        rows += `
+          <tr>
+            <td style="font-weight:700;">Cash flows from financing activities</td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        `;
+        appendSections(financingRows);
+        rows += `
+          <tr>
+            <td><strong>Net cash flows from financing activities</strong></td>
+            <td></td>
+            <td><strong>${formatPerformanceAmount(result.financing.netCurrent)}</strong></td>
+            <td><strong>${formatPerformanceAmount(result.financing.netComparative)}</strong></td>
+          </tr>
+        `;
+      }
+
+      rows += `
+        <tr>
+          <td><strong>Net increase/(decrease) in cash & cash equivalents</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.netIncreaseCurrent)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.netIncreaseComparative)}</strong></td>
+        </tr>
+        <tr>
+          <td>Cash and cash equivalents at 1 July</td>
+          <td></td>
+          <td>${formatPerformanceAmount(result.cashOpeningCurrent)}</td>
+          <td>${formatPerformanceAmount(result.cashOpeningComparative)}</td>
+        </tr>
+        <tr>
+          <td><strong>Cash and cash equivalents at 30 June</strong></td>
+          <td></td>
+          <td><strong>${formatPerformanceAmount(result.cashClosingCurrent)}</strong></td>
+          <td><strong>${formatPerformanceAmount(result.cashClosingComparative)}</strong></td>
+        </tr>
+      `;
 
       container.innerHTML = `
         <div style="font-weight:700;margin-bottom:8px;">Statement of Cash Flows for the year ended ${yearEndLabel}</div>

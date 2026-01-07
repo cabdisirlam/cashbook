@@ -2488,8 +2488,24 @@ function getCashFlowReport(currentYear, comparativeYear) {
   const report = {
     currentYear: year,
     comparativeYear: compare,
-    categories: [],
-    totals: { current: 0, comparative: 0 }
+    operating: {
+      receipts: [],
+      payments: [],
+      totalReceipts: 0,
+      totalReceiptsComparative: 0,
+      totalPayments: 0,
+      totalPaymentsComparative: 0,
+      netCurrent: 0,
+      netComparative: 0
+    },
+    investing: { rows: [], netCurrent: 0, netComparative: 0 },
+    financing: { rows: [], netCurrent: 0, netComparative: 0 },
+    netIncreaseCurrent: 0,
+    netIncreaseComparative: 0,
+    cashOpeningCurrent: 0,
+    cashOpeningComparative: 0,
+    cashClosingCurrent: 0,
+    cashClosingComparative: 0
   };
 
   const lastRow = journal.getLastRow();
@@ -2501,26 +2517,37 @@ function getCashFlowReport(currentYear, comparativeYear) {
   if (!cols.accountCode || !cols.financialYear) return report;
 
   const data = journal.getRange(2, 1, lastRow - 1, lastCol).getValues();
-  const categoryMap = {};
 
-  const ensureCategory = function(name) {
-    if (!categoryMap[name]) {
-      categoryMap[name] = {
-        category: name,
-        totalCurrent: 0,
-        totalComparative: 0,
-        subCategories: {}
-      };
+  const ensureSection = function(map, category, subCategory, particulars) {
+    const catName = category || 'Uncategorized';
+    const subName = subCategory || 'Other';
+    const itemName = particulars || '';
+    if (!map[catName]) map[catName] = {};
+    if (!map[catName][subName]) map[catName][subName] = {};
+    if (!map[catName][subName][itemName]) {
+      map[catName][subName][itemName] = { particulars: itemName, currentAmount: 0, comparativeAmount: 0 };
     }
-    return categoryMap[name];
+    return map[catName][subName][itemName];
   };
 
-  const ensureSubCategory = function(cat, name) {
-    if (!cat.subCategories[name]) {
-      cat.subCategories[name] = { subCategory: name, items: {} };
-    }
-    return cat.subCategories[name];
+  const toSections = function(map) {
+    return Object.keys(map).sort((a, b) => a.localeCompare(b)).map(function(categoryName) {
+      const subMap = map[categoryName];
+      const subCategories = Object.keys(subMap).sort((a, b) => a.localeCompare(b)).map(function(subName) {
+        const itemsMap = subMap[subName];
+        const items = Object.keys(itemsMap).sort((a, b) => a.localeCompare(b)).map(function(itemName) {
+          return itemsMap[itemName];
+        });
+        return { subCategory: subName, items: items };
+      });
+      return { category: categoryName, subCategories: subCategories };
+    });
   };
+
+  const operatingReceiptsMap = {};
+  const operatingPaymentsMap = {};
+  const investingMap = {};
+  const financingMap = {};
 
   data.forEach(function(row) {
     const accountCode = String(row[cols.accountCode - 1] || '').trim();
@@ -2530,50 +2557,89 @@ function getCashFlowReport(currentYear, comparativeYear) {
 
     const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
     const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
-    const amount = debit - credit;
-    if (!amount) return;
+    if (!debit && !credit) return;
 
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
     const subCategory = cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '';
     const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
-    const categoryName = category || 'Uncategorized';
-    const subName = subCategory || 'Other';
-    const itemName = particulars || accountCode;
+    const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
+    const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
 
-    const cat = ensureCategory(categoryName);
-    const sub = ensureSubCategory(cat, subName);
-    if (!sub.items[itemName]) {
-      sub.items[itemName] = { particulars: itemName, currentAmount: 0, comparativeAmount: 0 };
+    const classification = _classifyCashFlowLine_(reportMapping, accountType, debit, credit);
+    if (!classification) return;
+
+    const isCurrent = rowYear === year;
+    if (classification.section === 'operating') {
+      if (classification.direction === 'receipt') {
+        const item = ensureSection(operatingReceiptsMap, category, subCategory, particulars);
+        if (isCurrent) {
+          item.currentAmount += debit;
+          report.operating.totalReceipts += debit;
+        } else {
+          item.comparativeAmount += debit;
+          report.operating.totalReceiptsComparative += debit;
+        }
+      } else {
+        const item = ensureSection(operatingPaymentsMap, category, subCategory, particulars);
+        if (isCurrent) {
+          item.currentAmount += credit;
+          report.operating.totalPayments += credit;
+        } else {
+          item.comparativeAmount += credit;
+          report.operating.totalPaymentsComparative += credit;
+        }
+      }
+      return;
     }
 
-    if (rowYear === year) {
-      sub.items[itemName].currentAmount += amount;
-      cat.totalCurrent += amount;
-      report.totals.current += amount;
-    } else {
-      sub.items[itemName].comparativeAmount += amount;
-      cat.totalComparative += amount;
-      report.totals.comparative += amount;
+    const signedAmount = debit > 0 ? debit : -credit;
+    if (classification.section === 'investing') {
+      const item = ensureSection(investingMap, category, subCategory, particulars);
+      if (isCurrent) {
+        item.currentAmount += signedAmount;
+        report.investing.netCurrent += signedAmount;
+      } else {
+        item.comparativeAmount += signedAmount;
+        report.investing.netComparative += signedAmount;
+      }
+      return;
+    }
+
+    if (classification.section === 'financing') {
+      const item = ensureSection(financingMap, category, subCategory, particulars);
+      if (isCurrent) {
+        item.currentAmount += signedAmount;
+        report.financing.netCurrent += signedAmount;
+      } else {
+        item.comparativeAmount += signedAmount;
+        report.financing.netComparative += signedAmount;
+      }
     }
   });
 
-  const categoryNames = Object.keys(categoryMap).sort((a, b) => a.localeCompare(b));
-  report.categories = categoryNames.map(function(name) {
-    const cat = categoryMap[name];
-    const subNames = Object.keys(cat.subCategories).sort((a, b) => a.localeCompare(b));
-    const subCategories = subNames.map(function(subName) {
-      const sub = cat.subCategories[subName];
-      const itemNames = Object.keys(sub.items).sort((a, b) => a.localeCompare(b));
-      const items = itemNames.map(itemName => sub.items[itemName]);
-      return { subCategory: sub.subCategory, items: items };
-    });
-    return {
-      category: cat.category,
-      totalCurrent: cat.totalCurrent,
-      totalComparative: cat.totalComparative,
-      subCategories: subCategories
-    };
+  report.operating.receipts = toSections(operatingReceiptsMap);
+  report.operating.payments = toSections(operatingPaymentsMap);
+  report.operating.netCurrent = report.operating.totalReceipts - report.operating.totalPayments;
+  report.operating.netComparative = report.operating.totalReceiptsComparative - report.operating.totalPaymentsComparative;
+
+  report.investing.rows = toSections(investingMap);
+  report.financing.rows = toSections(financingMap);
+
+  report.netIncreaseCurrent = report.operating.netCurrent + report.investing.netCurrent + report.financing.netCurrent;
+  report.netIncreaseComparative = report.operating.netComparative + report.investing.netComparative + report.financing.netComparative;
+
+  const boundsCurrent = _resolveFinancialYearBoundsFromLabel_(year);
+  const boundsComparative = _resolveFinancialYearBoundsFromLabel_(compare);
+  const cashBalances = _getBankBalanceTotals_({
+    currentYear: year,
+    currentEndDate: boundsCurrent.endDate,
+    comparativeYear: compare,
+    comparativeEndDate: boundsComparative.endDate
   });
+  report.cashOpeningCurrent = cashBalances.current ? Number(cashBalances.current.opening || 0) : 0;
+  report.cashOpeningComparative = cashBalances.comparative ? Number(cashBalances.comparative.opening || 0) : 0;
+  report.cashClosingCurrent = cashBalances.current ? Number(cashBalances.current.total || 0) : 0;
+  report.cashClosingComparative = cashBalances.comparative ? Number(cashBalances.comparative.total || 0) : 0;
 
   return report;
 }
