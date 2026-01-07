@@ -2839,7 +2839,7 @@ function getPositionReport(currentYear, comparativeYear) {
   let totalNonCurrentLiabilitiesComparative = 0;
   let totalEquity = 0;
   let totalEquityComparative = 0;
-  const cashLower = 'cash and cash equivalent';
+  const cashLower = 'cash and cash';
   let cashRow = null;
 
   const ss = _getOrCreateSpreadsheet();
@@ -2922,7 +2922,10 @@ function getPositionReport(currentYear, comparativeYear) {
     if (!cashRow) {
       cashRow = {
         description: 'Cash and cash equivalents',
-        note: noteNumberByCategory['Cash and cash equivalents'] || '',
+        note: noteNumberByCategory['Cash and cash equivalents']
+          || noteNumberByCategory['Cash & cash equivalent']
+          || noteNumberByCategory['Cash & cash equivalents']
+          || '',
         currentAmount: 0,
         comparativeAmount: 0
       };
