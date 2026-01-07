@@ -2559,7 +2559,41 @@ function getCashFlowReport(currentYear, comparativeYear) {
     const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
     const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
     const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
     const lineName = category || 'Uncategorized';
+
+    const mappingLower = reportMapping.toLowerCase();
+    const typeLower = accountType.toLowerCase();
+    const categoryLower = category.toLowerCase();
+    const particularsLower = particulars.toLowerCase();
+    const isReceivable = mappingLower.includes('receivable') || typeLower.includes('receivable') ||
+      categoryLower.includes('receivable') || particularsLower.includes('receivable');
+    const isPayable = mappingLower.includes('payable') || typeLower.includes('payable') ||
+      categoryLower.includes('payable') || particularsLower.includes('payable');
+
+    if (isReceivable) {
+      const item = ensureItem(operatingReceiptsMap, 'Receivables');
+      if (isCurrent) {
+        item.currentAmount += signedAmount;
+        report.operating.totalReceipts += signedAmount;
+      } else {
+        item.comparativeAmount += signedAmount;
+        report.operating.totalReceiptsComparative += signedAmount;
+      }
+      return;
+    }
+
+    if (isPayable) {
+      const item = ensureItem(operatingPaymentsMap, 'Payables');
+      if (isCurrent) {
+        item.currentAmount += signedAmount;
+        report.operating.totalPayments += signedAmount;
+      } else {
+        item.comparativeAmount += signedAmount;
+        report.operating.totalPaymentsComparative += signedAmount;
+      }
+      return;
+    }
 
     const classification = _classifyCashFlowCategory_(lineName, [accountType], [reportMapping]);
     if (!classification || classification === 'cash') return;
