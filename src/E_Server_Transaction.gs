@@ -2200,25 +2200,31 @@ function getNotesReport(currentYear, comparativeYear, options) {
   });
   const bankOpeningCurrent = bankBalances.current ? Number(bankBalances.current.opening || 0) : 0;
   const bankOpeningComparative = bankBalances.comparative ? Number(bankBalances.comparative.opening || 0) : 0;
+  const bankReceiptsCurrent = bankBalances.current ? Number(bankBalances.current.receipts || 0) : 0;
+  const bankReceiptsComparative = bankBalances.comparative ? Number(bankBalances.comparative.receipts || 0) : 0;
+  const bankPaymentsCurrent = bankBalances.current ? Number(bankBalances.current.payments || 0) : 0;
+  const bankPaymentsComparative = bankBalances.comparative ? Number(bankBalances.comparative.payments || 0) : 0;
+  const bankClosingCurrent = bankBalances.current ? Number(bankBalances.current.total || 0) : 0;
+  const bankClosingComparative = bankBalances.comparative ? Number(bankBalances.comparative.total || 0) : 0;
 
   const bankAccounts = Array.from(
-    new Set(Object.keys(bankNetCurrent).concat(Object.keys(bankNetComparative)))
+    new Set(
+      Object.keys(bankBalances.current ? bankBalances.current.accounts || {} : {})
+        .concat(Object.keys(bankBalances.comparative ? bankBalances.comparative.accounts || {} : {}))
+    )
   ).sort((a, b) => a.localeCompare(b));
   const bankItems = [];
   let bankTotalCurrent = 0;
   let bankTotalComparative = 0;
-  if (bankOpeningCurrent || bankOpeningComparative) {
-    bankItems.push({
-      particulars: 'Opening Balance',
-      currentAmount: bankOpeningCurrent,
-      comparativeAmount: bankOpeningComparative
-    });
-    bankTotalCurrent += bankOpeningCurrent;
-    bankTotalComparative += bankOpeningComparative;
-  }
   bankAccounts.forEach(accountCode => {
-    const currentAmount = bankNetCurrent[accountCode] || 0;
-    const comparativeAmount = bankNetComparative[accountCode] || 0;
+    const currentAccount = bankBalances.current && bankBalances.current.accounts ? bankBalances.current.accounts[accountCode] : null;
+    const comparativeAccount = bankBalances.comparative && bankBalances.comparative.accounts ? bankBalances.comparative.accounts[accountCode] : null;
+    const currentAmount = currentAccount
+      ? (Number(currentAccount.opening || 0) + Number(currentAccount.receipts || 0) - Number(currentAccount.payments || 0))
+      : 0;
+    const comparativeAmount = comparativeAccount
+      ? (Number(comparativeAccount.opening || 0) + Number(comparativeAccount.receipts || 0) - Number(comparativeAccount.payments || 0))
+      : 0;
     if (!currentAmount && !comparativeAmount) return;
     bankTotalCurrent += currentAmount;
     bankTotalComparative += comparativeAmount;
@@ -2232,9 +2238,18 @@ function getNotesReport(currentYear, comparativeYear, options) {
   if (bankItems.length) {
     results.push({
       category: 'Cash and Cash Equivalent',
-      totalCurrent: bankTotalCurrent,
-      totalComparative: bankTotalComparative,
+      totalCurrent: bankClosingCurrent,
+      totalComparative: bankClosingComparative,
       subCategories: [
+        {
+          subCategory: 'Movement',
+          items: [
+            { particulars: 'Opening Balance', currentAmount: bankOpeningCurrent, comparativeAmount: bankOpeningComparative },
+            { particulars: 'Receipts', currentAmount: bankReceiptsCurrent, comparativeAmount: bankReceiptsComparative },
+            { particulars: 'Payments', currentAmount: bankPaymentsCurrent, comparativeAmount: bankPaymentsComparative },
+            { particulars: 'Closing Balance', currentAmount: bankClosingCurrent, comparativeAmount: bankClosingComparative }
+          ]
+        },
         {
           subCategory: 'Banks',
           items: bankItems
@@ -2461,6 +2476,107 @@ function getNotesReportCombined(currentYear, comparativeYear) {
 }
 
 function getCashFlowReport(currentYear, comparativeYear) {
+  const year = String(currentYear || '').trim();
+  const compare = String(comparativeYear || '').trim();
+  if (!year) throw new Error('Current financial year is required.');
+  if (!compare) throw new Error('Comparative financial year is required.');
+
+  const ss = _getOrCreateSpreadsheet();
+  const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
+  if (!journal) throw new Error('DB_JOURNAL not found.');
+
+  const report = {
+    currentYear: year,
+    comparativeYear: compare,
+    categories: [],
+    totals: { current: 0, comparative: 0 }
+  };
+
+  const lastRow = journal.getLastRow();
+  const lastCol = journal.getLastColumn();
+  if (lastRow < 2) return report;
+
+  const headers = journal.getRange(1, 1, 1, lastCol).getValues()[0].map(_normalizeHeader_);
+  const cols = _getJournalColumns_(headers);
+  if (!cols.accountCode || !cols.financialYear) return report;
+
+  const data = journal.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const categoryMap = {};
+
+  const ensureCategory = function(name) {
+    if (!categoryMap[name]) {
+      categoryMap[name] = {
+        category: name,
+        totalCurrent: 0,
+        totalComparative: 0,
+        subCategories: {}
+      };
+    }
+    return categoryMap[name];
+  };
+
+  const ensureSubCategory = function(cat, name) {
+    if (!cat.subCategories[name]) {
+      cat.subCategories[name] = { subCategory: name, items: {} };
+    }
+    return cat.subCategories[name];
+  };
+
+  data.forEach(function(row) {
+    const accountCode = String(row[cols.accountCode - 1] || '').trim();
+    if (!accountCode) return;
+    const rowYear = String(row[cols.financialYear - 1] || '').trim();
+    if (rowYear !== year && rowYear !== compare) return;
+
+    const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
+    const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
+    const amount = debit - credit;
+    if (!amount) return;
+
+    const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
+    const subCategory = cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '';
+    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+    const categoryName = category || 'Uncategorized';
+    const subName = subCategory || 'Other';
+    const itemName = particulars || accountCode;
+
+    const cat = ensureCategory(categoryName);
+    const sub = ensureSubCategory(cat, subName);
+    if (!sub.items[itemName]) {
+      sub.items[itemName] = { particulars: itemName, currentAmount: 0, comparativeAmount: 0 };
+    }
+
+    if (rowYear === year) {
+      sub.items[itemName].currentAmount += amount;
+      cat.totalCurrent += amount;
+      report.totals.current += amount;
+    } else {
+      sub.items[itemName].comparativeAmount += amount;
+      cat.totalComparative += amount;
+      report.totals.comparative += amount;
+    }
+  });
+
+  const categoryNames = Object.keys(categoryMap).sort((a, b) => a.localeCompare(b));
+  report.categories = categoryNames.map(function(name) {
+    const cat = categoryMap[name];
+    const subNames = Object.keys(cat.subCategories).sort((a, b) => a.localeCompare(b));
+    const subCategories = subNames.map(function(subName) {
+      const sub = cat.subCategories[subName];
+      const itemNames = Object.keys(sub.items).sort((a, b) => a.localeCompare(b));
+      const items = itemNames.map(itemName => sub.items[itemName]);
+      return { subCategory: sub.subCategory, items: items };
+    });
+    return {
+      category: cat.category,
+      totalCurrent: cat.totalCurrent,
+      totalComparative: cat.totalComparative,
+      subCategories: subCategories
+    };
+  });
+
+  return report;
+
   const notes = getNotesReport(currentYear, comparativeYear, { basis: 'cash' });
   const categories = Array.isArray(notes.categories) ? notes.categories : [];
   const performanceNotes = getNotesReport(currentYear, comparativeYear);
@@ -3821,14 +3937,26 @@ function getBankAccountSummaries() {
       const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
       const rowDate = cols.date ? _parseDate_(row[cols.date - 1]) : null;
 
-      if (rowDate) {
-        if (cols.financialYear) {
-          const rowYear = String(row[cols.financialYear - 1] || '').trim();
-          if (rowYear && financialYear && _compareFinancialYears_(rowYear, financialYear) < 0) {
+      if (cols.financialYear) {
+        const rowYear = String(row[cols.financialYear - 1] || '').trim();
+        if (rowYear && financialYear) {
+          const comparison = _compareFinancialYears_(rowYear, financialYear);
+          if (comparison < 0) {
             summaries[accountCode].opening += debit - credit;
             return;
           }
+          if (comparison > 0) return;
+          if (rowDate && _isOpeningBalanceLine_(row, cols, bounds.startDate)) {
+            summaries[accountCode].opening += debit - credit;
+            return;
+          }
+          summaries[accountCode].receipts += debit;
+          summaries[accountCode].payments += credit;
+          return;
         }
+      }
+
+      if (rowDate) {
         if (rowDate < bounds.startDate || _isOpeningBalanceLine_(row, cols, bounds.startDate)) {
           summaries[accountCode].opening += debit - credit;
           return;
@@ -3838,20 +3966,6 @@ function getBankAccountSummaries() {
           summaries[accountCode].payments += credit;
         }
         return;
-      }
-
-      if (cols.financialYear) {
-        const rowYear = String(row[cols.financialYear - 1] || '').trim();
-        if (!rowYear || !financialYear) return;
-        const comparison = _compareFinancialYears_(rowYear, financialYear);
-        if (comparison < 0) {
-          summaries[accountCode].opening += debit - credit;
-          return;
-        }
-        if (comparison === 0) {
-          summaries[accountCode].receipts += debit;
-          summaries[accountCode].payments += credit;
-        }
       }
     });
   }
@@ -3898,8 +4012,8 @@ function _getBankBalanceTotals_(options) {
   }
 
   const totals = {
-    current: { opening: 0, receipts: 0, payments: 0 },
-    comparative: { opening: 0, receipts: 0, payments: 0 }
+    current: { opening: 0, receipts: 0, payments: 0, accounts: {} },
+    comparative: { opening: 0, receipts: 0, payments: 0, accounts: {} }
   };
 
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
@@ -3912,31 +4026,49 @@ function _getBankBalanceTotals_(options) {
     const cols = _getJournalColumns_(headers);
     const data = journal.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
-    const applyTotals = function(bucket, targetYear, bounds, endDate, rowDate, rowYear, debit, credit, row, cols) {
+    const ensureAccount = function(bucket, accountCode) {
+      if (!bucket.accounts[accountCode]) {
+        bucket.accounts[accountCode] = { opening: 0, receipts: 0, payments: 0 };
+      }
+      return bucket.accounts[accountCode];
+    };
+
+    const applyTotals = function(bucket, targetYear, bounds, endDate, rowDate, rowYear, debit, credit, row, cols, accountCode) {
       if (!targetYear || !bounds) return;
-      if (rowYear && _compareFinancialYears_(rowYear, targetYear) < 0) {
-        bucket.opening += debit - credit;
+      const accountBucket = accountCode ? ensureAccount(bucket, accountCode) : null;
+      if (rowYear) {
+        const comparison = _compareFinancialYears_(rowYear, targetYear);
+        if (comparison < 0) {
+          bucket.opening += debit - credit;
+          if (accountBucket) accountBucket.opening += debit - credit;
+          return;
+        }
+        if (comparison > 0) return;
+        if (rowDate && _isOpeningBalanceLine_(row, cols, bounds.startDate)) {
+          bucket.opening += debit - credit;
+          if (accountBucket) accountBucket.opening += debit - credit;
+          return;
+        }
+        bucket.receipts += debit;
+        bucket.payments += credit;
+        if (accountBucket) {
+          accountBucket.receipts += debit;
+          accountBucket.payments += credit;
+        }
         return;
       }
       if (rowDate) {
         if (rowDate < bounds.startDate || _isOpeningBalanceLine_(row, cols, bounds.startDate)) {
           bucket.opening += debit - credit;
+          if (accountBucket) accountBucket.opening += debit - credit;
           return;
         }
         if (!endDate || rowDate > endDate) return;
         bucket.receipts += debit;
         bucket.payments += credit;
-        return;
-      }
-      if (rowYear) {
-        const comparison = _compareFinancialYears_(rowYear, targetYear);
-        if (comparison < 0) {
-          bucket.opening += debit - credit;
-          return;
-        }
-        if (comparison === 0) {
-          bucket.receipts += debit;
-          bucket.payments += credit;
+        if (accountBucket) {
+          accountBucket.receipts += debit;
+          accountBucket.payments += credit;
         }
       }
     };
@@ -3953,9 +4085,9 @@ function _getBankBalanceTotals_(options) {
       const rowDate = cols.date ? _parseDate_(row[cols.date - 1]) : null;
       const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
 
-      applyTotals(totals.current, currentYear, currentBounds, currentEndDate, rowDate, rowYear, debit, credit, row, cols);
+      applyTotals(totals.current, currentYear, currentBounds, currentEndDate, rowDate, rowYear, debit, credit, row, cols, accountCode);
       if (comparativeYear) {
-        applyTotals(totals.comparative, comparativeYear, comparativeBounds, comparativeEndDate, rowDate, rowYear, debit, credit, row, cols);
+        applyTotals(totals.comparative, comparativeYear, comparativeBounds, comparativeEndDate, rowDate, rowYear, debit, credit, row, cols, accountCode);
       }
     });
   }
@@ -3967,13 +4099,15 @@ function _getBankBalanceTotals_(options) {
       opening: totals.current.opening,
       receipts: totals.current.receipts,
       payments: totals.current.payments,
-      total: currentTotal
+      total: currentTotal,
+      accounts: totals.current.accounts
     },
     comparative: {
       opening: totals.comparative.opening,
       receipts: totals.comparative.receipts,
       payments: totals.comparative.payments,
-      total: comparativeTotal
+      total: comparativeTotal,
+      accounts: totals.comparative.accounts
     },
     currentTotal: currentTotal,
     comparativeTotal: comparativeTotal,
