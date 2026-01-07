@@ -2190,12 +2190,32 @@ function getNotesReport(currentYear, comparativeYear, options) {
     });
   });
 
+  const bankBoundsCurrent = _resolveFinancialYearBoundsFromLabel_(year);
+  const bankBoundsComparative = _resolveFinancialYearBoundsFromLabel_(compare);
+  const bankBalances = _getBankBalanceTotals_({
+    currentYear: year,
+    currentEndDate: bankBoundsCurrent.endDate,
+    comparativeYear: compare,
+    comparativeEndDate: bankBoundsComparative.endDate
+  });
+  const bankOpeningCurrent = bankBalances.current ? Number(bankBalances.current.opening || 0) : 0;
+  const bankOpeningComparative = bankBalances.comparative ? Number(bankBalances.comparative.opening || 0) : 0;
+
   const bankAccounts = Array.from(
     new Set(Object.keys(bankNetCurrent).concat(Object.keys(bankNetComparative)))
   ).sort((a, b) => a.localeCompare(b));
   const bankItems = [];
   let bankTotalCurrent = 0;
   let bankTotalComparative = 0;
+  if (bankOpeningCurrent || bankOpeningComparative) {
+    bankItems.push({
+      particulars: 'Opening Balance',
+      currentAmount: bankOpeningCurrent,
+      comparativeAmount: bankOpeningComparative
+    });
+    bankTotalCurrent += bankOpeningCurrent;
+    bankTotalComparative += bankOpeningComparative;
+  }
   bankAccounts.forEach(accountCode => {
     const currentAmount = bankNetCurrent[accountCode] || 0;
     const comparativeAmount = bankNetComparative[accountCode] || 0;
@@ -2917,8 +2937,8 @@ function getPositionReport(currentYear, comparativeYear) {
   });
 
   if (cashBalances.hasData) {
-    const currentCash = Number(cashBalances.currentTotal || 0);
-    const comparativeCash = Number(cashBalances.comparativeTotal || 0);
+    const currentCash = Number((cashBalances.current && cashBalances.current.total) || cashBalances.currentTotal || 0);
+    const comparativeCash = Number((cashBalances.comparative && cashBalances.comparative.total) || cashBalances.comparativeTotal || 0);
     if (!cashRow) {
       cashRow = {
         description: 'Cash and cash equivalents',
@@ -3802,7 +3822,7 @@ function getBankAccountSummaries() {
       const rowDate = cols.date ? _parseDate_(row[cols.date - 1]) : null;
 
       if (rowDate) {
-        if (rowDate < bounds.startDate) {
+        if (rowDate < bounds.startDate || _isOpeningBalanceLine_(row, cols, bounds.startDate)) {
           summaries[accountCode].opening += debit - credit;
           return;
         }
@@ -3885,10 +3905,10 @@ function _getBankBalanceTotals_(options) {
     const cols = _getJournalColumns_(headers);
     const data = journal.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
-    const applyTotals = function(bucket, targetYear, bounds, endDate, rowDate, rowYear, debit, credit) {
+    const applyTotals = function(bucket, targetYear, bounds, endDate, rowDate, rowYear, debit, credit, row, cols) {
       if (!targetYear || !bounds) return;
       if (rowDate) {
-        if (rowDate < bounds.startDate) {
+        if (rowDate < bounds.startDate || _isOpeningBalanceLine_(row, cols, bounds.startDate)) {
           bucket.opening += debit - credit;
           return;
         }
@@ -3922,9 +3942,9 @@ function _getBankBalanceTotals_(options) {
       const rowDate = cols.date ? _parseDate_(row[cols.date - 1]) : null;
       const rowYear = cols.financialYear ? String(row[cols.financialYear - 1] || '').trim() : '';
 
-      applyTotals(totals.current, currentYear, currentBounds, currentEndDate, rowDate, rowYear, debit, credit);
+      applyTotals(totals.current, currentYear, currentBounds, currentEndDate, rowDate, rowYear, debit, credit, row, cols);
       if (comparativeYear) {
-        applyTotals(totals.comparative, comparativeYear, comparativeBounds, comparativeEndDate, rowDate, rowYear, debit, credit);
+        applyTotals(totals.comparative, comparativeYear, comparativeBounds, comparativeEndDate, rowDate, rowYear, debit, credit, row, cols);
       }
     });
   }
@@ -3932,6 +3952,18 @@ function _getBankBalanceTotals_(options) {
   const currentTotal = totals.current.opening + totals.current.receipts - totals.current.payments;
   const comparativeTotal = totals.comparative.opening + totals.comparative.receipts - totals.comparative.payments;
   return {
+    current: {
+      opening: totals.current.opening,
+      receipts: totals.current.receipts,
+      payments: totals.current.payments,
+      total: currentTotal
+    },
+    comparative: {
+      opening: totals.comparative.opening,
+      receipts: totals.comparative.receipts,
+      payments: totals.comparative.payments,
+      total: comparativeTotal
+    },
     currentTotal: currentTotal,
     comparativeTotal: comparativeTotal,
     hasData: true
@@ -3980,6 +4012,31 @@ function _buildFinancialYearBounds_(startYear, endYear) {
     startDate: new Date(startYear, 6, 1),
     endDate: new Date(endYear, 5, 30, 23, 59, 59, 999)
   };
+}
+
+function _isSameDate_(a, b) {
+  if (!(a instanceof Date) || !(b instanceof Date)) return false;
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+function _isOpeningBalanceLine_(row, cols, startDate) {
+  const dateCell = cols.date ? row[cols.date - 1] : '';
+  const rowDate = dateCell instanceof Date ? dateCell : _parseDate_(dateCell);
+  if (!rowDate || !startDate) return false;
+  if (!_isSameDate_(rowDate, startDate)) return false;
+  const parts = [];
+  if (cols.description) parts.push(String(row[cols.description - 1] || ''));
+  if (cols.particulars) parts.push(String(row[cols.particulars - 1] || ''));
+  if (cols.refNo) parts.push(String(row[cols.refNo - 1] || ''));
+  if (cols.bankRef) parts.push(String(row[cols.bankRef - 1] || ''));
+  const text = parts.join(' ').toLowerCase();
+  if (!text) return false;
+  return text.includes('opening')
+    || text.includes('balance b/f')
+    || text.includes('balance brought forward')
+    || text.includes('b/f');
 }
 
 function _compareFinancialYears_(a, b) {
