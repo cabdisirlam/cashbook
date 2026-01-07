@@ -1916,6 +1916,7 @@ function getNotesReport(currentYear, comparativeYear, options) {
   if (!compare) throw new Error('Comparative financial year is required.');
   const basis = options && options.basis ? String(options.basis).trim().toLowerCase() : 'accrual';
   const useCashBasis = basis === 'cash';
+  const cumulativeBalanceSheet = Boolean(options && options.balanceSheetCumulative);
 
   const ss = _getOrCreateSpreadsheet();
   const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
@@ -2011,7 +2012,7 @@ function getNotesReport(currentYear, comparativeYear, options) {
     journalData.forEach(row => {
       if (!cols.particulars || !cols.financialYear) return;
       const rowYear = String(row[cols.financialYear - 1] || '').trim();
-      if (rowYear !== year && rowYear !== compare) return;
+      if (!rowYear) return;
       const accountCode = cols.accountCode ? String(row[cols.accountCode - 1] || '').trim() : '';
       if (useCashBasis) {
         if (!accountCode) return;
@@ -2026,18 +2027,44 @@ function getNotesReport(currentYear, comparativeYear, options) {
 
       const debit = cols.debit ? _parseNumber_(row[cols.debit - 1]) : 0;
       const credit = cols.credit ? _parseNumber_(row[cols.credit - 1]) : 0;
-      const target = rowYear === year ? current : comparative;
+      const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
+      const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+      const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
 
-      target.debit[particulars] = (target.debit[particulars] || 0) + debit;
-      target.credit[particulars] = (target.credit[particulars] || 0) + credit;
+      let includeCurrent = rowYear === year;
+      let includeComparative = rowYear === compare;
+      if (!useCashBasis && cumulativeBalanceSheet && _financialYearEnd_(rowYear)) {
+        const section = _classifyPositionCategory_(category, [accountType], [reportMapping]);
+        if (section) {
+          includeCurrent = _compareFinancialYears_(rowYear, year) <= 0;
+          includeComparative = _compareFinancialYears_(rowYear, compare) <= 0;
+        }
+      }
 
-      if (!target.meta[particulars]) {
-        target.meta[particulars] = {
-          subCategory: cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '',
-          category: cols.category ? String(row[cols.category - 1] || '').trim() : '',
-          accountType: cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '',
-          reportMapping: cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : ''
-        };
+      if (includeCurrent) {
+        current.debit[particulars] = (current.debit[particulars] || 0) + debit;
+        current.credit[particulars] = (current.credit[particulars] || 0) + credit;
+        if (!current.meta[particulars]) {
+          current.meta[particulars] = {
+            subCategory: cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '',
+            category: category,
+            accountType: accountType,
+            reportMapping: reportMapping
+          };
+        }
+      }
+
+      if (includeComparative) {
+        comparative.debit[particulars] = (comparative.debit[particulars] || 0) + debit;
+        comparative.credit[particulars] = (comparative.credit[particulars] || 0) + credit;
+        if (!comparative.meta[particulars]) {
+          comparative.meta[particulars] = {
+            subCategory: cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '',
+            category: category,
+            accountType: accountType,
+            reportMapping: reportMapping
+          };
+        }
       }
     });
   }
@@ -2793,7 +2820,7 @@ function getCashFlowReport(currentYear, comparativeYear) {
 }
 
 function getPositionReport(currentYear, comparativeYear) {
-  const notes = getNotesReport(currentYear, comparativeYear);
+  const notes = getNotesReport(currentYear, comparativeYear, { balanceSheetCumulative: true });
   const categories = Array.isArray(notes.categories) ? notes.categories : [];
   const noteNumberByCategory = _buildNoteNumberByCategory(categories);
 
