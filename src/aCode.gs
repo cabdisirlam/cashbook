@@ -283,6 +283,309 @@ function _ensureSheet(ss, sheetKey) {
   return sheet;
 }
 
+// ============================================================================
+// PERFORMANCE OPTIMIZATION: Caching Layer & Shared Utilities
+// ============================================================================
+
+/**
+ * Cache configuration constants
+ */
+const CACHE_CONFIG = {
+  MASTER_DATA_KEY: 'cached_master_data_v1',
+  CONTACTS_KEY: 'cached_contacts_v1',
+  MASTER_DATA_TTL: 1800, // 30 minutes
+  CONTACTS_TTL: 1800,    // 30 minutes
+  SHEET_DATA_TTL: 300    // 5 minutes for general sheet data
+};
+
+/**
+ * PRIVATE: Get cached sheet data with automatic refresh
+ * Reduces redundant getLastRow/getLastColumn/getValues API calls
+ * @param {string} sheetName - Name of the sheet to fetch
+ * @param {number} [ttl] - Cache TTL in seconds (default: 300)
+ * @returns {Object} { headers: string[], data: any[][], lastRow: number, lastCol: number }
+ */
+function _getSheetDataCached_(sheetName, ttl) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'sheet_data_' + sheetName;
+  const cacheTtl = ttl || CACHE_CONFIG.SHEET_DATA_TTL;
+
+  // Try to get from cache
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      Logger.log('Cache parse error for ' + sheetName + ': ' + e.toString());
+    }
+  }
+
+  // Fetch from sheet
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    return { headers: [], data: [], lastRow: 0, lastCol: 0, sheet: null };
+  }
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+
+  if (lastRow < 1 || lastCol < 1) {
+    return { headers: [], data: [], lastRow: lastRow, lastCol: lastCol };
+  }
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const data = lastRow >= 2
+    ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues()
+    : [];
+
+  const result = {
+    headers: headers,
+    data: data,
+    lastRow: lastRow,
+    lastCol: lastCol
+  };
+
+  // Cache the result (note: sheet object cannot be cached)
+  try {
+    cache.put(cacheKey, JSON.stringify(result), cacheTtl);
+  } catch (e) {
+    Logger.log('Cache put error for ' + sheetName + ': ' + e.toString());
+  }
+
+  return result;
+}
+
+/**
+ * PRIVATE: Get cached MASTER_DATA with parsed columns and metadata
+ * Eliminates repeated master data fetches across functions
+ * @returns {Object} { headers, cols, data, particularMeta, accountMeta }
+ */
+function _getMasterDataCached_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(CACHE_CONFIG.MASTER_DATA_KEY);
+
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      Logger.log('Master data cache parse error: ' + e.toString());
+    }
+  }
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
+  if (!sheet) {
+    return { headers: [], cols: {}, data: [], particularMeta: {}, accountMeta: {} };
+  }
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+
+  if (lastRow < 1 || lastCol < 1) {
+    return { headers: [], cols: {}, data: [], particularMeta: {}, accountMeta: {} };
+  }
+
+  const rawHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const headers = rawHeaders.map(_normalizeHeaderUtil_);
+  const cols = _getMasterColumnsUtil_(headers);
+  const data = lastRow >= 2
+    ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues()
+    : [];
+
+  // Build metadata maps
+  const particularMeta = {};
+  const accountMeta = {};
+
+  data.forEach(function(row) {
+    const particulars = cols.particulars ? String(row[cols.particulars - 1] || '').trim() : '';
+    const accountCode = cols.accountCodes ? String(row[cols.accountCodes - 1] || '').trim() : '';
+    const subCategory = cols.subCategory ? String(row[cols.subCategory - 1] || '').trim() : '';
+    const category = cols.category ? String(row[cols.category - 1] || '').trim() : '';
+    const accountType = cols.accountType ? String(row[cols.accountType - 1] || '').trim() : '';
+    const reportMapping = cols.reportMapping ? String(row[cols.reportMapping - 1] || '').trim() : '';
+
+    if (particulars) {
+      particularMeta[particulars] = {
+        subCategory: subCategory,
+        category: category,
+        accountType: accountType,
+        reportMapping: reportMapping
+      };
+    }
+
+    if (accountCode) {
+      accountMeta[accountCode] = {
+        accountType: accountType,
+        reportMapping: reportMapping
+      };
+    }
+  });
+
+  const result = {
+    headers: headers,
+    cols: cols,
+    data: data,
+    particularMeta: particularMeta,
+    accountMeta: accountMeta
+  };
+
+  try {
+    cache.put(CACHE_CONFIG.MASTER_DATA_KEY, JSON.stringify(result), CACHE_CONFIG.MASTER_DATA_TTL);
+  } catch (e) {
+    Logger.log('Master data cache put error: ' + e.toString());
+  }
+
+  return result;
+}
+
+/**
+ * PRIVATE: Get cached CONTACTS data with lookup maps
+ * Eliminates repeated contact fetches across functions
+ * @returns {Object} { data, contactMapByName, contactMapByType }
+ */
+function _getContactsCached_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(CACHE_CONFIG.CONTACTS_KEY);
+
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      Logger.log('Contacts cache parse error: ' + e.toString());
+    }
+  }
+
+  const ss = _getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
+
+  if (!sheet) {
+    return { data: [], contactMapByName: {}, contactMapByType: {} };
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return { data: [], contactMapByName: {}, contactMapByType: {} };
+  }
+
+  // CONTACTS columns: Contact_ID, Contact_Type, Contact_Name, ...
+  const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+
+  const contactMapByName = {};
+  const contactMapByType = {};
+
+  data.forEach(function(row) {
+    const contactId = String(row[0] || '').trim();
+    const contactType = _normalizeContactTypeUtil_(row[1]);
+    const contactName = String(row[2] || '').trim();
+
+    if (!contactId || !contactName) return;
+
+    const nameKey = contactName.toLowerCase();
+    if (!contactMapByName[nameKey]) {
+      contactMapByName[nameKey] = contactId;
+    }
+
+    if (contactType) {
+      if (!contactMapByType[contactType]) {
+        contactMapByType[contactType] = {};
+      }
+      contactMapByType[contactType][nameKey] = contactId;
+    }
+  });
+
+  const result = {
+    data: data,
+    contactMapByName: contactMapByName,
+    contactMapByType: contactMapByType
+  };
+
+  try {
+    cache.put(CACHE_CONFIG.CONTACTS_KEY, JSON.stringify(result), CACHE_CONFIG.CONTACTS_TTL);
+  } catch (e) {
+    Logger.log('Contacts cache put error: ' + e.toString());
+  }
+
+  return result;
+}
+
+/**
+ * PUBLIC: Invalidate cached data
+ * Call this after modifying MASTER_DATA or CONTACTS sheets
+ * @param {string} [cacheType] - 'master', 'contacts', or 'all' (default: 'all')
+ */
+function invalidateCache(cacheType) {
+  const cache = CacheService.getScriptCache();
+  const type = String(cacheType || 'all').toLowerCase();
+
+  if (type === 'master' || type === 'all') {
+    cache.remove(CACHE_CONFIG.MASTER_DATA_KEY);
+    cache.remove('dropdownData_v3'); // Also clear dropdown cache
+  }
+
+  if (type === 'contacts' || type === 'all') {
+    cache.remove(CACHE_CONFIG.CONTACTS_KEY);
+    cache.remove('dropdownData_v3'); // Contacts affect dropdowns too
+  }
+
+  Logger.log('Cache invalidated: ' + type);
+}
+
+/**
+ * PRIVATE: Normalize header value (utility version for caching layer)
+ */
+function _normalizeHeaderUtil_(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+}
+
+/**
+ * PRIVATE: Normalize contact type (utility version for caching layer)
+ */
+function _normalizeContactTypeUtil_(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return '';
+  if (text === 'supplier' || text === 'suppliers') return 'Supplier';
+  if (text === 'customer' || text === 'customers') return 'Customer';
+  if (text === 'staff' || text === 'employee' || text === 'employees') return 'Staff';
+  if (text === 'government entity' || text === 'government entities') return 'Government Entity';
+  if (text === 'donor' || text === 'donors') return 'Donor';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
+ * PRIVATE: Get master columns (utility version for caching layer)
+ */
+function _getMasterColumnsUtil_(headers) {
+  return {
+    payees: _resolveColumnUtil_(headers, ['payees', 'payee'], 0),
+    particulars: _resolveColumnUtil_(headers, ['particulars', 'particular'], 0),
+    subCategory: _resolveColumnUtil_(headers, ['sub_category', 'subcategory'], 0),
+    category: _resolveColumnUtil_(headers, ['category'], 0),
+    accountCodes: _resolveColumnUtil_(headers, ['account_codes', 'account_code'], 0),
+    accountType: _resolveColumnUtil_(headers, ['account_type', 'accounttype'], 0),
+    reportMapping: _resolveColumnUtil_(headers, ['report_mapping', 'reportmapping'], 0),
+    financialYear: _resolveColumnUtil_(headers, ['financial_year', 'financialyear'], 0)
+  };
+}
+
+/**
+ * PRIVATE: Resolve column index (utility version for caching layer)
+ */
+function _resolveColumnUtil_(headers, names, fallback) {
+  for (let i = 0; i < names.length; i++) {
+    const idx = headers.indexOf(names[i]);
+    if (idx >= 0) return idx + 1;
+  }
+  return fallback;
+}
+
+// ============================================================================
+// END: Caching Layer & Shared Utilities
+// ============================================================================
+
 /**
  * Helper function to log system events
  */
@@ -1454,7 +1757,7 @@ function saveContact(contactType, data) {
 
   sheet.appendRow(row);
   logSystemEvent(user.email, 'CREATE_CONTACT', contactId, row[2]);
-  CacheService.getScriptCache().remove('dropdownData_v3');
+  invalidateCache('contacts'); // PERFORMANCE: Invalidate contacts cache
 
   return { success: true, contactId: contactId };
 }
@@ -1500,7 +1803,7 @@ function updateContact(contactId, data) {
 
   sheet.getRange(rowIndex, 3, 1, 12).setValues([updates]);
   logSystemEvent(getCurrentUser().email, 'UPDATE_CONTACT', contactId, updates[0]);
-  CacheService.getScriptCache().remove('dropdownData_v3');
+  invalidateCache('contacts'); // PERFORMANCE: Invalidate contacts cache
 
   return { success: true };
 }

@@ -139,44 +139,16 @@ function saveTransaction(data) {
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!journal) throw new Error('DB_JOURNAL not found.');
 
-  const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
-  if (!master) throw new Error('MASTER_DATA not found.');
+  // PERFORMANCE OPTIMIZATION: Use cached master data instead of fetching each time
+  const masterCache = _getMasterDataCached_();
+  if (!masterCache.headers.length) throw new Error('MASTER_DATA not found.');
+  const particularMeta = masterCache.particularMeta;
+  const accountMeta = masterCache.accountMeta;
 
-  const masterLastRow = master.getLastRow();
-  const masterLastCol = master.getLastColumn();
-  const masterHeaders = masterLastRow >= 1
-    ? master.getRange(1, 1, 1, masterLastCol).getValues()[0].map(_normalizeHeader_)
-    : [];
-  const masterCols = _getMasterColumns_(masterHeaders);
-  const masterData = masterLastRow > 1
-    ? master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues()
-    : [];
-  const particularMeta = _buildParticularMeta_(masterData, masterCols);
-  const accountMeta = _buildAccountMeta_(masterData, masterCols);
-
-  const contactsSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
-  const contactMapByType = {};
-  const contactMapByName = {};
-  if (contactsSheet) {
-    const contactsLastRow = contactsSheet.getLastRow();
-    if (contactsLastRow >= 2) {
-      const contactsData = contactsSheet.getRange(2, 1, contactsLastRow - 1, 3).getValues();
-      contactsData.forEach(function(row) {
-        const contactId = String(row[0] || '').trim();
-        const contactType = _normalizeContactType_(row[1]);
-        const contactName = String(row[2] || '').trim();
-        if (!contactId || !contactName) return;
-        if (contactType) {
-          if (!contactMapByType[contactType]) contactMapByType[contactType] = {};
-          contactMapByType[contactType][contactName.toLowerCase()] = contactId;
-        }
-        const nameKey = contactName.toLowerCase();
-        if (!contactMapByName[nameKey]) {
-          contactMapByName[nameKey] = contactId;
-        }
-      });
-    }
-  }
+  // PERFORMANCE OPTIMIZATION: Use cached contacts instead of fetching each time
+  const contactsCache = _getContactsCached_();
+  const contactMapByType = contactsCache.contactMapByType;
+  const contactMapByName = contactsCache.contactMapByName;
 
   if (!bankParticulars) throw new Error('Bank particulars are required.');
   const bankParticularMeta = particularMeta[bankParticulars];
@@ -362,38 +334,15 @@ function saveJournalEntry(payload) {
   const journal = ss.getSheetByName(CONFIG.SHEETS.DB_JOURNAL);
   if (!journal) throw new Error('DB_JOURNAL not found.');
 
-  const master = ss.getSheetByName(CONFIG.SHEETS.MASTER_DATA);
-  if (!master) throw new Error('MASTER_DATA not found.');
+  // PERFORMANCE OPTIMIZATION: Use cached master data instead of fetching each time
+  const masterCache = _getMasterDataCached_();
+  if (!masterCache.headers.length) throw new Error('MASTER_DATA not found.');
+  const particularMeta = masterCache.particularMeta;
+  const accountMeta = masterCache.accountMeta;
 
-  const masterLastRow = master.getLastRow();
-  const masterLastCol = master.getLastColumn();
-  const masterHeaders = masterLastRow >= 1
-    ? master.getRange(1, 1, 1, masterLastCol).getValues()[0].map(_normalizeHeader_)
-    : [];
-  const masterCols = _getMasterColumns_(masterHeaders);
-  const masterData = masterLastRow > 1
-    ? master.getRange(2, 1, masterLastRow - 1, masterLastCol).getValues()
-    : [];
-  const particularMeta = _buildParticularMeta_(masterData, masterCols);
-  const accountMeta = _buildAccountMeta_(masterData, masterCols);
-
-  const contactMapByName = {};
-  const contactsSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
-  if (contactsSheet) {
-    const contactsLastRow = contactsSheet.getLastRow();
-    if (contactsLastRow >= 2) {
-      const contactsData = contactsSheet.getRange(2, 1, contactsLastRow - 1, 3).getValues();
-      contactsData.forEach(function(row) {
-        const contactId = String(row[0] || '').trim();
-        const contactName = String(row[2] || '').trim();
-        if (!contactId || !contactName) return;
-        const nameKey = contactName.toLowerCase();
-        if (!contactMapByName[nameKey]) {
-          contactMapByName[nameKey] = contactId;
-        }
-      });
-    }
-  }
+  // PERFORMANCE OPTIMIZATION: Use cached contacts instead of fetching each time
+  const contactsCache = _getContactsCached_();
+  const contactMapByName = contactsCache.contactMapByName;
 
   const cleanedRows = rows.map(function(row) {
     const lineType = String(row.lineType || '').trim().toLowerCase();
@@ -609,19 +558,14 @@ function getStaffAdvanceTransactions(limit) {
   const cols = _getJournalColumns_(headers);
   const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
+  // PERFORMANCE OPTIMIZATION: Use cached contacts instead of fetching each time
   const contactTypes = {};
-  const contactSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
-  if (contactSheet) {
-    const contactLastRow = contactSheet.getLastRow();
-    if (contactLastRow >= 2) {
-      const contactData = contactSheet.getRange(2, 1, contactLastRow - 1, 3).getValues();
-      contactData.forEach(function(row) {
-        const cid = String(row[0] || '').trim();
-        const ctype = String(row[1] || '').trim();
-        if (cid) contactTypes[cid] = ctype;
-      });
-    }
-  }
+  const contactsCache = _getContactsCached_();
+  contactsCache.data.forEach(function(row) {
+    const cid = String(row[0] || '').trim();
+    const ctype = String(row[1] || '').trim();
+    if (cid) contactTypes[cid] = ctype;
+  });
 
   const maxRows = Math.max(1, Number(limit) || 50);
   const results = [];
@@ -1441,25 +1385,71 @@ function autoReconcileBankStatements(criteria) {
   _requireReconCriteria_(criteria);
   const data = _collectReconciliationData_(criteria);
   const matchResult = _matchReconRows_(data.journalRows, data.bankRows);
+
   if (matchResult.pairs.length) {
     const journalSheet = data.journalSheet;
     const bankSheet = data.bankSheet;
     const journalReconCol = data.journalCols.reconStatus;
     const bankMatchCol = data.bankCols.matchStatus;
 
-    matchResult.pairs.forEach(function(pair) {
-      if (journalReconCol) {
-        journalSheet.getRange(pair.journal.rowIndex, journalReconCol).setValue('Reconciled');
-      }
-      if (bankMatchCol) {
-        bankSheet.getRange(pair.bank.rowIndex, bankMatchCol).setValue('Reconciled');
-      }
-    });
+    // PERFORMANCE OPTIMIZATION: Batch updates instead of individual setValue() calls
+    // Collect all updates first, then apply in bulk
+    if (journalReconCol) {
+      const journalUpdates = matchResult.pairs.map(function(pair) {
+        return { row: pair.journal.rowIndex, value: 'Reconciled' };
+      });
+      _batchUpdateColumn_(journalSheet, journalReconCol, journalUpdates);
+    }
+
+    if (bankMatchCol) {
+      const bankUpdates = matchResult.pairs.map(function(pair) {
+        return { row: pair.bank.rowIndex, value: 'Reconciled' };
+      });
+      _batchUpdateColumn_(bankSheet, bankMatchCol, bankUpdates);
+    }
   }
 
   const response = _buildReconciliationResponse_(data.journalRows, data.bankRows, matchResult);
   response.matchedCount = matchResult.pairs.length;
   return response;
+}
+
+/**
+ * PERFORMANCE: Batch update a single column with multiple values
+ * Groups contiguous rows for efficient setValues() calls
+ * @param {Sheet} sheet - The sheet to update
+ * @param {number} col - Column number to update
+ * @param {Array} updates - Array of { row: number, value: any }
+ */
+function _batchUpdateColumn_(sheet, col, updates) {
+  if (!updates || !updates.length) return;
+
+  // Sort by row number for contiguous grouping
+  updates.sort(function(a, b) { return a.row - b.row; });
+
+  // Group contiguous rows for batch updates
+  const groups = [];
+  let currentGroup = { startRow: updates[0].row, values: [[updates[0].value]] };
+
+  for (let i = 1; i < updates.length; i++) {
+    const update = updates[i];
+    const expectedRow = currentGroup.startRow + currentGroup.values.length;
+
+    if (update.row === expectedRow) {
+      // Contiguous row - add to current group
+      currentGroup.values.push([update.value]);
+    } else {
+      // Non-contiguous - save current group and start new one
+      groups.push(currentGroup);
+      currentGroup = { startRow: update.row, values: [[update.value]] };
+    }
+  }
+  groups.push(currentGroup); // Don't forget the last group
+
+  // Apply batch updates (much faster than individual setValue calls)
+  groups.forEach(function(group) {
+    sheet.getRange(group.startRow, col, group.values.length, 1).setValues(group.values);
+  });
 }
 
 function exportBankReconciliation(criteria) {
@@ -2966,20 +2956,14 @@ function getReceivablePayableSummary(type, criteria) {
   const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   const summaries = {};
 
-  // Build contact type lookup map
+  // PERFORMANCE OPTIMIZATION: Use cached contacts instead of fetching each time
   const contactTypes = {};
-  const contactSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
-  if (contactSheet) {
-    const contactLastRow = contactSheet.getLastRow();
-    if (contactLastRow >= 2) {
-      const contactData = contactSheet.getRange(2, 1, contactLastRow - 1, 3).getValues();
-      contactData.forEach(function(row) {
-        const cid = String(row[0] || '').trim();
-        const ctype = String(row[1] || '').trim();
-        if (cid) contactTypes[cid] = ctype;
-      });
-    }
-  }
+  const contactsCache = _getContactsCached_();
+  contactsCache.data.forEach(function(row) {
+    const cid = String(row[0] || '').trim();
+    const ctype = String(row[1] || '').trim();
+    if (cid) contactTypes[cid] = ctype;
+  });
 
   const originalAdvanceMetaById = {};
   if (isStaff) {
@@ -3233,20 +3217,14 @@ function getReceivablePayableStatement(type, payeeName, criteria) {
   const cols = _getJournalColumns_(headers);
   const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
-  // Build contact type lookup map
+  // PERFORMANCE OPTIMIZATION: Use cached contacts instead of fetching each time
   const contactTypes = {};
-  const contactSheet = ss.getSheetByName(CONFIG.SHEETS.CONTACTS);
-  if (contactSheet) {
-    const contactLastRow = contactSheet.getLastRow();
-    if (contactLastRow >= 2) {
-      const contactData = contactSheet.getRange(2, 1, contactLastRow - 1, 3).getValues();
-      contactData.forEach(function(row) {
-        const cid = String(row[0] || '').trim();
-        const ctype = String(row[1] || '').trim();
-        if (cid) contactTypes[cid] = ctype;
-      });
-    }
-  }
+  const contactsCache = _getContactsCached_();
+  contactsCache.data.forEach(function(row) {
+    const cid = String(row[0] || '').trim();
+    const ctype = String(row[1] || '').trim();
+    if (cid) contactTypes[cid] = ctype;
+  });
 
   const originalAdvanceMetaById = {};
   if (isStaff) {
@@ -4036,6 +4014,7 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
     _writeRowUpdate_(sheet, data, targetRow, lastCol, {
       [cols.payees]: trimmed
     });
+    invalidateCache('master'); // PERFORMANCE: Invalidate cache after write
     logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: payee');
     return;
   }
@@ -4046,6 +4025,7 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
     _writeRowUpdate_(sheet, data, targetRow, lastCol, {
       [cols.financialYear]: trimmed
     });
+    invalidateCache('master'); // PERFORMANCE: Invalidate cache after write
     logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: financialYear');
     return;
   }
@@ -4063,6 +4043,7 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
       [cols.accountType]: accountTypeValue,
       [cols.reportMapping]: reportValue
     });
+    invalidateCache('master'); // PERFORMANCE: Invalidate cache after write
     logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: account');
     return;
   }
@@ -4073,6 +4054,7 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
     _writeRowUpdate_(sheet, data, targetRow, lastCol, {
       [cols.category]: trimmed
     });
+    invalidateCache('master'); // PERFORMANCE: Invalidate cache after write
     logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: category');
     return;
   }
@@ -4093,6 +4075,7 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
       [cols.accountType]: accountTypeValue,
       [cols.reportMapping]: reportValue
     });
+    invalidateCache('master'); // PERFORMANCE: Invalidate cache after write
     logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: subCategory, Category: ' + parentCategory);
     return;
   }
@@ -4116,6 +4099,7 @@ function addMasterItem(type, value, parent, accountType, reportMapping) {
       [cols.accountType]: accountTypeValue,
       [cols.reportMapping]: reportValue
     });
+    invalidateCache('master'); // PERFORMANCE: Invalidate cache after write
     logSystemEventSafe('CREATE_MASTER_DATA', trimmed, 'Type: particular, Sub-Category: ' + parentSubCategory);
     return;
   }
@@ -4301,6 +4285,11 @@ function saveMasterDataRows(payload) {
       }
     }
   });
+
+  // PERFORMANCE: Invalidate cache if any rows were added
+  if (addedCount > 0) {
+    invalidateCache('master');
+  }
 
   return { addedCount: addedCount, duplicateCount: duplicateCount, errors: errors };
 }
